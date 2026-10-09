@@ -44,8 +44,8 @@ export type Enemy = {
 
 export type SpawnOptions = { healthMult: number?, dmgMult: number?, summoner: Enemy? }
 
--- (enemigo, quién pegó, daño real hecho, si murió)
-type DamageCallback = (Enemy, Player?, number, boolean) -> ()
+-- (enemigo, quién pegó, daño real hecho, si murió, tipo de daño: "hit" | "burn")
+type DamageCallback = (Enemy, Player?, number, boolean, string) -> ()
 
 local Enemies = {}
 Enemies.list = {} :: { Enemy }
@@ -219,7 +219,8 @@ function Enemies.setHidden(enemy: Enemy, hidden: boolean)
 end
 
 -- attacker: el jugador que hizo el daño (para estadísticas). Puede ser nil.
-function Enemies.damage(enemy: Enemy, amount: number, attacker: Player?)
+-- kind: "hit" (flecha) o "burn" (quemadura); solo cambia cómo se muestra el número.
+function Enemies.damage(enemy: Enemy, amount: number, attacker: Player?, kind: string?)
 	if not enemy.alive or enemy.hidden or amount <= 0 then
 		return
 	end
@@ -247,7 +248,7 @@ function Enemies.damage(enemy: Enemy, amount: number, attacker: Player?)
 		end
 	end
 	if damagedCallback then
-		damagedCallback(enemy, attacker, dealt, killed)
+		damagedCallback(enemy, attacker, dealt, killed, kind or "hit")
 	end
 end
 
@@ -332,7 +333,7 @@ function Enemies.update(dt: number, targets: { PlayerData.Target }, now: number,
 				e.burnDps = 0
 				e.part.Color = e.color
 			else
-				Enemies.damage(e, e.burnDps * dt, e.burnOwner)
+				Enemies.damage(e, e.burnDps * dt, e.burnOwner, "burn")
 			end
 		end
 	end

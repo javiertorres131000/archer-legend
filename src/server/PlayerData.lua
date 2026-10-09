@@ -39,6 +39,7 @@ export type State = {
 	damageDealt: number,
 	downs: number, -- veces que cayó
 	revives: number, -- compañeros que revivió
+	runLoot: { [string]: number }, -- botín juntado en esta partida (ya está en el perfil)
 }
 
 export type Target = { player: Player, root: BasePart, humanoid: Humanoid, state: State }
@@ -113,6 +114,7 @@ function PlayerData.resetStats()
 		state.damageDealt = 0
 		state.downs = 0
 		state.revives = 0
+		table.clear(state.runLoot)
 	end
 end
 
@@ -132,6 +134,7 @@ function PlayerData.init(onAdded: (Player) -> (), onRemoving: (Player) -> ())
 			damageDealt = 0,
 			downs = 0,
 			revives = 0,
+			runLoot = {},
 		}
 		onAdded(player)
 	end

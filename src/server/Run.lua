@@ -14,6 +14,8 @@ local Hazards = require(script.Parent.Hazards)
 local Boss = require(script.Parent.Boss)
 local Progression = require(script.Parent.Progression)
 local Waves = require(script.Parent.Waves)
+local Loot = require(script.Parent.Loot)
+local CombatFeed = require(script.Parent.CombatFeed)
 
 export type Result = "Victory" | "Defeat" | "Abandoned"
 
@@ -58,9 +60,11 @@ function Run.init()
 	Enemies.init(Arena.Half, Combat, Hazards)
 	Boss.init(Remotes.GameState)
 	Progression.init(Remotes, Remotes.GameState)
+	CombatFeed.init(Remotes.CombatText)
 
-	-- Cada golpe suma a las estadísticas del jugador; cada muerte, XP al equipo.
-	Enemies.onDamaged(function(enemy, attacker, dealt, killed)
+	-- Cada golpe suma a las estadísticas del jugador; cada muerte, XP y botín al equipo.
+	Enemies.onDamaged(function(enemy, attacker, dealt, killed, kind)
+		local pos = enemy.part.Position
 		local state = attacker and PlayerData.get(attacker)
 		if state then
 			state.damageDealt += dealt
@@ -68,10 +72,34 @@ function Run.init()
 				state.kills += 1
 			end
 		end
+		if attacker and active then
+			local feedKind = if kind == "burn" then "burn" else "hit"
+			CombatFeed.dealt(attacker, enemy, pos, dealt, feedKind)
+			if Config.CombatText.ShowTeammateDamage then
+				for _, p in PlayerLife.participants() do
+					if p ~= attacker then
+						CombatFeed.dealt(p, enemy, pos, dealt, "ally")
+					end
+				end
+			end
+		end
 		if killed then
 			Progression.addXP(enemy.xp)
-			if enemy.isBoss and active then
-				table.insert(bossesKilled, enemy.typeId)
+			if active then
+				local participants = PlayerLife.participants()
+				CombatFeed.xp(participants, pos, enemy.xp)
+				if enemy.isBoss then
+					table.insert(bossesKilled, enemy.typeId)
+				end
+				-- Botín (los invocados por un jefe no dan)
+				if not enemy.summoner then
+					local ch = Waves.chapterInfo(chapterIndex)
+					local mult = ch.Rewards and ch.Rewards.LootMult or 1
+					local amounts = Loot.roll(enemy.def.Cost or 1, enemy.isBoss, mult)
+					for player, got in Loot.grant(participants, amounts) do
+						CombatFeed.loot(player, pos, got)
+					end
+				end
 			end
 		end
 	end)
@@ -112,6 +140,7 @@ function Run.start(index: number, participants: { Player })
 	Remotes.GameState:SetAttribute("RoomIndex", roomIndex)
 	-- Cada uno en su punto de la entrada, con vida, XP y habilidades de partida en cero
 	PlayerLife.beginMatch(participants, Arena.spawnPoints(#participants))
+	Loot.resetRun(participants)
 end
 
 function Run.isActive(): boolean
@@ -170,12 +199,14 @@ function Run.step(dt: number): Result?
 		Hazards.update(dt, targets)
 	end
 	Boss.update()
+	CombatFeed.update(now)
 	return result
 end
 
 -- Durante los resultados: el combate está detenido, solo terminan los proyectiles en vuelo.
 function Run.frozenStep(dt: number)
 	Combat.update(dt, PlayerData.getAliveTargets(), os.clock(), true)
+	CombatFeed.update(os.clock())
 end
 
 -- Fija el resultado y detiene las oleadas.
@@ -292,6 +323,7 @@ function Run.cleanup()
 	enteringUntil = nil
 	Arena.closeDoor()
 	Remotes.GameState:SetAttribute("DoorEnd", 0)
+	CombatFeed.clear()
 	clearWorld()
 	PlayerLife.endMatch()
 	Remotes.RunReset:FireAllClients()

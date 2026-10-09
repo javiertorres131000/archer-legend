@@ -1,5 +1,19 @@
 # Cambios
 
+## Botín y números flotantes
+
+- **Botín al matar enemigos** (`Loot.lua`): cada enemigo suelta oro según su costo (±50%) y a veces una gema (3%) o una piedra de mejora (2%). Los jefes sueltan un extra. Se multiplica por `Rewards.LootMult` del capítulo (1 · 1,6 · 2,5). Lo cobran **todos** los participantes (botín compartido) y va directo al perfil: no se pierde si perdés o te vas. Los invocados por jefes no dan botín.
+- **Números flotantes** (`CombatFeed.lua` en el servidor, `CombatText.client.lua` en el cliente): el daño que hacés sobre el enemigo (blanco; amarillo y grande desde 40), la quemadura en naranja, el daño que recibís en rojo sobre tu barra de vida, "+N XP" al matar y "+N 💰" con monedas que vuelan hacia vos.
+- Contador del botín de la partida arriba a la derecha del HUD, y "Botín" en la pantalla de resultados.
+- Para no cargar la red, el servidor junta los golpes al mismo enemigo y manda todo cada 0,1 s (`Config.CombatText.FlushInterval`).
+- Ajustes en `Config.Loot` y `Config.CombatText` (con `ShowTeammateDamage = true` también ves el daño de tus compañeros, en gris).
+- Prueba nueva `test_loot.luau`.
+
+**Cambios en lo existente (y por qué)**
+- `Enemies.damage` recibe el tipo de daño ("hit" o "burn") para mostrar la quemadura distinta.
+- `PlayerLife.damage` avisa a `CombatFeed` el daño recibido (sigue siendo la única puerta de daño a jugadores).
+- Las recompensas de fin de partida no cambiaron: el botín es aparte y se suma a ellas.
+
 ## Etapa 6: progresión permanente
 
 **Nuevo**

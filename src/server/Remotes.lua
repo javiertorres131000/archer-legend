@@ -38,6 +38,9 @@ local Remotes = {
 	LobbyRequest = event("LobbyRequest"),
 	-- servidor -> jugador: (mensaje) cuando una petición no se puede cumplir
 	LobbyNotice = event("LobbyNotice"),
+	-- servidor -> jugador: ({ eventos }) números flotantes: daño hecho y recibido, XP y botín.
+	-- Llegan agrupados cada Config.CombatText.FlushInterval (ver CombatFeed).
+	CombatText = event("CombatText"),
 }
 
 folder.Parent = ReplicatedStorage

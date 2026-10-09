@@ -24,6 +24,14 @@ Remotes.RunEnded.FireClient = function(_, _player, summary)
 	runEnded = summary
 end
 
+-- Números flotantes que le llegan a cada jugador
+local feed = { hit = 0, hurt = 0, xp = 0, loot = 0 }
+Remotes.CombatText.FireClient = function(_, _player, events)
+	for _, e in events do
+		feed[e.k] = (feed[e.k] or 0) + 1
+	end
+end
+
 require("./GameServer") -- arranca el servidor real
 local MatchManager = require("./MatchManager")
 
@@ -148,6 +156,9 @@ check(s.bosses["Guardián Treant"] == true, "apareció el jefe (oleada 10)")
 check(runEnded ~= nil and runEnded.result == "Victory", "terminó en victoria con resumen")
 check(runEnded ~= nil and runEnded.rewards ~= nil and (runEnded.rewards.Gold or 0) > 0, "recompensas en el resumen")
 check(A:GetAttribute("Gold") > 0 and B:GetAttribute("Gold") > 0, "los dos cobraron oro")
+check(runEnded ~= nil and (runEnded.loot.Gold or 0) > 0, "botín de los enemigos en el resumen")
+print(string.format("  números enviados: %d golpes · %d XP · %d botines", feed.hit, feed.xp, feed.loot))
+check(feed.hit > 0 and feed.xp > 0 and feed.loot > 0, "llegaron números de daño, XP y botín")
 check(gameState:GetAttribute("Level") > 1, "el equipo subió de nivel (" .. tostring(gameState:GetAttribute("Level")) .. ")")
 check(gameState:GetAttribute("PartySize") == 2, "la dificultad se escaló para 2 jugadores")
 
@@ -161,6 +172,7 @@ startMatch("ruins")
 check(gameState:GetAttribute("Chapter") == 2, "la segunda partida es en el capítulo 2")
 
 print("Partida 2: capítulo 2 con daño real hasta que termine")
+feed.hurt = 0
 for _, p in { A, B } do
 	local g = p.Character and p.Character:FindFirstChild("God")
 	if g then g:Destroy() end
@@ -171,6 +183,7 @@ local downs = PlayerData.get(A).downs + PlayerData.get(B).downs
 print(string.format("  fases: %s", table.concat(s2.phases, " > ")))
 print(string.format("  derribos: %d", downs - downsBefore))
 check(runEnded ~= nil, "la partida terminó (victoria o derrota) con resumen")
+check(feed.hurt > 0, "llegaron los números del daño recibido (" .. feed.hurt .. ")")
 if runEnded then
 	print(string.format("  resultado: %s en la oleada %d", runEnded.result, runEnded.wave))
 end

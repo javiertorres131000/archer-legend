@@ -165,6 +165,24 @@ Config.Camera = {
 	FieldOfView = 45,
 }
 
+-- Botín al matar enemigos (Loot.lua). Lo cobran TODOS los participantes (botín compartido,
+-- así nadie le "roba" las muertes al compañero). Se suma al perfil en el momento.
+-- Se multiplica por Rewards.LootMult del capítulo. Los invocados por jefes no dan botín.
+Config.Loot = {
+	GoldPerCost = 1, -- oro por cada punto de Cost del enemigo (EnemyTypes)
+	GoldVariation = 0.5, -- ±50% al azar
+	GemChance = 0.03, -- probabilidad de 1 gema por enemigo
+	StoneChance = 0.02, -- probabilidad de 1 piedra de mejora por enemigo
+	Boss = { Gold = 25, Gems = 3, Stones = 2 }, -- botín extra de jefes y mini-jefes
+}
+
+-- Números flotantes (CombatFeed.lua y CombatText.client.lua)
+Config.CombatText = {
+	FlushInterval = 0.1, -- el servidor junta los golpes y los manda cada esto (menos tráfico)
+	Lifetime = 0.9, -- segundos que se ve cada número
+	ShowTeammateDamage = false, -- true: también ves el daño que hacen tus compañeros
+}
+
 -- Perfil guardado con DataStore (Profiles.lua)
 -- En Studio solo guarda si el juego está publicado y en Game Settings › Security está activado
 -- "Enable Studio Access to API Services". Si no, se juega igual pero sin guardar (aviso en el lobby).

@@ -219,6 +219,7 @@ local function enterResults(result: Run.Result)
 			})
 		personal.rewards = if granted then granted.amounts else nil -- nil: perfil sin cargar
 		personal.firstClear = granted ~= nil and granted.firstClear
+		personal.loot = if stats then table.clone(stats.runLoot) else {} -- botín juntado (ya cobrado)
 		if result == "Victory" then
 			ChapterUnlocks.onChapterCleared(p, selectedChapter)
 		end

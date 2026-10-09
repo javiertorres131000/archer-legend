@@ -36,6 +36,7 @@ return {
 		-- Recompensas (Rewards.lua). Se ganan aunque pierdas, por oleada superada y jefe vencido.
 		Rewards = {
 			GoldPerWave = 10,
+			LootMult = 1, -- multiplica el botín de los enemigos (Config.Loot)
 			VictoryGold = 100,
 			VictoryGems = 5,
 			FirstClearGems = 50, -- solo la primera vez que lo ganás
@@ -72,6 +73,7 @@ return {
 		Interval = { 1.2, 0.7 },
 		Rewards = {
 			GoldPerWave = 16,
+			LootMult = 1.6, -- multiplica el botín de los enemigos (Config.Loot)
 			VictoryGold = 160,
 			VictoryGems = 8,
 			FirstClearGems = 75,
@@ -109,6 +111,7 @@ return {
 		Interval = { 1.1, 0.65 },
 		Rewards = {
 			GoldPerWave = 25,
+			LootMult = 2.5, -- multiplica el botín de los enemigos (Config.Loot)
 			VictoryGold = 250,
 			VictoryGems = 12,
 			FirstClearGems = 100,

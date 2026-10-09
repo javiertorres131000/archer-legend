@@ -10,6 +10,7 @@ Roguelite de acción cooperativo para Roblox (1 a 4 jugadores), inspirado en las
 - **Ciclo de partida** controlado por el servidor: `LOBBY → PREPARING → STARTING → PLAYING → RESULTS → RETURNING`.
 - **3 capítulos**: Bosque Maldito (disponible), Ruinas Perdidas y Fortaleza Demoníaca (se desbloquean ganando el anterior).
 - **Perfil guardado** (DataStore): capítulos desbloqueados, récords, estadísticas y monedas: oro 💰, gemas 💎 y piedras de mejora 🔷.
+- **Botín** al matar enemigos (oro, y a veces gemas y piedras) y **números flotantes** de daño hecho, daño recibido, XP y botín.
 - **Recompensas** al terminar la partida: oro por oleada superada (también si perdés), oro y piedras por cada jefe, y al ganar oro y gemas (más gemas la primera vez).
 - **Combate**: 10 oleadas generadas al azar por capítulo, 25 enemigos con comportamientos (embestidas, áreas, rebotes, zigzag, teletransporte, enterrarse, invocar), mini-jefe y jefe con 2 fases.
 - **Habilidades**: 8 con rarezas, elegir 1 de 3 al subir de nivel (XP compartida).
@@ -43,6 +44,13 @@ Sin esos dos pasos se juega igual, pero arriba a la derecha del lobby dice *"⚠
 4. Las recompensas se ajustan en `Chapters.lua › Rewards` de cada capítulo; el guardado en `Config.Profiles`.
 
 Para empezar de cero en las pruebas, cambiá `Config.Profiles.StoreName` (por ejemplo a `"PlayerProfiles_test2"`): los perfiles viejos quedan guardados aparte. **No lo cambies en el juego publicado** o todos empiezan de cero.
+
+## Cómo probar el botín y los números
+
+1. **Play** y JUGAR. Al pegarle a un enemigo aparece el daño encima (blanco; amarillo si es fuerte). Con la habilidad de fuego, la quemadura sale en naranja.
+2. Al matarlo: "+N XP" celeste y monedas que saltan y vuelan hacia vos con "+N 💰". Arriba a la derecha sube el contador del botín de la partida.
+3. Dejate pegar: números rojos suben desde tu barra de vida.
+4. En los resultados, al lado de RECOMPENSAS figura el botín juntado. En el lobby, el oro total ya lo incluye.
 
 ## Cómo probar salas, puertas y la alerta
 
@@ -94,6 +102,7 @@ En `tests/` (fuera de lo que sincroniza Rojo). Corren los módulos reales del se
 | `test_ai.luau` | 60 s de cada enemigo y jefe: sin errores, todos atacan, los jefes cambian de fase |
 | `test_profiles.luau` | Perfil: nuevo, guardar y volver, monedas, reintentos, DataStore caído, Studio sin acceso, bloqueo de sesión (esperar, tomar, abandonado, perdido, mismo servidor), migraciones, datos rotos, versión nueva, irse mientras carga, guardado automático y cierre del servidor |
 | `test_rewards.luau` | Cálculo de recompensas: derrota, jefes, primera victoria, valores fuera de rango, los tres capítulos |
+| `test_loot.luau` | Botín por enemigo y jefe, multiplicador del capítulo, variación; números flotantes agrupados, quemadura, daño recibido, XP y frecuencia de envío |
 | `test_rooms.luau` | Puerta entre oleadas: hay que entrar todos, límite de tiempo, cambio de sala, entrada, salas hechas a mano, más enemigos por oleada, decoración en los bordes |
 | `test_integration.luau` | Dos partidas completas con el `GameServer` real y 2 bots desde el lobby |
 

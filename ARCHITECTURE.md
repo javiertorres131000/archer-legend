@@ -33,6 +33,8 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `ChapterUnlocks` ★ | Capítulos desbloqueados y récords por jugador (sobre el perfil) |
 | `Profiles` ★ | Perfil guardado con DataStore: carga, guardado, bloqueo de sesión, versiones, monedas |
 | `Rewards` ★ | Calcula y entrega las recompensas al terminar la partida |
+| `Loot` ★ | Botín de cada enemigo al morir: lo sortea y lo cobra cada participante |
+| `CombatFeed` ★ | Junta los números flotantes de cada jugador y los manda agrupados cada 0,1 s |
 | `PlayerData` | Stats, habilidades y estadísticas por jugador; `inMatch` |
 | `PlayerLife` ★ | Ciclo de vida: aparición (lobby o arena), daño, derribo, rescate, eliminación |
 | `Waves` | Genera y corre las oleadas del capítulo; escalado por jugadores |
@@ -55,6 +57,7 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `Hud` | Interfaz de combate (solo en partida): oleada, XP, jefe, habilidades, derribo, compañeros, vida, resultados, puerta y fundido de sala |
 | `ScreenEffects` | Efectos de pantalla solo visuales (calculados en el cliente): alerta de amenazas fuera de la vista, destello rojo al recibir daño y sangre en los bordes según la vida |
 | `CameraController` | Tercera persona en el lobby; en la partida primera persona o cenital según `Config.Camera.Mode`; desde arriba siguiendo a un compañero si estás eliminado |
+| `CombatText` | Números flotantes (daño hecho y recibido, XP, botín) y monedas que vuelan al jugador. Solo visual |
 | `ProjectileVisuals` | Dibuja los proyectiles con la misma cuenta que el servidor |
 
 ## Ciclo de partida (`MatchManager`)
@@ -88,7 +91,7 @@ Todo pedido se descarta si el tipo es incorrecto o si llega antes de `Config.Mat
 ### Estado publicado
 
 `GameState` (atributos): `MatchState`, `SelectedChapter`, `LeaderId`, `CountdownEnd` y `ResultsEnd` (hora de `workspace:GetServerTimeNow()`), y los de la partida (`Phase`, `Wave`, `Level`, `XP`, `Boss*`, `PartySize`, `Chapter*`, `RoomIndex`, `DoorEnd`, `DoorInside`, `DoorNeeded`).
-Cada `Player`: `Ready`, `InMatch`, `UnlockedChapters`, `ChapterRecords`, `ProfileStatus`, `Gold`, `Gems`, `Stones`, `LifeState`, `DownedLeft`, `ReviveProgress`, `RevivedBy`.
+Cada `Player`: `Ready`, `InMatch`, `UnlockedChapters`, `ChapterRecords`, `ProfileStatus`, `Gold`, `Gems`, `Stones`, `RunGold`, `RunGems`, `RunStones` (botín de la partida), `LifeState`, `DownedLeft`, `ReviveProgress`, `RevivedBy`.
 
 ## Perfil guardado (`Profiles`)
 

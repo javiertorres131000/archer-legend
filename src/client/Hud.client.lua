@@ -130,6 +130,49 @@ end)
 -- están en ScreenEffects.client.lua.
 
 
+-- Botín juntado en esta partida (arriba a la derecha). Ya está sumado al perfil.
+local lootPanel = make("Frame", {
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -16, 0, 12),
+	Size = UDim2.new(0, 0, 0, 34),
+	AutomaticSize = Enum.AutomaticSize.X,
+	BackgroundColor3 = Theme.Colors.Panel,
+	BackgroundTransparency = 0.25,
+	Parent = gui,
+}, {
+	corner(10),
+	make("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }),
+	make("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Padding = UDim.new(0, 12),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}),
+})
+Theme.stroke(Theme.Colors.GoldDark, 1.5).Parent = lootPanel
+local lootLabels: { [string]: TextLabel } = {}
+for i, c in Currencies do
+	lootLabels[c.Id] = text({
+		Size = UDim2.new(0, 0, 1, 0),
+		AutomaticSize = Enum.AutomaticSize.X,
+		Text = c.Icon .. " 0",
+		TextSize = 18,
+		TextColor3 = c.Color,
+		TextStrokeTransparency = 0.5,
+		LayoutOrder = i,
+		Parent = lootPanel,
+	})
+end
+local function refreshLoot()
+	for _, c in Currencies do
+		lootLabels[c.Id].Text = c.Icon .. " " .. tostring(player:GetAttribute("Run" .. c.Id) or 0)
+	end
+end
+for _, c in Currencies do
+	player:GetAttributeChangedSignal("Run" .. c.Id):Connect(refreshLoot)
+end
+refreshLoot()
+
 -- Barra de vida propia (reemplaza la de Roblox, que LobbyUI desactiva)
 local healthBack = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 1),
@@ -890,7 +933,7 @@ local rewardsRow = make("Frame", {
 	}),
 })
 
-local function showRewards(rewards: { [string]: number }?, firstClear: boolean)
+local function showRewards(rewards: { [string]: number }?, firstClear: boolean, loot: { [string]: number }?)
 	for _, child in rewardsRow:GetChildren() do
 		if child:IsA("GuiObject") then
 			child:Destroy()
@@ -933,7 +976,19 @@ local function showRewards(rewards: { [string]: number }?, firstClear: boolean)
 			Parent = rewardsRow,
 		})
 	end
-	rewardsTitle.Text = if firstClear then "RECOMPENSAS  ·  ¡PRIMERA VICTORIA!" else "RECOMPENSAS"
+	local title = if firstClear then "RECOMPENSAS  ·  ¡PRIMERA VICTORIA!" else "RECOMPENSAS"
+	-- Botín juntado matando enemigos (ya cobrado durante la partida)
+	local lootParts = {}
+	for _, c in Currencies do
+		local n = loot and loot[c.Id] or 0
+		if n > 0 then
+			table.insert(lootParts, c.Icon .. " " .. n)
+		end
+	end
+	if #lootParts > 0 then
+		title ..= "   ·   Botín: " .. table.concat(lootParts, "  ")
+	end
+	rewardsTitle.Text = title
 end
 
 local againButton = Theme.button({
@@ -988,7 +1043,7 @@ runEnded.OnClientEvent:Connect(function(summary)
 		tableRow(i, p.name, tostring(p.kills), tostring(p.revives or 0), tostring(p.damage), false)
 	end
 
-	showRewards(summary.rewards, summary.firstClear == true)
+	showRewards(summary.rewards, summary.firstClear == true, summary.loot)
 
 	againButton.Text = "Volver al lobby"
 	results.Visible = true

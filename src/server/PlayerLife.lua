@@ -20,6 +20,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local PlayerData = require(script.Parent.PlayerData)
+local CombatFeed = require(script.Parent.CombatFeed)
 
 local CoopCfg = Config.Coop
 local PlayerCfg = Config.Player
@@ -345,6 +346,7 @@ function PlayerLife.damage(target: PlayerData.Target, amount: number)
 		return
 	end
 	local humanoid = target.humanoid
+	CombatFeed.hurt(target.player, amount) -- número rojo en su pantalla
 	if humanoid.Health - amount <= 0 then
 		down(target.player, state, humanoid)
 	else
