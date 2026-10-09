@@ -18,6 +18,12 @@ Config.Player = {
 	-- En primera persona solo se apunta a enemigos delante tuyo: ancho del cono en grados.
 	-- (En modo TopDown se apunta a todo alrededor.)
 	AimConeFirstPerson = 110,
+	-- Modo de apuntado (cada jugador lo cambia con AimToggleKeys):
+	--   "Auto"   → elige solo al enemigo más cercano a tiro (en primera persona, dentro del cono)
+	--   "Manual" → dispara hacia donde mirás (la mira), haya o no un enemigo ahí
+	-- En los dos, solo dispara quieto y mientras queden enemigos.
+	DefaultAimMode = "Auto",
+	AimToggleKeys = { Enum.KeyCode.Q, Enum.KeyCode.DPadUp }, -- teclado / joystick
 	AttackInterval = 0.6, -- segundos entre disparos
 	StillThreshold = 1, -- velocidad horizontal debajo de la cual estás "quieto"
 	SpawnInvulnerability = 2, -- segundos de escudo al aparecer

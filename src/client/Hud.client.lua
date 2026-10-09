@@ -22,6 +22,7 @@ local skillGranted = remotes:WaitForChild("SkillGranted") :: RemoteEvent
 local runReset = remotes:WaitForChild("RunReset") :: RemoteEvent
 local runEnded = remotes:WaitForChild("RunEnded") :: RemoteEvent
 local lobbyRequest = remotes:WaitForChild("LobbyRequest") :: RemoteEvent
+local setAimMode = remotes:WaitForChild("SetAimMode") :: RemoteEvent
 local gameState = ReplicatedStorage:WaitForChild("GameState")
 
 local player = Players.LocalPlayer
@@ -91,6 +92,42 @@ if Config.Camera.Mode == "FirstPerson" then
 	player:GetAttributeChangedSignal("LifeState"):Connect(refreshCross)
 	refreshCross()
 end
+
+---------------------------------------------------------------------
+-- Modo de apuntado: automático o manual (hacia la mira). Se cambia con Config.Player.AimToggleKeys.
+---------------------------------------------------------------------
+local aimKeys = {}
+for _, key in Config.Player.AimToggleKeys or {} do
+	aimKeys[key] = true
+end
+local aimKeyName = Config.Player.AimToggleKeys and Config.Player.AimToggleKeys[1] and Config.Player.AimToggleKeys[1].Name or ""
+
+local aimLabel = Theme.text({
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0.5, 18),
+	Size = UDim2.fromOffset(220, 20),
+	Font = Theme.Fonts.Title,
+	TextSize = 14,
+	TextStrokeTransparency = 0.5,
+	Parent = gui,
+})
+local function refreshAim()
+	local manual = player:GetAttribute("AimMode") == "Manual"
+	aimLabel.Text = string.format("%s  [%s]", if manual then "APUNTADO MANUAL" else "AUTO-APUNTADO", aimKeyName)
+	aimLabel.TextColor3 = if manual then Theme.Colors.GoldBright else Theme.Colors.Text
+	aimLabel.Visible = player:GetAttribute("LifeState") ~= "ELIMINATED"
+end
+player:GetAttributeChangedSignal("AimMode"):Connect(refreshAim)
+player:GetAttributeChangedSignal("LifeState"):Connect(refreshAim)
+refreshAim()
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed or not aimKeys[input.KeyCode] then
+		return
+	end
+	-- El servidor decide y lo devuelve en el atributo AimMode
+	setAimMode:FireServer(if player:GetAttribute("AimMode") == "Manual" then "Auto" else "Manual")
+end)
 
 ---------------------------------------------------------------------
 -- Cambio de sala: fundido a negro corto al cruzar la puerta

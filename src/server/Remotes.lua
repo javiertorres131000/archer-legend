@@ -26,6 +26,9 @@ local Remotes = {
 	SkillOffer = event("SkillOffer"),
 	-- jugador -> servidor: (offerId, índice elegido 1..3)
 	ChooseSkill = event("ChooseSkill"),
+	-- jugador -> servidor: ("Auto" | "Manual") modo de apuntado. El servidor lo deja en el
+	-- atributo AimMode del jugador (lo lee el HUD).
+	SetAimMode = event("SetAimMode"),
 	-- servidor -> jugador: (skillId, stacks actuales)
 	SkillGranted = event("SkillGranted"),
 	-- servidor -> todos: la partida se reinició
