@@ -9,7 +9,10 @@ local M = {}
 M.now = 0
 local timers = {}
 
-M.os = setmetatable({ clock = function() return M.now end }, { __index = os })
+M.os = setmetatable({
+	clock = function() return M.now end,
+	time = function() return 1700000000 + math.floor(M.now) end, -- hora "real" (segundos)
+}, { __index = os })
 
 M.task = {
 	spawn = function(f, ...) f(...) end,
@@ -17,7 +20,8 @@ M.task = {
 	delay = function(t, f, ...)
 		table.insert(timers, { at = M.now + t, f = f, args = { ... } })
 	end,
-	wait = function() return 0 end,
+	-- No hay hilos: esperar solo hace avanzar el reloj (sin disparar los task.delay)
+	wait = function(t) M.now += (t or 0) return t or 0 end,
 }
 
 -- Avanza el reloj y dispara los task.delay vencidos.
@@ -109,6 +113,13 @@ M.UDim2 = {
 	fromOffset = function(x, y) return { offset = { x, y } } end,
 }
 M.UDim = { new = function(...) return { ... } end }
+-- warn de Roblox: se guarda para que las pruebas lo revisen (y no ensucia la salida)
+M.warnings = {}
+M.warn = function(...)
+	local parts = {}
+	for _, v in { ... } do table.insert(parts, tostring(v)) end
+	table.insert(M.warnings, table.concat(parts, " "))
+end
 M.Random = {
 	new = function(_seed)
 		return {
@@ -220,6 +231,7 @@ function methods:PivotTo(cf)
 	if root then root.Position = cf.Position end
 end
 function methods:FireClient(...) end
+function methods:Kick(msg) rawget(self, "_raw").kicked = msg or "" end
 function methods:IsA(cls) return rawget(self, "_raw").ClassName == cls end
 
 instmt.__index = function(self, k)
@@ -295,18 +307,92 @@ function methods:GetPlayers() return table.clone(M.playerList) end
 
 local replicated = newInstance("ReplicatedStorage", { Name = "ReplicatedStorage" })
 newInstance("Folder", { Name = "Shared" }).Parent = replicated
+---------------------------------------------------------------------
+-- DataStore en memoria, con fallas a pedido
+--   M.dataStore.failNext = n      las próximas n llamadas fallan (error 502)
+--   M.dataStore.accessDenied      todas fallan como Studio sin acceso a las APIs
+--   M.dataStore.calls             llamadas hechas
+--   M.dataStore.onCall(key)       se llama antes de cada pedido (para simular cosas a mitad)
+-- Copia los valores al guardar y leer (como Roblox, que los serializa) y rechaza lo que no
+-- se puede guardar (funciones, instancias, Color3...).
+---------------------------------------------------------------------
+local function dsCopy(v, path)
+	local t = type(v)
+	if t == "nil" or t == "string" or t == "boolean" then return v end
+	if t == "number" then
+		assert(v == v, "DataStore: NaN en " .. path)
+		return v
+	end
+	assert(t == "table" and getmetatable(v) == nil, "DataStore: no se puede guardar " .. t .. " en " .. path)
+	local out = {}
+	for k, x in v do
+		assert(type(k) == "string" or type(k) == "number", "DataStore: clave inválida en " .. path)
+		out[k] = dsCopy(x, path .. "." .. tostring(k))
+	end
+	return out
+end
+M.dataStore = { failNext = 0, accessDenied = false, calls = 0, data = {}, onCall = nil }
+local function dsCheck(key)
+	M.dataStore.calls += 1
+	if M.dataStore.onCall then M.dataStore.onCall(key) end
+	if M.dataStore.accessDenied then
+		error("StudioAccessToApisNotAllowed: You must publish this place to the web to access DataStore.")
+	end
+	if M.dataStore.failNext > 0 then
+		M.dataStore.failNext -= 1
+		error("502: API Services rejected request (simulado)")
+	end
+end
+local DataStoreService = newInstance("DataStoreService", { Name = "DataStoreService" })
+rawget(DataStoreService, "_raw").GetDataStore = function(_, name)
+	local data = M.dataStore.data
+	return {
+		GetAsync = function(_, key)
+			dsCheck(key)
+			return dsCopy(data[key], key)
+		end,
+		UpdateAsync = function(_, key, transform)
+			dsCheck(key)
+			local new = transform(dsCopy(data[key], key))
+			if new ~= nil then
+				data[key] = dsCopy(new, key)
+			end
+			return dsCopy(new, key)
+		end,
+	}
+end
+
+local guidCount = 0
+local HttpService = newInstance("HttpService", { Name = "HttpService" })
+rawget(HttpService, "_raw").GenerateGUID = function()
+	guidCount += 1
+	return string.format("guid-%04d", guidCount)
+end
+M.isStudio = true -- RunService:IsStudio()
+
 local services = {
+	DataStoreService = DataStoreService,
+	HttpService = HttpService,
 	Players = Players,
 	Workspace = workspaceInst,
 	ReplicatedStorage = replicated,
-	RunService = newInstance("RunService"),
+	RunService = newInstance("RunService", { IsStudio = function() return M.isStudio end }),
 	TweenService = { Create = function() return { Play = function() end } end },
 	Debris = { AddItem = function() end },
 }
-M.game = { GetService = function(_, name)
-	if not services[name] then services[name] = newInstance(name, { Name = name }) end
-	return services[name]
-end }
+M.game = {
+	JobId = "servidor-de-prueba",
+	GetService = function(_, name)
+		if not services[name] then services[name] = newInstance(name, { Name = name }) end
+		return services[name]
+	end,
+	BindToClose = function(_, f) table.insert(M.closeHandlers, f) end,
+}
+M.closeHandlers = {}
+-- Simula el cierre del servidor (game:BindToClose)
+function M.closeServer()
+	for _, f in M.closeHandlers do f() end
+end
 M.Players = Players
 
 -- Como Roblox: sin posición pedida, el personaje aparece sobre el SpawnLocation (si hay uno).
@@ -336,8 +422,13 @@ local function makeCharacter(player, pos)
 end
 
 -- Agrega un jugador falso. Se lo puede mover con M.moveTo(player, Vector3).
-function M.addPlayer(name)
-	local p = newInstance("Player", { Name = name, DisplayName = name, UserId = #M.playerList + 1 })
+local lastUserId = 0
+function M.addPlayer(name, userId)
+	if not userId then
+		lastUserId += 1 -- cada jugador nuevo, un UserId nuevo (como en Roblox)
+		userId = lastUserId
+	end
+	local p = newInstance("Player", { Name = name, DisplayName = name, UserId = userId })
 	rawget(p, "_raw")._parent = Players
 	rawget(p, "_raw").LoadCharacterAsync = function(self)
 		local old = self.Character

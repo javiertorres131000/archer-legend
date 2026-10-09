@@ -9,14 +9,9 @@
 - [x] **Etapa 4** · Cooperativo: derribo, rescate y dificultad por jugadores
 - [x] **Etapa 5** · Lobby y ciclo de partidas
 - [x] Primera persona, salas con puerta entre oleadas, más enemigos y alerta de amenazas
+- [x] **Etapa 6** · Progresión permanente: perfil guardado, monedas y recompensas
 
 ## Próximas etapas
-
-### Etapa 6 · Progresión permanente
-- [ ] Perfil persistente con DataStore (con reintentos, sesión bloqueada y migración de versiones)
-- [ ] Guardar desbloqueos de capítulos (reemplazar el interior de `ChapterUnlocks`)
-- [ ] Oro, gemas y materiales de mejora
-- [ ] Recompensas de capítulo y de jefe
 
 ### Etapa 7 · Equipamiento e inventario
 - [ ] Inventario y seis espacios: arma, casco, armadura, anillo, amuleto, botas

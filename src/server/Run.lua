@@ -25,7 +25,9 @@ export type Summary = {
 	chapterName: string,
 	nextText: string,
 	wave: number,
+	wavesCleared: number,
 	totalWaves: number,
+	bossesKilled: { string }, -- tipos de jefe vencidos (para las recompensas)
 	level: number,
 	time: number,
 	partySize: number,
@@ -41,6 +43,7 @@ local chapterIndex = 1
 local result: Result? = nil
 local lastPhase = "Waiting"
 local active = false
+local bossesKilled: { string } = {}
 
 -- Salas y puerta (entre oleadas, con Config.Waves.UseDoors)
 local roomIndex = 1
@@ -67,6 +70,9 @@ function Run.init()
 		end
 		if killed then
 			Progression.addXP(enemy.xp)
+			if enemy.isBoss and active then
+				table.insert(bossesKilled, enemy.typeId)
+			end
 		end
 	end)
 
@@ -96,6 +102,7 @@ function Run.start(index: number, participants: { Player })
 	result = nil
 	lastPhase = "Waiting"
 	active = true
+	table.clear(bossesKilled)
 	Waves.setChapter(chapterIndex)
 	local ch = Waves.chapterInfo(chapterIndex)
 	roomIndex = 1
@@ -179,6 +186,17 @@ function Run.finish(final: Result)
 	end
 end
 
+-- Oleadas superadas: la actual cuenta si ya se terminó (descanso o victoria).
+function Run.wavesCleared(final: Result): number
+	local wave = Waves.current()
+	if final == "Victory" then
+		return Waves.chapterInfo(chapterIndex).Waves
+	elseif Waves.phase() == "Break" then
+		return wave
+	end
+	return math.max(0, wave - 1)
+end
+
 function Run.summary(final: Result): Summary
 	local players = {}
 	for _, player in PlayerLife.participants() do
@@ -214,7 +232,9 @@ function Run.summary(final: Result): Summary
 		chapterName = ch.Name,
 		nextText = nextText,
 		wave = Waves.current(),
+		wavesCleared = Run.wavesCleared(final),
 		totalWaves = ch.Waves,
+		bossesKilled = table.clone(bossesKilled),
 		level = Progression.level(),
 		time = math.floor(Waves.elapsed()),
 		partySize = PlayerLife.partySize(),

@@ -3,7 +3,7 @@
 -- Interfaz del lobby: equipo, capítulos, botón JUGAR/LISTO, cuenta regresiva y avisos.
 -- Solo muestra estado y manda pedidos: todo lo decide el servidor (MatchManager).
 -- Lee: atributos de GameState (MatchState, SelectedChapter, LeaderId, CountdownEnd) y de
--- cada Player (Ready, InMatch, UnlockedChapters).
+-- cada Player (Ready, InMatch, UnlockedChapters, ChapterRecords, ProfileStatus y una por moneda).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,6 +15,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Chapters = require(Shared:WaitForChild("Chapters"))
 local Theme = require(Shared:WaitForChild("UITheme"))
+local Currencies = require(Shared:WaitForChild("Currencies"))
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local lobbyRequest = remotes:WaitForChild("LobbyRequest") :: RemoteEvent
 local lobbyNotice = remotes:WaitForChild("LobbyNotice") :: RemoteEvent
@@ -122,6 +123,85 @@ text({
 	Parent = content,
 })
 
+---------------------------------------------------------------------
+-- Monedas y estado del perfil (arriba a la derecha)
+---------------------------------------------------------------------
+local wallet = make("Frame", {
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -40, 0, 34),
+	Size = UDim2.new(0, 600, 0, 44),
+	BackgroundTransparency = 1,
+	Parent = content,
+}, {
+	make("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Right,
+		Padding = UDim.new(0, 10),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}),
+})
+local walletLabels: { [string]: TextLabel } = {}
+for i, c in Currencies do
+	local chip = panel({
+		Size = UDim2.new(0, 0, 1, 0),
+		AutomaticSize = Enum.AutomaticSize.X,
+		LayoutOrder = i,
+		Parent = wallet,
+	})
+	make("UIPadding", { PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 16), Parent = chip })
+	walletLabels[c.Id] = text({
+		Size = UDim2.new(0, 0, 1, 0),
+		AutomaticSize = Enum.AutomaticSize.X,
+		Text = c.Icon .. "  0",
+		Font = Fonts.Bold,
+		TextSize = 20,
+		TextColor3 = c.Color,
+		Parent = chip,
+	})
+end
+local profileLabel = text({
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -40, 0, 84),
+	Size = UDim2.new(0, 600, 0, 22),
+	Font = Fonts.Body,
+	TextSize = 15,
+	TextColor3 = Colors.TextMuted,
+	TextXAlignment = Enum.TextXAlignment.Right,
+	Parent = content,
+})
+
+local function formatAmount(n: number): string
+	-- 12345 -> "12.345"
+	local s = tostring(math.floor(n))
+	local out = s:reverse():gsub("(%d%d%d)", "%1."):reverse()
+	if out:sub(1, 1) == "." then
+		out = out:sub(2)
+	end
+	return out
+end
+
+local function refreshWallet()
+	for _, c in Currencies do
+		walletLabels[c.Id].Text = c.Icon .. "  " .. formatAmount(player:GetAttribute(c.Id) or 0)
+	end
+	local status = player:GetAttribute("ProfileStatus")
+	if status == "Loading" or status == nil then
+		profileLabel.Text = "Cargando tu perfil…"
+		profileLabel.TextColor3 = Colors.TextMuted
+	elseif status == "Offline" then
+		profileLabel.Text = "⚠ Sin guardado: el progreso de esta sesión no se guarda"
+		profileLabel.TextColor3 = Colors.Danger
+	else
+		profileLabel.Text = "✔ Progreso guardado"
+		profileLabel.TextColor3 = Colors.Success
+	end
+end
+player:GetAttributeChangedSignal("ProfileStatus"):Connect(refreshWallet)
+for _, c in Currencies do
+	player:GetAttributeChangedSignal(c.Id):Connect(refreshWallet)
+end
+refreshWallet()
+
 local function header(parent: Instance, icon: string, title: string): TextLabel
 	return text({
 		Size = UDim2.new(1, 0, 0, 30),
@@ -188,7 +268,7 @@ local chapterList = make("Frame", {
 	Parent = chapterPanel,
 }, { make("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }) })
 
-type Card = { button: TextButton, stroke: UIStroke, lock: TextLabel, name: TextLabel, desc: TextLabel }
+type Card = { button: TextButton, stroke: UIStroke, lock: TextLabel, name: TextLabel, desc: TextLabel, record: TextLabel }
 local cards: { [string]: Card } = {}
 
 for i, ch in Chapters do
@@ -220,7 +300,7 @@ for i, ch in Chapters do
 	})
 	local desc = text({
 		Position = UDim2.new(0, 54, 0, 28),
-		Size = UDim2.new(1, -54, 1, -28),
+		Size = UDim2.new(1, -54, 1, -50),
 		Text = ch.Description or "",
 		Font = Fonts.Body,
 		TextSize = 14,
@@ -228,6 +308,17 @@ for i, ch in Chapters do
 		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Top,
+		Parent = card,
+	})
+	local record = text({
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 54, 1, 0),
+		Size = UDim2.new(1, -54, 0, 18),
+		Text = "",
+		Font = Fonts.Bold,
+		TextSize = 13,
+		TextColor3 = Colors.Gold,
+		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = card,
 	})
 	local lock = text({
@@ -242,7 +333,7 @@ for i, ch in Chapters do
 	card.Activated:Connect(function()
 		lobbyRequest:FireServer("SelectChapter", ch.Id)
 	end)
-	cards[ch.Id] = { button = card, stroke = stroke, lock = lock, name = name, desc = desc }
+	cards[ch.Id] = { button = card, stroke = stroke, lock = lock, name = name, desc = desc, record = record }
 end
 
 ---------------------------------------------------------------------
@@ -411,6 +502,15 @@ local function myUnlocks(): { [string]: boolean }
 	return set
 end
 
+-- "forest=2/10,ruins=0/4" -> { forest = { clears = 2, best = 10 }, ... }
+local function myRecords(): { [string]: { clears: number, best: number } }
+	local out = {}
+	for id, clears, best in string.gmatch(player:GetAttribute("ChapterRecords") or "", "(%w+)=(%d+)/(%d+)") do
+		out[id] = { clears = tonumber(clears) or 0, best = tonumber(best) or 0 }
+	end
+	return out
+end
+
 local function lobbyPlayers(): { Player }
 	local list = {}
 	for _, p in Players:GetPlayers() do
@@ -485,7 +585,19 @@ local function refreshChapters()
 	local selected = gameState:GetAttribute("SelectedChapter")
 	local isLeader = gameState:GetAttribute("LeaderId") == player.UserId
 	local unlocked = myUnlocks()
+	local records = myRecords()
 	for id, card in cards do
+		local rec = records[id]
+		local total = 0
+		for _, ch in Chapters do
+			if ch.Id == id then
+				total = ch.Waves
+			end
+		end
+		card.record.Text = if not rec
+			then ""
+			elseif rec.clears > 0 then string.format("✔ Ganado %d %s", rec.clears, if rec.clears == 1 then "vez" else "veces")
+			else string.format("Mejor: oleada %d/%d", rec.best, total)
 		local isUnlocked = unlocked[id] == true
 		local isSelected = id == selected
 		card.lock.Visible = not isUnlocked
@@ -599,7 +711,7 @@ end
 local watched: { [Player]: { RBXScriptConnection } } = {}
 local function watchPlayer(p: Player)
 	local conns = {}
-	for _, attr in { "Ready", "InMatch", "UnlockedChapters" } do
+	for _, attr in { "Ready", "InMatch", "UnlockedChapters", "ChapterRecords" } do
 		table.insert(conns, p:GetAttributeChangedSignal(attr):Connect(refreshAll))
 	end
 	watched[p] = conns

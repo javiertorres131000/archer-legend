@@ -1,5 +1,21 @@
 # Cambios
 
+## Etapa 6: progresión permanente
+
+**Nuevo**
+- `Profiles.lua`: perfil de cada jugador guardado con DataStore (capítulos, récords, estadísticas y monedas). Reintentos con espera creciente, sesión bloqueada (un perfil abierto en un solo servidor a la vez, con Id por sesión), versiones con migraciones, reparación de datos rotos, guardado automático cada 60 s, al terminar la partida, al salir y al cerrar el servidor.
+- Sin DataStore (Studio sin acceso a las APIs, `Config.Profiles.Enabled = false` o Roblox caído) se juega con un perfil temporal que nunca se escribe, con aviso en el lobby.
+- Monedas: oro, gemas y piedras de mejora (`Currencies.lua`, compartido). Se ven arriba a la derecha del lobby.
+- `Rewards.lua`: recompensas calculadas en el servidor con lo que pasó en la partida. Valores por capítulo en `Chapters.lua › Rewards`. Pantalla de resultados con las recompensas y "¡PRIMERA VICTORIA!".
+- Tarjetas de capítulo con récord: "✔ Ganado N veces" o "Mejor: oleada N/10".
+- Pruebas nuevas `test_profiles.luau` y `test_rewards.luau`, DataStore simulado en `mocks.luau`.
+
+**Cambios en lo existente (y por qué)**
+- `ChapterUnlocks` ahora lee y escribe el perfil (antes vivía en memoria). Mientras el perfil carga solo está el capítulo inicial; al cargar se actualiza solo.
+- No te podés poner LISTO mientras se carga tu perfil (aviso "Cargando tu perfil…"), así las recompensas siempre tienen dónde guardarse.
+- El resumen de la partida suma `wavesCleared`, `bossesKilled` y, para cada jugador, `rewards` y `firstClear`.
+- Los mocks de prueba: `task.wait` hace avanzar el reloj, hay `os.time`, `game.JobId`, `BindToClose`, `Player:Kick`, `HttpService` y DataStore en memoria con fallas a pedido.
+
 ## Efectos de pantalla: amenazas que brillan, golpe y sangre
 
 - **Alerta de amenazas más visible:** las flechas ahora son más grandes, tienen halo y laten. Además, el borde de la pantalla se enciende en rojo del lado de la amenaza (izquierda, derecha o abajo si está atrás).

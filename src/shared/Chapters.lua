@@ -4,7 +4,7 @@
 -- descripción y estado de bloqueo; el servidor usa el resto para generar las oleadas.
 --
 -- Campos de presentación:
---   Id: identificador estable (se usará para guardar desbloqueos en la etapa 6)
+--   Id: identificador estable: es la clave con la que se guarda en el perfil (no cambiarlo)
 --   Name, Description, Icon
 --   UnlockedByDefault: disponible desde el principio
 --   Requires: Id del capítulo que hay que ganar para desbloquearlo
@@ -33,6 +33,15 @@ return {
 		DamageMult = 1,
 		Budget = { Base = 6, PerWave = 2, BossWaveFactor = 0.35 },
 		Interval = { 1.3, 0.75 }, -- segundos entre spawns: primera oleada -> última
+		-- Recompensas (Rewards.lua). Se ganan aunque pierdas, por oleada superada y jefe vencido.
+		Rewards = {
+			GoldPerWave = 10,
+			VictoryGold = 100,
+			VictoryGems = 5,
+			FirstClearGems = 50, -- solo la primera vez que lo ganás
+			MiniBoss = { Gold = 30, Stones = 1 },
+			Boss = { Gold = 60, Stones = 2 },
+		},
 		MiniBoss = { Wave = 5, Type = "KingSlime" },
 		Boss = { Wave = 10, Type = "Treant" },
 		Pool = {
@@ -61,6 +70,14 @@ return {
 		DamageMult = 1.15,
 		Budget = { Base = 8, PerWave = 2.4, BossWaveFactor = 0.35 },
 		Interval = { 1.2, 0.7 },
+		Rewards = {
+			GoldPerWave = 16,
+			VictoryGold = 160,
+			VictoryGems = 8,
+			FirstClearGems = 75,
+			MiniBoss = { Gold = 50, Stones = 2 },
+			Boss = { Gold = 100, Stones = 3 },
+		},
 		MiniBoss = { Wave = 5, Type = "CyclopsMage" },
 		Boss = { Wave = 10, Type = "StoneGolem" },
 		Pool = {
@@ -90,6 +107,14 @@ return {
 		DamageMult = 1.3,
 		Budget = { Base = 9, PerWave = 2.6, BossWaveFactor = 0.35 },
 		Interval = { 1.1, 0.65 },
+		Rewards = {
+			GoldPerWave = 25,
+			VictoryGold = 250,
+			VictoryGems = 12,
+			FirstClearGems = 100,
+			MiniBoss = { Gold = 80, Stones = 3 },
+			Boss = { Gold = 150, Stones = 5 },
+		},
 		MiniBoss = { Wave = 5, Type = "Reaper" },
 		Boss = { Wave = 10, Type = "FlameDemon" },
 		Pool = {

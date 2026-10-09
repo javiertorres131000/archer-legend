@@ -5,6 +5,7 @@
 --   Run          una partida en la arena (reutiliza todo el motor de combate)
 --   MatchManager ciclo LOBBY → PREPARING → STARTING → PLAYING → RESULTS → RETURNING
 --   PlayerData / PlayerLife   estado y ciclo de vida de cada jugador
+--   Profiles     perfil guardado (DataStore): monedas, capítulos y estadísticas
 
 local RunService = game:GetService("RunService")
 
@@ -13,18 +14,23 @@ local Run = require(script.Parent.Run)
 local MatchManager = require(script.Parent.MatchManager)
 local PlayerData = require(script.Parent.PlayerData)
 local PlayerLife = require(script.Parent.PlayerLife)
+local Profiles = require(script.Parent.Profiles)
 
 Run.init() -- arena y motor de combate (borra el Baseplate y el spawn de la plantilla)
 Lobby.build() -- después de la arena: el único SpawnLocation del juego es el del lobby
 PlayerLife.init()
 MatchManager.init()
+Profiles.init() -- guardado automático y al cerrar el servidor
+Profiles.onLoaded(MatchManager.onProfileLoaded)
 
 PlayerData.init(function(player)
 	PlayerLife.onPlayerAdded(player) -- aparece en el lobby
 	MatchManager.onPlayerAdded(player)
+	task.spawn(Profiles.load, player) -- puede tardar: no frena al resto
 end, function(player)
 	MatchManager.onPlayerRemoving(player)
 	PlayerLife.onPlayerRemoving(player)
+	Profiles.onPlayerRemoving(player) -- último: guarda y suelta el perfil
 end)
 
 RunService.Heartbeat:Connect(function(dt)

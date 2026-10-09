@@ -165,6 +165,21 @@ Config.Camera = {
 	FieldOfView = 45,
 }
 
+-- Perfil guardado con DataStore (Profiles.lua)
+-- En Studio solo guarda si el juego está publicado y en Game Settings › Security está activado
+-- "Enable Studio Access to API Services". Si no, se juega igual pero sin guardar (aviso en el lobby).
+Config.Profiles = {
+	Enabled = true, -- false: nunca usa DataStore (todo queda en memoria)
+	StoreName = "PlayerProfiles_v1", -- cambiarlo empieza perfiles nuevos (no borra los viejos)
+	AutoSaveInterval = 60, -- segundos entre guardados automáticos
+	Retries = 3, -- intentos por cada lectura/escritura
+	RetryDelay = 1, -- espera antes del 2.º intento (se duplica en cada uno)
+	LockExpire = 300, -- un bloqueo de sesión más viejo que esto se considera abandonado
+	LockRetries = 5, -- veces que se espera a que otro servidor suelte el perfil antes de tomarlo
+	LockRetryDelay = 4,
+	CloseTimeout = 25, -- al cerrar el servidor, cuánto esperar a que terminen los guardados
+}
+
 -- Para probar. Dejalo en false y 1 para jugar normal.
 Config.Debug = {
 	UnlockAllChapters = false, -- todos los capítulos elegibles desde el lobby

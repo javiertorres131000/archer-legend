@@ -1,18 +1,18 @@
 --!strict
 -- ChapterUnlocks (ModuleScript)
 -- Ubicación: ServerScriptService > Server > ChapterUnlocks
--- Qué capítulos tiene disponibles cada jugador.
+-- Qué capítulos tiene disponibles cada jugador. Es la única puerta para preguntarlo.
+-- Se guarda en el perfil (Profiles: Chapters[Id].Unlocked). Mientras el perfil carga, solo
+-- están los capítulos UnlockedByDefault.
 --
--- IMPORTANTE: por ahora vive solo en memoria y se pierde al salir del servidor.
--- No hay guardado permanente hasta la etapa 6 (DataStore). Este módulo es la única puerta:
--- en la etapa 6 se cambia por dentro para leer y escribir el perfil, sin tocar a quien lo usa.
---
--- El cliente recibe la lista en el atributo "UnlockedChapters" del Player ("forest,ruins").
+-- El cliente recibe la lista en el atributo "UnlockedChapters" del Player ("forest,ruins")
+-- y los récords en "ChapterRecords" ("forest=2/10": ganado 2 veces, mejor oleada 10).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Chapters = require(Shared:WaitForChild("Chapters"))
+local Profiles = require(script.Parent.Profiles)
 
 local ChapterUnlocks = {}
 
@@ -30,17 +30,41 @@ local function publish(player: Player)
 		end
 	end
 	player:SetAttribute("UnlockedChapters", table.concat(ids, ","))
+	-- Récords para el lobby: "forest=2/10,ruins=0/4" (veces ganado / mejor oleada)
+	local data = Profiles.get(player)
+	local records = {}
+	if data then
+		for _, ch in Chapters do
+			local rec = data.Chapters[ch.Id]
+			if rec and (rec.Clears > 0 or rec.BestWave > 0) then
+				table.insert(records, string.format("%s=%d/%d", ch.Id, rec.Clears, rec.BestWave))
+			end
+		end
+	end
+	player:SetAttribute("ChapterRecords", table.concat(records, ","))
 end
 
-function ChapterUnlocks.onPlayerAdded(player: Player)
+-- Vuelve a mandar desbloqueos y récords (por ejemplo, después de una partida).
+function ChapterUnlocks.publish(player: Player)
+	publish(player)
+end
+
+-- Arma el conjunto: los de siempre + los guardados en el perfil (si ya cargó).
+function ChapterUnlocks.refresh(player: Player)
 	local set: { [string]: boolean } = {}
+	local data = Profiles.get(player)
 	for _, ch in Chapters do
-		if ch.UnlockedByDefault or Config.Debug.UnlockAllChapters then
+		local rec = data and data.Chapters[ch.Id]
+		if ch.UnlockedByDefault or Config.Debug.UnlockAllChapters or (rec and rec.Unlocked) then
 			set[ch.Id] = true
 		end
 	end
 	unlocked[player] = set
 	publish(player)
+end
+
+function ChapterUnlocks.onPlayerAdded(player: Player)
+	ChapterUnlocks.refresh(player)
 end
 
 function ChapterUnlocks.onPlayerRemoving(player: Player)
@@ -65,7 +89,7 @@ function ChapterUnlocks.partyCanPlay(players: { Player }, chapterId: string): bo
 	return true
 end
 
--- Al ganar un capítulo se desbloquea el que lo requiere (solo para esta sesión, ver arriba).
+-- Al ganar un capítulo se desbloquea el que lo requiere (y queda guardado en el perfil).
 function ChapterUnlocks.onChapterCleared(player: Player, chapterId: string)
 	local set = unlocked[player]
 	if not set then
@@ -74,6 +98,10 @@ function ChapterUnlocks.onChapterCleared(player: Player, chapterId: string)
 	for _, ch in Chapters do
 		if ch.Requires == chapterId then
 			set[ch.Id] = true
+			local rec = Profiles.chapter(player, ch.Id)
+			if rec then
+				rec.Unlocked = true
+			end
 		end
 	end
 	publish(player)

@@ -5,7 +5,7 @@ Cómo está armado el juego. Para jugar o probar, ver el [README](README.md).
 ## Principios
 
 - **El servidor manda.** Combate, daño, XP, habilidades, estados de vida y de partida se deciden en el servidor. Los clientes dibujan y piden.
-- **Una sola puerta por responsabilidad.** Un único módulo daña jugadores (`PlayerLife.damage`), un único módulo cambia el estado de la partida (`MatchManager`), un único módulo sabe qué capítulos tiene cada uno (`ChapterUnlocks`).
+- **Una sola puerta por responsabilidad.** Un único módulo daña jugadores (`PlayerLife.damage`), un único módulo cambia el estado de la partida (`MatchManager`), un único módulo sabe qué capítulos tiene cada uno (`ChapterUnlocks`), un único módulo toca DataStore (`Profiles`).
 - **Contenido como datos.** Enemigos, jefes, capítulos, habilidades y balance viven en tablas (`Data/EnemyTypes`, `Chapters`, `Skills`, `Config`). Agregar contenido casi nunca requiere programar.
 - **Estado replicado por atributos.** El servidor publica estado en atributos (`GameState` y cada `Player`); los clientes los leen. Los RemoteEvents se usan para eventos puntuales (proyectiles, ofertas, resultados) y para pedidos del cliente.
 
@@ -30,7 +30,9 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `MatchManager` ★ | Ciclo de partida, listo/cancelar, líder, capítulo, cuenta regresiva, resultados, vuelta. Valida todos los pedidos del lobby |
 | `Run` | Una partida en la arena: preparar, avanzar frame a frame, resumen, limpiar. Reutiliza el motor de combate |
 | `Lobby` ★ | Construye la zona segura y el único `SpawnLocation` |
-| `ChapterUnlocks` ★ | Capítulos desbloqueados por jugador (en memoria hasta la etapa 6) |
+| `ChapterUnlocks` ★ | Capítulos desbloqueados y récords por jugador (sobre el perfil) |
+| `Profiles` ★ | Perfil guardado con DataStore: carga, guardado, bloqueo de sesión, versiones, monedas |
+| `Rewards` ★ | Calcula y entrega las recompensas al terminar la partida |
 | `PlayerData` | Stats, habilidades y estadísticas por jugador; `inMatch` |
 | `PlayerLife` ★ | Ciclo de vida: aparición (lobby o arena), daño, derribo, rescate, eliminación |
 | `Waves` | Genera y corre las oleadas del capítulo; escalado por jugadores |
@@ -86,7 +88,23 @@ Todo pedido se descarta si el tipo es incorrecto o si llega antes de `Config.Mat
 ### Estado publicado
 
 `GameState` (atributos): `MatchState`, `SelectedChapter`, `LeaderId`, `CountdownEnd` y `ResultsEnd` (hora de `workspace:GetServerTimeNow()`), y los de la partida (`Phase`, `Wave`, `Level`, `XP`, `Boss*`, `PartySize`, `Chapter*`, `RoomIndex`, `DoorEnd`, `DoorInside`, `DoorNeeded`).
-Cada `Player`: `Ready`, `InMatch`, `UnlockedChapters`, `LifeState`, `DownedLeft`, `ReviveProgress`, `RevivedBy`.
+Cada `Player`: `Ready`, `InMatch`, `UnlockedChapters`, `ChapterRecords`, `ProfileStatus`, `Gold`, `Gems`, `Stones`, `LifeState`, `DownedLeft`, `ReviveProgress`, `RevivedBy`.
+
+## Perfil guardado (`Profiles`)
+
+```
+PlayerAdded ─task.spawn─> load: UpdateAsync toma el bloqueo { JobId, Session, Time }
+   ├─ bloqueado por otra sesión → espera LockRetryDelay (LockRetries veces) y después lo toma
+   ├─ bloqueo más viejo que LockExpire → lo toma enseguida (servidor caído)
+   ├─ versión más nueva que la del servidor → se usa sin guardar
+   └─ falla tras Retries intentos / Studio sin acceso → perfil temporal (Offline)
+Ready → guardar: cada AutoSaveInterval, al terminar la partida (saveSoon), al salir (y soltar), BindToClose
+```
+
+- Solo escribe la sesión dueña del bloqueo (`Lock.Session`). Si otro la tomó, deja de guardar y saca al jugador, para no pisar datos más nuevos.
+- Formato: `{ Version, Data, Lock }`. Al cargar: `migrate` (Migrations[n] lleva n → n+1) y `reconcile` (completa y repara campos). Las monedas salen de `Currencies.lua`.
+- El cierre del servidor espera todos los guardados y cargas en curso (hasta `CloseTimeout`).
+- Las recompensas las calcula `Rewards` con datos del servidor (oleadas superadas, jefes vencidos); el cliente solo las muestra.
 
 ## Salas y puertas (`Run.updateDoor`)
 
@@ -123,5 +141,6 @@ Solo los participantes (`inMatch`) reciben daño y cuentan para la derrota y el 
 
 - `EnemyAI`, `Enemies` y los datos de enemigos en modo no estricto.
 - Los proyectiles visuales se crean y destruyen (sin pool). Para muchas balas en móvil conviene un pool.
-- `ChapterUnlocks` en memoria hasta la etapa 6.
+- Las piedras de mejora y las gemas todavía no se gastan en nada (llegan con equipamiento y tienda).
+- Las pruebas del perfil corren sin hilos reales: los casos con dos pedidos a la vez se simulan con `onCall` del DataStore falso. Conviene probar en Studio con dos servidores.
 - Enemigos con formas básicas (sin modelos ni animaciones).

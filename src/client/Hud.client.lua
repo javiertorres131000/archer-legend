@@ -14,6 +14,7 @@ local StarterGui = game:GetService("StarterGui")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Theme = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UITheme"))
 local Skills = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Skills"))
+local Currencies = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Currencies"))
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local skillOffer = remotes:WaitForChild("SkillOffer") :: RemoteEvent
 local chooseSkill = remotes:WaitForChild("ChooseSkill") :: RemoteEvent
@@ -767,13 +768,13 @@ make("TextButton", { Size = UDim2.fromScale(0, 0), BackgroundTransparency = 1, T
 local panel = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.new(0.9, 0, 0, 420),
+	Size = UDim2.new(0.9, 0, 0, 490),
 	BackgroundColor3 = Theme.Colors.Panel,
 	ZIndex = 21,
 	Parent = results,
 }, {
 	corner(14),
-	make("UISizeConstraint", { MaxSize = Vector2.new(520, 420) }),
+	make("UISizeConstraint", { MaxSize = Vector2.new(520, 490) }),
 	make("UIPadding", {
 		PaddingTop = UDim.new(0, 18),
 		PaddingBottom = UDim.new(0, 18),
@@ -798,7 +799,7 @@ local resultSub = text({
 -- Tabla de jugadores: nombre · bajas · daño
 local tableFrame = make("Frame", {
 	Position = UDim2.new(0, 0, 0, 104),
-	Size = UDim2.new(1, 0, 1, -188),
+	Size = UDim2.new(1, 0, 1, -258),
 	BackgroundTransparency = 1,
 	ZIndex = 22,
 	Parent = panel,
@@ -860,6 +861,81 @@ local function tableRow(order: number, name: string, kills: string, revives: str
 	})
 end
 
+-- Recompensas de esta partida (las calcula y entrega el servidor)
+local rewardsTitle = text({
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 0, 1, -128),
+	Size = UDim2.new(1, 0, 0, 20),
+	Text = "RECOMPENSAS",
+	TextSize = 14,
+	Font = Theme.Fonts.Heading,
+	TextColor3 = Theme.Colors.Gold,
+	ZIndex = 22,
+	Parent = panel,
+})
+local rewardsRow = make("Frame", {
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 0, 1, -86),
+	Size = UDim2.new(1, 0, 0, 38),
+	BackgroundTransparency = 1,
+	ZIndex = 22,
+	Parent = panel,
+}, {
+	make("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Padding = UDim.new(0, 10),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}),
+})
+
+local function showRewards(rewards: { [string]: number }?, firstClear: boolean)
+	for _, child in rewardsRow:GetChildren() do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+	local any = false
+	for i, c in Currencies do
+		local n = rewards and rewards[c.Id] or 0
+		if n > 0 then
+			any = true
+			local chip = make("Frame", {
+				Size = UDim2.new(0, 0, 1, 0),
+				AutomaticSize = Enum.AutomaticSize.X,
+				BackgroundColor3 = Color3.fromRGB(45, 40, 58),
+				LayoutOrder = i,
+				ZIndex = 22,
+				Parent = rewardsRow,
+			}, { corner(19), make("UIPadding", { PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }) })
+			Theme.stroke(c.Color, 1.5, 0.3).Parent = chip
+			text({
+				Size = UDim2.new(0, 0, 1, 0),
+				AutomaticSize = Enum.AutomaticSize.X,
+				Text = string.format("%s +%d", c.Icon, n),
+				TextSize = 19,
+				Font = Theme.Fonts.Bold,
+				TextColor3 = c.Color,
+				ZIndex = 23,
+				Parent = chip,
+			})
+		end
+	end
+	if not any then
+		text({
+			Size = UDim2.new(1, 0, 1, 0),
+			Text = if rewards then "Sin recompensas esta vez" else "Tu perfil no estaba cargado: sin recompensas",
+			TextSize = 15,
+			Font = Enum.Font.Gotham,
+			TextColor3 = Color3.fromRGB(170, 170, 185),
+			ZIndex = 23,
+			Parent = rewardsRow,
+		})
+	end
+	rewardsTitle.Text = if firstClear then "RECOMPENSAS  ·  ¡PRIMERA VICTORIA!" else "RECOMPENSAS"
+end
+
 local againButton = Theme.button({
 	AnchorPoint = Vector2.new(0.5, 1),
 	Position = UDim2.new(0.5, 0, 1, -24),
@@ -911,6 +987,8 @@ runEnded.OnClientEvent:Connect(function(summary)
 	for i, p in summary.players do
 		tableRow(i, p.name, tostring(p.kills), tostring(p.revives or 0), tostring(p.damage), false)
 	end
+
+	showRewards(summary.rewards, summary.firstClear == true)
 
 	againButton.Text = "Volver al lobby"
 	results.Visible = true

@@ -2,13 +2,15 @@
 
 Roguelite de acción cooperativo para Roblox (1 a 4 jugadores), inspirado en las mecánicas de Archero 2 con contenido propio: te quedás quieto para disparar, esquivás patrones de enemigos, elegís 1 de 3 habilidades al subir de nivel y peleás contra jefes con fases.
 
-**Estado:** etapa 5, lobby y ciclo de partidas. Detalle de cada etapa en [CHANGELOG.md](CHANGELOG.md), lo que sigue en [ROADMAP.md](ROADMAP.md) y cómo está armado en [ARCHITECTURE.md](ARCHITECTURE.md).
+**Estado:** etapa 6, progresión permanente (perfil guardado, monedas y recompensas). Detalle de cada etapa en [CHANGELOG.md](CHANGELOG.md), lo que sigue en [ROADMAP.md](ROADMAP.md) y cómo está armado en [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Qué hay hoy
 
 - **Lobby** seguro con interfaz propia: equipo con quién está listo, capítulos con desbloqueo, botón **JUGAR**, cuenta regresiva de 5 s y accesos a inventario, equipamiento y tienda (bloqueados hasta que existan).
 - **Ciclo de partida** controlado por el servidor: `LOBBY → PREPARING → STARTING → PLAYING → RESULTS → RETURNING`.
-- **3 capítulos**: Bosque Maldito (disponible), Ruinas Perdidas y Fortaleza Demoníaca (se desbloquean ganando el anterior). Por ahora el desbloqueo dura la sesión; se guarda de verdad en la etapa 6.
+- **3 capítulos**: Bosque Maldito (disponible), Ruinas Perdidas y Fortaleza Demoníaca (se desbloquean ganando el anterior).
+- **Perfil guardado** (DataStore): capítulos desbloqueados, récords, estadísticas y monedas: oro 🪙, gemas 💎 y piedras de mejora 🔷.
+- **Recompensas** al terminar la partida: oro por oleada superada (también si perdés), oro y piedras por cada jefe, y al ganar oro y gemas (más gemas la primera vez).
 - **Combate**: 10 oleadas generadas al azar por capítulo, 25 enemigos con comportamientos (embestidas, áreas, rebotes, zigzag, teletransporte, enterrarse, invocar), mini-jefe y jefe con 2 fases.
 - **Habilidades**: 8 con rarezas, elegir 1 de 3 al subir de nivel (XP compartida).
 - **Cooperativo**: derribo, rescate de 3 s, eliminación, reaparición en el descanso y dificultad según 1 a 4 jugadores.
@@ -24,6 +26,23 @@ Roguelite de acción cooperativo para Roblox (1 a 4 jugadores), inspirado en las
 **Cámara:** la arena se juega en primera persona. Para volver a la vista desde arriba: `Config.Camera.Mode = "TopDown"`. En primera persona el disparo automático apunta a lo que tenés delante (ancho del cono en `Config.Player.AimConeFirstPerson`).
 
 Para probar rápido: `Config.Debug.UnlockAllChapters = true` deja elegir cualquier capítulo y `Config.Debug.StartWave` arranca en otra oleada (por ejemplo 10 para ir directo al jefe). Volvé a `false` y `1` para jugar normal.
+
+## Guardado (etapa 6): cómo activarlo en Studio
+
+El juego guarda con DataStore, y Roblox solo lo permite en Studio si el juego está publicado:
+
+1. **File › Publish to Roblox** (puede quedar privado).
+2. **Game Settings › Security** → activá **Enable Studio Access to API Services** → Save.
+
+Sin esos dos pasos se juega igual, pero arriba a la derecha del lobby dice *"⚠ Sin guardado"* y nada queda guardado. Con ellos dice *"✔ Progreso guardado"*.
+
+**Cómo probarlo:**
+1. **Play**, jugá el Bosque Maldito y perdé en alguna oleada: en los resultados aparece *RECOMPENSAS* con el oro. Volvé al lobby: arriba a la derecha está el oro sumado y la tarjeta del capítulo dice "Mejor: oleada N/10".
+2. Ganalo (más rápido con `Config.Debug.StartWave = 10`): oro, gemas (55 la primera vez) y piedras, *¡PRIMERA VICTORIA!* y el capítulo 2 desbloqueado.
+3. **Stop** y **Play** de nuevo: tenés que seguir con las monedas, el capítulo 2 y el "✔ Ganado 1 vez".
+4. Las recompensas se ajustan en `Chapters.lua › Rewards` de cada capítulo; el guardado en `Config.Profiles`.
+
+Para empezar de cero en las pruebas, cambiá `Config.Profiles.StoreName` (por ejemplo a `"PlayerProfiles_test2"`): los perfiles viejos quedan guardados aparte. **No lo cambies en el juego publicado** o todos empiezan de cero.
 
 ## Cómo probar salas, puertas y la alerta
 
@@ -68,11 +87,13 @@ En `tests/` (fuera de lo que sincroniza Rojo). Corren los módulos reales del se
 
 | Prueba | Qué cubre |
 | --- | --- |
-| `test_match.luau` | Ciclo de partida: solo, dos jugadores, cancelar listo, desconexión en la cuenta, victoria y vuelta, derrota y vuelta, segunda partida, partidas duplicadas, líder, equipo lleno, permisos y peticiones inválidas |
+| `test_match.luau` | Ciclo de partida: solo, dos jugadores, cancelar listo, desconexión en la cuenta, victoria y vuelta, derrota y vuelta, segunda partida, partidas duplicadas, líder, equipo lleno, permisos y peticiones inválidas; recompensas entregadas y guardadas, volver a entrar con todo, no poder ponerse listo mientras carga el perfil |
 | `test_playerlife.luau` | Derribo, rescate, eliminación, descanso, lobby a salvo, entradas y salidas |
 | `test_catalog.luau` | Catálogo de enemigos y capítulos, escalado coop de oleadas, variedad |
 | `test_aim.luau` | Puntería: en primera persona solo apunta adelante; en cenital, a todo alrededor |
 | `test_ai.luau` | 60 s de cada enemigo y jefe: sin errores, todos atacan, los jefes cambian de fase |
+| `test_profiles.luau` | Perfil: nuevo, guardar y volver, monedas, reintentos, DataStore caído, Studio sin acceso, bloqueo de sesión (esperar, tomar, abandonado, perdido, mismo servidor), migraciones, datos rotos, versión nueva, irse mientras carga, guardado automático y cierre del servidor |
+| `test_rewards.luau` | Cálculo de recompensas: derrota, jefes, primera victoria, valores fuera de rango, los tres capítulos |
 | `test_rooms.luau` | Puerta entre oleadas: hay que entrar todos, límite de tiempo, cambio de sala, entrada, salas hechas a mano, más enemigos por oleada, decoración en los bordes |
 | `test_integration.luau` | Dos partidas completas con el `GameServer` real y 2 bots desde el lobby |
 

@@ -24,6 +24,8 @@ local Remotes = require(script.Parent.Remotes)
 local PlayerData = require(script.Parent.PlayerData)
 local PlayerLife = require(script.Parent.PlayerLife)
 local ChapterUnlocks = require(script.Parent.ChapterUnlocks)
+local Profiles = require(script.Parent.Profiles)
+local Rewards = require(script.Parent.Rewards)
 local Run = require(script.Parent.Run)
 
 local MatchCfg = Config.Match
@@ -201,15 +203,28 @@ end
 local function enterResults(result: Run.Result)
 	Run.finish(result)
 	local summary = Run.summary(result)
-	if result == "Victory" then
-		for _, p in PlayerLife.participants() do
-			ChapterUnlocks.onChapterCleared(p, selectedChapter)
-		end
-	end
+	local chapter = chapterById(selectedChapter)
 	setState("RESULTS")
 	gameState:SetAttribute("ResultsEnd", workspace:GetServerTimeNow() + MatchCfg.ResultsTime)
 	for _, p in PlayerLife.participants() do
-		Remotes.RunEnded:FireClient(p, summary)
+		-- Recompensas de cada uno (las calcula el servidor con lo que pasó en la partida)
+		local personal = table.clone(summary) :: any
+		local stats = PlayerData.get(p)
+		local granted = chapter
+			and Rewards.grant(p, chapter, {
+				result = result,
+				wavesCleared = summary.wavesCleared,
+				bossesKilled = summary.bossesKilled,
+				kills = if stats then stats.kills else 0,
+			})
+		personal.rewards = if granted then granted.amounts else nil -- nil: perfil sin cargar
+		personal.firstClear = granted ~= nil and granted.firstClear
+		if result == "Victory" then
+			ChapterUnlocks.onChapterCleared(p, selectedChapter)
+		end
+		ChapterUnlocks.publish(p) -- récords nuevos para el lobby
+		Profiles.saveSoon(p) -- guardar ya: no esperar al guardado automático
+		Remotes.RunEnded:FireClient(p, personal)
 	end
 end
 
@@ -262,6 +277,10 @@ local function handleRequest(player: Player, action: any, arg: any)
 		end
 		if arg and not readyAt[player] and readyCount() >= MatchCfg.MaxPartySize then
 			notify(player, "El equipo ya está completo.")
+			return
+		end
+		if arg and not Profiles.isLoaded(player) then
+			notify(player, "Cargando tu perfil… probá en un segundo.")
 			return
 		end
 		if arg and not ChapterUnlocks.isUnlocked(player, selectedChapter) then
@@ -329,6 +348,12 @@ function MatchManager.onPlayerAdded(player: Player)
 	ensurePlayableChapter()
 	-- Un jugador nuevo sin "listo" cancela una cuenta regresiva en curso
 	refreshPreparation()
+end
+
+-- Su perfil terminó de cargar: ya puede tener más capítulos desbloqueados.
+function MatchManager.onProfileLoaded(player: Player)
+	ChapterUnlocks.refresh(player)
+	ensurePlayableChapter()
 end
 
 function MatchManager.onPlayerRemoving(player: Player)

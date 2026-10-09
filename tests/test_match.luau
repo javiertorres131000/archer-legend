@@ -161,6 +161,12 @@ test("6. derrota y regreso al lobby", function()
 	local t = playUntil({ "RESULTS" }, 20 * 60, { A })
 	assert(t, "la partida debería terminar")
 	eq(summaries[A] and summaries[A].result, "Defeat", "resultado")
+	-- Perder también da oro por las oleadas superadas, pero no gemas
+	local s = summaries[A]
+	eq(s.rewards.Gold or 0, s.wavesCleared * 10 + (if table.find(s.bossesKilled, "KingSlime") then 30 else 0), "oro por oleadas")
+	eq(s.rewards.Gems, nil, "sin gemas al perder")
+	eq(s.firstClear, false, "no es primera victoria")
+	eq(A:GetAttribute("Gold"), s.rewards.Gold or 0, "oro en el perfil")
 	eq(Enemies.aliveCount() >= 0, true, "")
 	eq(MatchManager.getState(), "RESULTS", "muestra resultados")
 	local waited = 0
@@ -232,6 +238,20 @@ test("5. victoria, desbloqueo del capítulo 2 y regreso al lobby", function()
 	assert(t, "debería terminar")
 	eq(summaries[A].result, "Victory", "resultado")
 	eq(A:GetAttribute("UnlockedChapters"), "forest,ruins", "capítulo 2 desbloqueado")
+	-- Recompensas: 10 oleadas × 10 + mini-jefe 30 + jefe 60 + victoria 100 = 290 de oro;
+	-- gemas 5 + 50 por ser la primera victoria; piedras 1 + 2
+	local r = summaries[A].rewards
+	eq(r.Gold, 290, "oro")
+	eq(r.Gems, 55, "gemas")
+	eq(r.Stones, 3, "piedras")
+	eq(summaries[A].firstClear, true, "primera victoria")
+	eq(A:GetAttribute("Gems"), 55, "gemas en el perfil")
+	eq(A:GetAttribute("ChapterRecords"), "forest=1/10", "récord")
+	-- Quedó guardado sin esperar al guardado automático
+	local saved = M.dataStore.data["Player_" .. A.UserId].Data
+	eq(saved.Currencies.Gems, 55, "gemas guardadas")
+	eq(saved.Chapters.ruins.Unlocked, true, "desbloqueo guardado")
+	eq(saved.Stats.Victories, 1, "victorias")
 	-- Votar volver antes de tiempo se ignora; después, vuelve
 	request(A, "ReturnToLobby")
 	eq(MatchManager.getState(), "RESULTS", "muy pronto para volver")
@@ -310,6 +330,39 @@ test("en resultados, irse cuenta como voto para volver", function()
 	tick(MatchCfg.ReturnDelay + 0.2)
 	eq(MatchManager.getState(), "LOBBY", "estado")
 	M.removePlayer(X)
+end)
+
+test("Ana vuelve a entrar otro día: conserva capítulos, monedas y récords", function()
+	local saved = M.dataStore.data["Player_" .. A.UserId]
+	eq(saved.Lock, nil, "al irse soltó el perfil")
+	local Ana = M.addPlayer("Ana", A.UserId)
+	tick(0.5)
+	eq(Ana:GetAttribute("ProfileStatus"), "Ready", "perfil cargado")
+	eq(Ana:GetAttribute("UnlockedChapters"), "forest,ruins", "capítulos")
+	assert(Ana:GetAttribute("Gems") >= 55, "gemas")
+	assert(string.find(Ana:GetAttribute("ChapterRecords"), "forest=1/10", 1, true), "récord")
+	M.removePlayer(Ana)
+end)
+
+test("mientras carga el perfil no se puede poner listo; si DataStore falla, juega sin guardar", function()
+	local Z
+	notices = {}
+	M.dataStore.onCall = function()
+		-- Pide "listo" a mitad de la carga
+		local loading = M.playerList[#M.playerList] -- Zoe (todavía no volvió addPlayer)
+		Remotes.LobbyRequest.OnServerEvent:Fire(loading, "SetReady", true)
+		error("502: se colgó (simulado)")
+	end
+	Z = M.addPlayer("Zoe")
+	M.dataStore.onCall = nil
+	eq(Z:GetAttribute("Ready"), false, "no quedó listo durante la carga")
+	assert(#notices > 0 and string.find(notices[1].msg, "Cargando", 1, true), "aviso de carga: " .. tostring(notices[1] and notices[1].msg))
+	tick(0.5)
+	eq(Z:GetAttribute("ProfileStatus"), "Offline", "sin DataStore juega igual")
+	request(Z, "SetReady", true)
+	eq(Z:GetAttribute("Ready"), true, "con el perfil temporal ya puede")
+	request(Z, "SetReady", false)
+	M.removePlayer(Z)
 end)
 
 print(string.format("\n%d pruebas, %d fallas", passed + failed, failed))
