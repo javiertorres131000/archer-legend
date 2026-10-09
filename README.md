@@ -23,7 +23,7 @@ Roguelite de acción cooperativo para Roblox (1 a 4 jugadores), inspirado en las
 2. En **Game Settings › Places › Max Players** poné **4** (el juego arma equipos de hasta 4).
 3. **Play** (F5) para uno solo, o **Test › Clients and Servers › 2 Players › Start** para cooperativo.
 
-**Cámara:** la arena se juega en primera persona. Para volver a la vista desde arriba: `Config.Camera.Mode = "TopDown"`. En primera persona el disparo automático apunta a lo que tenés delante (ancho del cono en `Config.Player.AimConeFirstPerson`).
+**Cámara:** la arena se juega en primera persona; cada jugador puede pasar a tercera persona (detrás del hombro) y volver con la tecla **V** (o R3 en el joystick). Teclas, distancia y hombro en `Config.Camera`. Para volver a la vista desde arriba: `Config.Camera.Mode = "TopDown"`. En primera persona el disparo automático apunta a lo que tenés delante (ancho del cono en `Config.Player.AimConeFirstPerson`).
 
 Para probar rápido: `Config.Debug.UnlockAllChapters = true` deja elegir cualquier capítulo y `Config.Debug.StartWave` arranca en otra oleada (por ejemplo 10 para ir directo al jefe). Volvé a `false` y `1` para jugar normal.
 

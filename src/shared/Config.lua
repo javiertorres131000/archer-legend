@@ -153,6 +153,16 @@ Config.Camera = {
 	-- "FirstPerson": en la arena ves por los ojos de tu personaje (el lobby sigue en tercera persona).
 	-- "TopDown": la cámara cenital original, desde arriba.
 	Mode = "FirstPerson",
+	-- En modo "FirstPerson" cada jugador puede alternar la vista de la arena con la tecla:
+	--   "FirstPerson" → por los ojos del personaje
+	--   "ThirdPerson" → detrás del hombro; el personaje sigue girando hacia donde mirás
+	DefaultView = "FirstPerson", -- con cuál arranca
+	ToggleKeys = { Enum.KeyCode.V, Enum.KeyCode.ButtonR3 }, -- teclado / joystick
+	ThirdPersonDistance = 12, -- distancia inicial de la cámara (se puede acercar/alejar con la rueda)
+	ThirdPersonMinZoom = 6,
+	ThirdPersonMaxZoom = 22,
+	ThirdPersonShoulder = Vector3.new(1.75, 0.5, 0), -- corrimiento al costado para no tapar la mira
+	ThirdPersonFieldOfView = 75,
 	FirstPersonFieldOfView = 80,
 	LobbyFieldOfView = 70,
 	-- Alerta de amenazas fuera de la vista (primera persona): flechitas rojas alrededor de la mira

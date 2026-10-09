@@ -2,7 +2,10 @@
 -- Ubicación: StarterPlayer > StarterPlayerScripts > Client > CameraController
 -- Cámara según dónde estés (Config.Camera.Mode elige la de la arena):
 --   Lobby                 → tercera persona normal de Roblox, para pasear
---   Arena, "FirstPerson"  → primera persona: ves por los ojos de tu personaje
+--   Arena, "FirstPerson"  → vista del jugador; con Config.Camera.ToggleKeys (V) alterna entre:
+--       primera persona: ves por los ojos de tu personaje
+--       tercera persona: detrás del hombro, con el mouse trabado al centro (como shift-lock)
+--     En las dos el personaje mira hacia donde mira la cámara (el servidor apunta con eso).
 --   Arena, "TopDown"      → cenital fija desde arriba (mira hacia -Z)
 --   Eliminado             → desde arriba, siguiendo a un compañero en pie
 -- Derribado: la cámara sigue en tu personaje (para ver si viene alguien a revivirte).
@@ -10,6 +13,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local CamCfg = Config.Camera
@@ -18,7 +22,9 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local offset = Vector3.new(0, CamCfg.Height, CamCfg.Back)
 local lastFocus = Vector3.zero
-local current = "" -- modo aplicado ahora: "Lobby" | "FirstPerson" | "TopDown"
+local current = "" -- modo aplicado ahora: "Lobby" | "FirstPerson" | "ThirdPerson" | "TopDown"
+local view = CamCfg.DefaultView or "FirstPerson" -- vista elegida para la arena
+local defaultMaxZoom = player.CameraMaxZoomDistance
 
 local function humanoidOf(p: Player): Humanoid?
 	local character = p.Character
@@ -59,6 +65,47 @@ local function getFocus(): Vector3
 	return fallback or lastFocus
 end
 
+-- Deja el personaje como lo maneja Roblox (sin hombro, girando hacia donde camina)
+local function resetShoulder()
+	local humanoid = humanoidOf(player)
+	if humanoid then
+		humanoid.CameraOffset = Vector3.zero
+		humanoid.AutoRotate = true
+	end
+	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+end
+
+-- Saca la cámara de adentro de la cabeza: fuerza un zoom mínimo un momento y después lo libera
+local function pushCameraOut(minZoom: number, thenMin: number, mode: string)
+	player.CameraMinZoomDistance = minZoom
+	task.delay(0.2, function()
+		if current == mode then
+			player.CameraMinZoomDistance = thenMin
+		end
+	end)
+end
+
+-- Tercera persona en la arena: el personaje gira con la cámara, como en primera persona
+local function updateShoulder()
+	local humanoid = humanoidOf(player)
+	local root = rootOf(player)
+	if not humanoid or not root then
+		return
+	end
+	-- (Se repite cada cuadro porque el personaje cambia al reaparecer)
+	humanoid.CameraOffset = CamCfg.ThirdPersonShoulder
+	humanoid.AutoRotate = false
+	UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+	if player:GetAttribute("LifeState") == "DOWNED" then
+		return
+	end
+	local look = camera.CFrame.LookVector
+	local flat = Vector3.new(look.X, 0, look.Z)
+	if flat.Magnitude > 0.01 then
+		root.CFrame = CFrame.lookAt(root.Position, root.Position + flat)
+	end
+end
+
 -- Cámara normal de Roblox que sigue al personaje (tercera o primera persona).
 local function useRobloxCamera(mode: string)
 	if current == mode and camera.CameraType == Enum.CameraType.Custom then
@@ -69,20 +116,24 @@ local function useRobloxCamera(mode: string)
 		end
 		return
 	end
+	if current == "ThirdPerson" then
+		resetShoulder()
+	end
 	current = mode
 	if mode == "FirstPerson" then
+		player.CameraMaxZoomDistance = defaultMaxZoom
 		player.CameraMinZoomDistance = 0.5
 		player.CameraMode = Enum.CameraMode.LockFirstPerson
 		camera.FieldOfView = CamCfg.FirstPersonFieldOfView
+	elseif mode == "ThirdPerson" then
+		player.CameraMode = Enum.CameraMode.Classic
+		player.CameraMaxZoomDistance = CamCfg.ThirdPersonMaxZoom
+		pushCameraOut(CamCfg.ThirdPersonDistance, CamCfg.ThirdPersonMinZoom, mode)
+		camera.FieldOfView = CamCfg.ThirdPersonFieldOfView
 	else
 		player.CameraMode = Enum.CameraMode.Classic
-		-- Saca la cámara de adentro de la cabeza al volver al lobby
-		player.CameraMinZoomDistance = 8
-		task.delay(0.2, function()
-			if current == mode then
-				player.CameraMinZoomDistance = 0.5
-			end
-		end)
+		player.CameraMaxZoomDistance = defaultMaxZoom
+		pushCameraOut(8, 0.5, mode)
 		camera.FieldOfView = CamCfg.LobbyFieldOfView
 	end
 	camera.CameraType = Enum.CameraType.Custom
@@ -91,6 +142,18 @@ local function useRobloxCamera(mode: string)
 		camera.CameraSubject = humanoid
 	end
 end
+
+-- Alternar primera / tercera persona (solo tiene efecto en la arena con Mode = "FirstPerson")
+local toggleKeys = {}
+for _, key in CamCfg.ToggleKeys or {} do
+	toggleKeys[key] = true
+end
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed or not toggleKeys[input.KeyCode] then
+		return
+	end
+	view = if view == "FirstPerson" then "ThirdPerson" else "FirstPerson"
+end)
 
 RunService:BindToRenderStep("ArqueroCamera", Enum.RenderPriority.Camera.Value + 1, function(dt)
 	local inMatch = player:GetAttribute("InMatch") == true
@@ -101,12 +164,18 @@ RunService:BindToRenderStep("ArqueroCamera", Enum.RenderPriority.Camera.Value + 
 		return
 	end
 	if CamCfg.Mode == "FirstPerson" and not eliminated then
-		useRobloxCamera("FirstPerson")
+		useRobloxCamera(view)
+		if view == "ThirdPerson" then
+			updateShoulder()
+		end
 		return
 	end
 
 	-- Cenital (modo TopDown, o mirando a un compañero cuando estás eliminado)
 	if current ~= "TopDown" then
+		if current == "ThirdPerson" then
+			resetShoulder()
+		end
 		current = "TopDown"
 		player.CameraMode = Enum.CameraMode.Classic
 	end
