@@ -113,6 +113,18 @@ M.UDim2 = {
 	fromOffset = function(x, y) return { offset = { x, y } } end,
 }
 M.UDim = { new = function(...) return { ... } end }
+-- Terreno (MapBuilder): las pruebas no dibujan nada; se anota qué se pidió
+M.Region3 = {
+	new = function(min, max)
+		local r = { CFrame = M.CFrame.new((min + max) / 2), Size = max - min }
+		function r.ExpandToGrid(self) return self end
+		return r
+	end,
+}
+M.Vector3int16 = { new = function(x, y, z) return { X = x, Y = y, Z = z } end }
+M.RaycastParams = { new = function() return {} end }
+M.terrainWrites = 0
+
 -- warn de Roblox: se guarda para que las pruebas lo revisen (y no ensucia la salida)
 M.warnings = {}
 M.warn = function(...)
@@ -120,11 +132,22 @@ M.warn = function(...)
 	for _, v in { ... } do table.insert(parts, tostring(v)) end
 	table.insert(M.warnings, table.concat(parts, " "))
 end
+-- Random con semilla (como el de Roblox: misma semilla, misma secuencia)
 M.Random = {
-	new = function(_seed)
+	new = function(seed)
+		local state = math.floor(math.abs(seed or os.clock() * 1e6)) % 2147483647
+		if state == 0 then state = 1 end
+		local function nextFloat()
+			state = (state * 48271) % 2147483647
+			return state / 2147483647
+		end
 		return {
-			NextInteger = function(_, a, b) return math.random(a, b) end,
-			NextNumber = function(_, a, b) return (a or 0) + math.random() * ((b or 1) - (a or 0)) end,
+			NextInteger = function(_, a, b) return a + math.floor(nextFloat() * (b - a + 1)) end,
+			NextNumber = function(_, a, b)
+				a = a or 0
+				b = b or 1
+				return a + nextFloat() * (b - a)
+			end,
 		}
 	end,
 }
@@ -192,6 +215,8 @@ function methods:Destroy()
 	raw._destroyed = true
 	self.Parent = nil
 end
+function methods:SetNetworkOwner(owner) rawget(self, "_raw")._networkOwner = owner end
+function methods:SetNetworkOwnershipAuto() rawget(self, "_raw")._networkAuto = true end
 function methods:SetAttribute(k, v) rawget(self, "_raw")._attrs[k] = v end
 function methods:GetAttribute(k) return rawget(self, "_raw")._attrs[k] end
 function methods:GetChildren() return table.clone(rawget(self, "_raw")._children) end
@@ -232,6 +257,11 @@ function methods:PivotTo(cf)
 end
 function methods:FireClient(...) end
 function methods:Kick(msg) rawget(self, "_raw").kicked = msg or "" end
+-- Terreno y rayos: sin geometría real (los rayos no pegan en nada)
+function methods:Clear() end
+function methods:WriteVoxels() M.terrainWrites += 1 end
+function methods:PasteRegion() end
+function methods:Raycast() return nil end
 function methods:IsA(cls) return rawget(self, "_raw").ClassName == cls end
 
 instmt.__index = function(self, k)
@@ -293,6 +323,7 @@ M.Instance = {
 -- Servicios
 ---------------------------------------------------------------------
 local workspaceInst = newInstance("Workspace", { Name = "Workspace" })
+newInstance("Terrain", { Name = "Terrain" }).Parent = workspaceInst
 function methods:BulkMoveTo(parts, cframes)
 	for i, p in parts do
 		p.CFrame = cframes[i]

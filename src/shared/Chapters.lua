@@ -22,6 +22,7 @@ return {
 	{
 		Id = "forest",
 		Theme = "forest", -- decoración de las salas (Arena.lua)
+		Accent = C(90, 255, 160), -- neón de la sala y tinte de la luz (modo frenético)
 		Name = "Bosque Maldito",
 		Description = "Slimes, murciélagos y plantas venenosas. Lo protege el Guardián Treant.",
 		Icon = "🌲",
@@ -46,6 +47,11 @@ return {
 		MiniBoss = { Wave = 5, Type = "KingSlime" },
 		Boss = { Wave = 10, Type = "Treant" },
 		Pool = {
+			{ Type = "HordeSkeleton", From = 1, Weight = 3 },
+			{ Type = "RushBeast", From = 2, Weight = 1.5 },
+			{ Type = "HoodMage", From = 3, Weight = 1 },
+			{ Type = "HeavyKnight", From = 4, Weight = 0.7 },
+			{ Type = "EliteCaptain", From = 6, Weight = 0.4 },
 			{ Type = "GreenSlime", From = 1, Weight = 4 },
 			{ Type = "GreenBat", From = 1, Weight = 3 },
 			{ Type = "WhiteSkull", From = 2, Weight = 3 },
@@ -60,6 +66,7 @@ return {
 	{
 		Id = "ruins",
 		Theme = "ruins",
+		Accent = C(255, 190, 60), -- neón de la sala y tinte de la luz (modo frenético)
 		Name = "Ruinas Perdidas",
 		Description = "Esqueletos, gólems y magos entre piedras antiguas. Duerme ahí el Gólem de Piedra.",
 		Icon = "🏛",
@@ -83,6 +90,11 @@ return {
 		MiniBoss = { Wave = 5, Type = "CyclopsMage" },
 		Boss = { Wave = 10, Type = "StoneGolem" },
 		Pool = {
+			{ Type = "HordeSkeleton", From = 1, Weight = 3 },
+			{ Type = "RushBeast", From = 2, Weight = 1.5 },
+			{ Type = "HoodMage", From = 3, Weight = 1 },
+			{ Type = "HeavyKnight", From = 4, Weight = 0.7 },
+			{ Type = "EliteCaptain", From = 6, Weight = 0.4 },
 			{ Type = "WhiteSkull", From = 1, Weight = 3 },
 			{ Type = "SkeletonArcher", From = 1, Weight = 3 },
 			{ Type = "Spider", From = 2, Weight = 2 },
@@ -98,6 +110,7 @@ return {
 	{
 		Id = "fortress",
 		Theme = "fortress",
+		Accent = C(255, 60, 120), -- neón de la sala y tinte de la luz (modo frenético)
 		Name = "Fortaleza Demoníaca",
 		Description = "Fuego, bombas y torres arcanas. Te espera el Demonio de Fuego.",
 		Icon = "🔥",
@@ -121,6 +134,11 @@ return {
 		MiniBoss = { Wave = 5, Type = "Reaper" },
 		Boss = { Wave = 10, Type = "FlameDemon" },
 		Pool = {
+			{ Type = "HordeSkeleton", From = 1, Weight = 3 },
+			{ Type = "RushBeast", From = 2, Weight = 1.5 },
+			{ Type = "HoodMage", From = 3, Weight = 1 },
+			{ Type = "HeavyKnight", From = 4, Weight = 0.7 },
+			{ Type = "EliteCaptain", From = 6, Weight = 0.4 },
 			{ Type = "FireSpirit", From = 1, Weight = 3 },
 			{ Type = "RedBat", From = 1, Weight = 3 },
 			{ Type = "WhiteBomb", From = 2, Weight = 2 },

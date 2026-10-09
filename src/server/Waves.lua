@@ -111,13 +111,13 @@ function Waves.buildQueue(ch, n: number, countMult: number?): { string }
 end
 
 local function healthMultFor(n: number): number
-	return chapter().HealthMult * (1 + (n - 1) * WavesCfg.HealthGrowth) * scale.Health
+	return chapter().HealthMult * (1 + (n - 1) * WavesCfg.HealthGrowth) * scale.Health * Config.Frenzy.EnemyHealthMult
 end
 
 local function spawnInterval(n: number): number
 	local ch = chapter()
 	local t = if ch.Waves > 1 then (n - 1) / (ch.Waves - 1) else 0
-	return ch.Interval[1] + (ch.Interval[2] - ch.Interval[1]) * t
+	return (ch.Interval[1] + (ch.Interval[2] - ch.Interval[1]) * t) * Config.Frenzy.SpawnIntervalMult
 end
 
 local function startWave(n: number, targets: { PlayerData.Target })
@@ -198,6 +198,10 @@ function Waves.current(): number
 end
 
 -- Segundos desde que arrancó la partida.
+function Waves.pauseTime(dt: number)
+	if wave > 0 then runStart += dt end
+end
+
 function Waves.elapsed(): number
 	return if wave > 0 then os.clock() - runStart else 0
 end
@@ -239,10 +243,16 @@ function Waves.update(dt: number, targets: { PlayerData.Target }, frozen: boolea
 			local pos = Enemies.findSpawnPosition(targets)
 			if pos then
 				spawnTimer = 0
-				Enemies.spawn(table.remove(spawnQueue) :: string, pos, {
-					healthMult = healthMultFor(wave),
-					dmgMult = ch.DamageMult,
-				})
+				-- Aparecen en grupo, alrededor del mismo punto
+				for i = 1, math.min(Config.Frenzy.SpawnGroup, #spawnQueue, Config.Enemy.MaxAlive - Enemies.aliveCount()) do
+					local angle = i * 2.4
+					local offset = if i == 1 then Vector3.zero else Vector3.new(math.cos(angle), 0, math.sin(angle)) * 4
+					Enemies.spawn(table.remove(spawnQueue) :: string, pos + offset, {
+						healthMult = healthMultFor(wave),
+						dmgMult = ch.DamageMult * Config.Frenzy.EnemyDamageMult,
+						golden = math.random() < Config.Frenzy.GoldenChance,
+					})
+				end
 			end
 		end
 		updateEnemiesLeft()

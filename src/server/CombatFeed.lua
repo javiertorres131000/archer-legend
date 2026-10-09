@@ -3,10 +3,12 @@
 -- Ubicación: ServerScriptService > Server > CombatFeed
 -- Junta lo que cada jugador tiene que ver como número flotante y se lo manda agrupado:
 --   hit   daño que le hiciste a un enemigo (blanco)
+--   crit  golpe crítico (amarillo, grande)
 --   burn  daño de quemadura que causaste (naranja)
 --   ally  daño de un compañero (gris, solo con Config.CombatText.ShowTeammateDamage)
 --   hurt  daño que recibiste (rojo)
---   xp    experiencia que dio un enemigo al morir (la XP es del equipo)
+--   xp    experiencia de los orbes que juntaste (se suman en un número)
+--   kill  murió un enemigo: explosión del color del enemigo y combo (lo ven todos)
 --   loot  botín que cobraste (oro, gemas, piedras)
 --
 -- Para no saturar la red: los golpes al mismo enemigo dentro de FlushInterval se suman en un
@@ -19,10 +21,19 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 
 local Cfg = Config.CombatText
 
-export type Kind = "hit" | "burn" | "ally" | "hurt" | "xp" | "loot"
-export type Event = { k: Kind, p: Vector3?, a: number?, g: { [string]: number }? }
+export type Kind = "hit" | "crit" | "burn" | "ally" | "hurt" | "xp" | "loot" | "kill"
+export type Event = {
+	k: Kind,
+	p: Vector3?,
+	a: number?,
+	g: { [string]: number }?,
+	i: Instance?, -- la parte del enemigo golpeado (para el destello blanco)
+	c: Color3?,
+	s: number?,
+	x: boolean?, -- enemigo dorado
+}
 
-type Pending = { kind: Kind, pos: Vector3, amount: number }
+type Pending = { kind: Kind, pos: Vector3, amount: number, part: Instance? }
 
 local CombatFeed = {}
 
@@ -45,7 +56,8 @@ local function push(player: Player, event: Event)
 end
 
 -- Daño a un enemigo. key identifica al enemigo (para sumar golpes seguidos).
-function CombatFeed.dealt(player: Player, key: any, pos: Vector3, amount: number, kind: Kind)
+-- part: la parte del enemigo, para que el cliente la haga destellar.
+function CombatFeed.dealt(player: Player, key: any, pos: Vector3, amount: number, kind: Kind, part: Instance?)
 	if amount <= 0 then
 		return
 	end
@@ -60,7 +72,7 @@ function CombatFeed.dealt(player: Player, key: any, pos: Vector3, amount: number
 		entry.amount += amount
 		entry.pos = pos
 	else
-		byKey[slot] = { kind = kind, pos = pos, amount = amount }
+		byKey[slot] = { kind = kind, pos = pos, amount = amount, part = part }
 	end
 end
 
@@ -71,13 +83,15 @@ function CombatFeed.hurt(player: Player, amount: number)
 	end
 end
 
--- XP que dio un enemigo: la ven todos los que juegan (es del equipo).
-function CombatFeed.xp(players: { Player }, pos: Vector3, amount: number)
-	if amount <= 0 then
-		return
-	end
+-- XP de orbes que juntó el jugador (se suma en un solo número por envío).
+function CombatFeed.xp(player: Player, pos: Vector3, amount: number)
+	CombatFeed.dealt(player, "orbs", pos, amount, "xp")
+end
+
+-- Murió un enemigo: todos los que juegan ven la explosión (y suman al combo).
+function CombatFeed.kill(players: { Player }, pos: Vector3, color: Color3, size: number, golden: boolean)
 	for _, p in players do
-		push(p, { k = "xp", p = pos, a = math.floor(amount + 0.5) })
+		push(p, { k = "kill", p = pos, c = color, s = size, x = golden })
 	end
 end
 
@@ -97,7 +111,12 @@ function CombatFeed.collect(): { [Player]: { Event } }
 			if entry.kind ~= "burn" or entry.amount >= 1 then
 				local list = out[player] or {}
 				out[player] = list
-				table.insert(list, { k = entry.kind, p = entry.pos, a = math.max(1, math.floor(entry.amount + 0.5)) })
+				table.insert(list, {
+					k = entry.kind,
+					p = entry.pos,
+					a = math.max(1, math.floor(entry.amount + 0.5)),
+					i = entry.part,
+				})
 				byKey[slot] = nil
 			end
 		end

@@ -10,18 +10,23 @@
 - [x] **Etapa 5** · Lobby y ciclo de partidas
 - [x] Primera persona, salas con puerta entre oleadas, más enemigos y alerta de amenazas
 - [x] **Etapa 6** · Progresión permanente: perfil guardado, monedas y recompensas
+- [x] Botín al matar y números flotantes
+- [x] **Modo frenético**: disparar caminando, hordas, orbes de XP, cofres, dorados, jugo visual, luces y sonido
+
+- [x] Objetos temporales acumulables y sinergias, rareza mítica arcoíris, dash y selección con pausa global
 
 ## Próximas etapas
 
 ### Etapa 7 · Equipamiento e inventario
-- [ ] Inventario y seis espacios: arma, casco, armadura, anillo, amuleto, botas
-- [ ] Rarezas, mejoras por nivel y fusiones
-- [ ] Conjuntos con bonificaciones
-- [ ] Activar los botones de Inventario y Equipamiento del lobby
+- [x] Inventario y seis espacios: arma, casco, armadura, anillo, amuleto, botas
+- [x] Rarezas, mejoras por nivel y fusiones
+- [x] Conjuntos con bonificaciones
+- [x] Activar los botones de Inventario y Equipamiento del lobby
 
 ### Etapa 8 · Talentos, runas y economía
 - [ ] Talentos y runas
 - [ ] Cofres gratuitos y especiales
+- [ ] Reciclaje de equipo y balance de costos/botín
 - [ ] Misiones diarias y semanales
 - [ ] Activar el botón de Tienda (sin monetización)
 
@@ -32,10 +37,10 @@
 - [ ] Modelos y animaciones de enemigos
 
 ### Etapa 10 · Experiencia y pulido
-- [ ] Números de daño e indicadores claros
-- [ ] Efectos visuales y sonoros, animaciones de combate
+- [x] Números de daño e indicadores claros
+- [ ] Sonidos propios (hoy son los básicos de Roblox) y animaciones de combate
 - [ ] Pantallas de recompensas y progresión
-- [ ] Pool de proyectiles visuales para móvil
+- [x] Pool de proyectiles visuales para móvil
 - [ ] Matchmaking entre servidores y teletransporte
 
 ### Más adelante

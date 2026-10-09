@@ -26,9 +26,9 @@ LUAU = os.environ.get("LUAU", "luau")
 HEADER = (
     'local __M = require("./mocks")\n'
     "local game, workspace, script, Instance, Vector3, Vector2, CFrame, Color3, UDim2, UDim, Enum, "
-    "task, os, typeof, TweenInfo, Random, warn = __M.game, __M.workspace, __M.script, __M.Instance, __M.Vector3, "
+    "task, os, typeof, TweenInfo, Random, warn, Region3, Vector3int16, RaycastParams = __M.game, __M.workspace, __M.script, __M.Instance, __M.Vector3, "
     "__M.Vector2, __M.CFrame, __M.Color3, __M.UDim2, __M.UDim, __M.Enum, __M.task, __M.os, "
-    "__M.typeof, __M.TweenInfo, __M.Random, __M.warn\n"
+    "__M.typeof, __M.TweenInfo, __M.Random, __M.warn, __M.Region3, __M.Vector3int16, __M.RaycastParams\n"
 )
 
 REQUIRE_PATTERNS = [

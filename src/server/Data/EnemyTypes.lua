@@ -1052,4 +1052,20 @@ T.FlameDemon = {
 	},
 }
 
+-- Roles legibles: horda, embestida, zona, bloqueo, prioridad.
+T.HordeSkeleton = { Name = "Esqueleto de horda", Role = "Horde", Health = 35, Size = 2.2, Height = 3.6,
+ Color = BONE, ContactDamage = 8, XP = 1, Cost = 1, Move = { Type = "Chase", Speed = 9 } }
+T.RushBeast = { Name = "Bestia veloz", Role = "Rush", Health = 65, Size = 2.8, Shape = "Ball",
+ Color = C(255, 145, 60), ContactDamage = 12, XP = 2, Cost = 2, Move = { Type = "Chase", Speed = 15 },
+ Attacks = { { Type = "Dash", Cooldown = { 3, 4 }, Range = 30, Telegraph = 0.8, Distance = 24, Speed = 42, Damage = 18, Recover = 0.8 } } }
+T.HoodMage = { Name = "Mago encapuchado", Role = "Zone", Health = 75, Size = 2.4, Height = 4.5,
+ Color = C(160, 90, 230), ContactDamage = 6, XP = 3, Cost = 3, Move = { Type = "Keep", Speed = 8, Min = 16, Max = 26 },
+ Attacks = { { Type = "Area", Cooldown = { 3, 5 }, Range = 45, Target = "Player", Count = 2, Scatter = 8, Radius = 5, Delay = 1.2, Damage = 18, Telegraph = 0.5 } } }
+T.HeavyKnight = { Name = "Caballero pesado", Role = "Blocker", Health = 220, Size = 4.6, Height = 5.2,
+ Color = C(90, 125, 150), ContactDamage = 20, XP = 5, Cost = 5, Move = { Type = "Chase", Speed = 5 },
+ Attacks = { { Type = "Area", Cooldown = { 4, 6 }, Range = 26, Target = "Player", Radius = 5, Delay = 1.3, Damage = 22, Telegraph = 0.9 } } }
+T.EliteCaptain = { Name = "Capitán élite", Role = "Elite", Health = 260, Size = 3.8, Height = 5,
+ Color = C(235, 65, 120), ContactDamage = 22, XP = 8, Cost = 8, Move = { Type = "Keep", Speed = 10, Min = 10, Max = 18 },
+ Attacks = { { Type = "Dash", Cooldown = { 4, 6 }, Range = 28, Telegraph = 1, Distance = 20, Speed = 35, Damage = 24 },
+ { Type = "Shoot", Cooldown = { 3, 4 }, Range = 40, Count = 3, Spread = 35, Speed = 24, Damage = 15, Telegraph = 0.9 } } }
 return T

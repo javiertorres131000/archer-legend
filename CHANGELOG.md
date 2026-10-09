@@ -1,5 +1,77 @@
 # Cambios
 
+## 2026-10-09 · Corrección de selección de poderes
+
+- Cartas grandes centradas, fondo oscuro y cursor libre automáticamente.
+- Pausa global mientras cualquier jugador vivo elige; inmovilidad de todos los participantes, sin daño, proyectiles o enemigos avanzando.
+- Relojes de quemadura, rescate y combate suspendidos; aviso cooperativo de espera y selección automática a los 30 segundos.
+- Nueva prueba de regresión para pausa, inmunidad, proyectiles, reanudación y limpieza.
+
+
+## 2026-10-09 · Objetos temporales y etapa 7
+
+- Diez pasivos acumulables de partida con aura, rayos encadenados, explosiones y sinergias; reinicio sin guardarlos en el perfil.
+- Rarezas compartidas de común a mítica; avisos y cofres por color, arcoíris animado en míticos.
+- Elección compacta sin pausa ni bloqueo del disparo; dash con validación, recarga e impulso controlado por el servidor.
+- Cinco roles nuevos: esqueleto de horda, bestia veloz, mago encapuchado, caballero pesado y capitán élite; introducción progresiva en los tres capítulos.
+- Inventario guardado, seis espacios, equipo inicial, botín de jefes/dorados/cofres, mejoras con oro y piedras, fusión y dos conjuntos.
+- Perfil v2 compatible con el progreso anterior; peticiones y transacciones validadas en servidor.
+- Límite de enemigos incluye grupos e invocaciones; separación espacial y pool de proyectiles visuales; diagnóstico FPS optativo.
+- Nuevas pruebas de objetos, dash, equipo y persistencia. Compilación de todo el código y revisión de documentación.
+
+
+## Mapa abierto con relieve, de día
+
+- **De día:** luz natural, bloom suave, sin líneas neón, y bruma a lo lejos (`Config.Effects`).
+- **Mapa abierto grande** (300 × 300) por partida, sin puertas entre oleadas (`Config.Waves.UseDoors = false`; con `true` vuelven).
+- **Relieve generado** (`MapBuilder.lua`) con el Terreno de Roblox: lomas suaves, **mesetas con rampa** para subir, acantilados de roca, montañas en el borde y un centro plano para aparecer. Distinto en cada partida. Pasto, arenisca o basalto según el capítulo.
+- **Mapas esculpidos a mano:** un TerrainRegion en `ServerStorage > Maps > <capítulo>` reemplaza al generado (pasos en el README).
+- **`Ground.lua`:** altura del piso en una grilla. Los enemigos caminan sobre el relieve, y los avisos del piso, orbes, cofres y puntos de aparición quedan apoyados.
+- Los enemigos aparecen a 32–75 studs de algún jugador (en un mapa grande no tiene sentido que aparezcan del otro lado). Los cofres aparecen cerca del equipo.
+- Los que vuelven en el descanso aparecen al lado de un compañero.
+- Un enemigo no te pega por contacto si estás arriba de una meseta (o abajo).
+- Las flechas y bolas se dibujan siguiendo el relieve.
+- Prueba nueva `test_map.luau`. `test_rooms` ahora prueba el modo con puertas activándolo.
+
+**Cambios en lo existente (y por qué)**
+- `Arena`: ya no hay piso plano visible ni paredes a la vista (son invisibles; el borde son montañas). La decoración por salas (`ServerStorage > Rooms`) se reemplazó por mapas (`ServerStorage > Maps`).
+- Se aparece en el centro del mapa, no en la entrada sur.
+
+## Modo frenético
+
+El juego pasa de "Archero" (quieto para disparar) a un survivors frenético tipo Megabonk.
+
+**Ritmo**
+- **Disparás caminando** (`Config.Player.ShootWhileMoving`; en `false` vuelve la regla de quedarse quieto).
+- **Hordas:** 10 veces más enemigos por oleada, aparecen de a 5 y mucho más seguido; hasta 110 a la vez. Cada enemigo común tiene 60% de la vida y hace 50% del daño (son muchos más).
+- **Pausa entre golpes** de 0,3 s: con hordas, no te pegan diez en el mismo instante.
+- **Críticos** (10%, ×2) y **retroceso** de los enemigos al recibir flechazos.
+- **Enemigo dorado** (0,8%): brilla, aguanta ×4 y suelta ×6 de botín, gemas y mucha XP.
+- **Orbes de XP:** la XP ya no llega sola, cae en orbes que atraés con un imán al pasar cerca. Al terminar la oleada se juntan todos solos.
+- **Cofres** cada 45 muertes del equipo: se abren pasando al lado y dan oro, a veces gemas y **una habilidad gratis a cada jugador**. Haz de luz dorado para encontrarlos.
+- **Habilidades nuevas:** Imán (+40% radio), Ojo de halcón (+8% crítico) y Golpe brutal (+50% daño crítico).
+- Barras de vida solo en jefes y dorados (con hordas pesaban; el daño se ve con los números).
+- XP por nivel ajustada (`BaseXP` 12, `XPGrowth` 7): en una partida se sube unos 20 niveles.
+
+**Jugo y luces**
+- Destello blanco del enemigo al recibir un golpe, explosión de partículas del color del enemigo al morir y onda expansiva.
+- Números de crítico enormes con "!", sacudón de cámara en críticos, golpes recibidos y dorados.
+- **Contador de combo** con anuncios: ¡BUENA RACHA!, ¡MASACRE!, ¡IMPARABLE!, ¡LEYENDA!
+- **Subir de nivel:** destello dorado, "¡NIVEL N!" y cartas que entran girando como tragamonedas, con el borde latiendo según la rareza.
+- **Luz de arena:** de noche, con bloom y más saturación, teñida con el color del capítulo; líneas neón en las paredes. Flechas con estela, proyectiles enemigos con luz.
+- Calidad automática (`Config.Effects.Quality`): en celulares, sin bloom, sin estelas y con menos partículas.
+
+**Sonido**
+- `Sfx.client.lua` y `Sounds.lua`: disparo, golpe, crítico, muerte, monedas (más agudas si las juntás seguido), XP, daño recibido, subir de nivel, cofre y puerta. Por ahora usan sonidos básicos de Roblox; se reemplazan en `Sounds.lua`.
+
+**Cambios en lo existente (y por qué)**
+- `Combat` ya no exige estar quieto; sortea críticos y empuja a los enemigos.
+- `Run`: la XP cae como orbe; cada muerte cuenta para los cofres y manda una explosión a todos. Al empezar el descanso se juntan los orbes y se abren los cofres.
+- `PlayerLife.damage` respeta la pausa entre golpes.
+- `CombatFeed`: tipos nuevos "crit" y "kill"; los golpes llevan la parte del enemigo (para el destello); la XP es la de los orbes que juntaste.
+- En vista desde arriba, el personaje ya no se gira hacia el objetivo mientras camina.
+- Pruebas nuevas `test_orbs.luau`; `test_aim`, `test_loot`, `test_playerlife` e integración actualizadas.
+
 ## Botín y números flotantes
 
 - **Botín al matar enemigos** (`Loot.lua`): cada enemigo suelta oro según su costo (±50%) y a veces una gema (3%) o una piedra de mejora (2%). Los jefes sueltan un extra. Se multiplica por `Rewards.LootMult` del capítulo (1 · 1,6 · 2,5). Lo cobran **todos** los participantes (botín compartido) y va directo al perfil: no se pierde si perdés o te vas. Los invocados por jefes no dan botín.

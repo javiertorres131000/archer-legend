@@ -416,14 +416,16 @@ for i, item in { { Icons.Inventory, "Inventario" }, { Icons.Equipment, "Equipo" 
 		Text = item[2],
 		Font = Fonts.Bold,
 		TextSize = 13,
-		TextColor3 = Colors.Locked,
+		TextColor3 = if i < 3 then Colors.GoldBright else Colors.Locked,
 		Parent = b,
 	})
 	local function showTip()
-		soonTip.Text = Icons.Locked .. "  " .. item[2] .. ": próximamente"
+		soonTip.Text = if i < 3 then "Abrir " .. item[2] else Icons.Locked .. "  " .. item[2] .. ": próximamente"
 	end
 	b.MouseEnter:Connect(showTip)
-	b.Activated:Connect(showTip)
+	b.Activated:Connect(function()
+		if i < 3 then player:WaitForChild("PlayerGui"):SetAttribute("EquipmentTab", item[2]) else showTip() end
+	end)
 	b.MouseLeave:Connect(function()
 		soonTip.Text = ""
 	end)

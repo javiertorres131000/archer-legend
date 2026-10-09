@@ -24,8 +24,8 @@ print("Botín y números flotantes")
 
 test("enemigo común: oro según su costo, sin gemas con mala suerte", function()
 	-- random = 0.5 → sin variación; 0.5 > probabilidad de gema y piedra
-	local r = Loot.roll(3, false, 1, fixed(0.5))
-	eq(r.Gold, 3 * Config.Loot.GoldPerCost, "oro")
+	local r = Loot.roll(4, false, 1, fixed(0.5))
+	eq(r.Gold, math.floor(4 * Config.Loot.GoldPerCost + 0.5), "oro")
 	eq(r.Gems, nil, "gemas")
 	eq(r.Stones, nil, "piedras")
 end)
@@ -51,11 +51,11 @@ test("los jefes sueltan el extra de Config.Loot.Boss", function()
 end)
 
 test("variación: el oro queda dentro de ±GoldVariation", function()
-	local cost = 10
+	local base = 20 * Config.Loot.GoldPerCost
 	for _ = 1, 200 do
-		local g = Loot.roll(cost, false, 1).Gold
-		assert(g >= math.floor(cost * (1 - Config.Loot.GoldVariation)), "muy poco: " .. g)
-		assert(g <= math.ceil(cost * (1 + Config.Loot.GoldVariation)), "demasiado: " .. g)
+		local g = Loot.roll(20, false, 1).Gold
+		assert(g >= math.floor(base * (1 - Config.Loot.GoldVariation)), "muy poco: " .. g)
+		assert(g <= math.ceil(base * (1 + Config.Loot.GoldVariation)), "demasiado: " .. g)
 	end
 end)
 
@@ -87,19 +87,34 @@ test("la quemadura junta fracciones hasta llegar a 1", function()
 	eq(out[P][1].a, 1, "1 de quemadura")
 end)
 
-test("daño recibido, XP para todos y botín de cada uno", function()
+test("daño recibido, XP de orbes sumada, muertes para todos y botín de cada uno", function()
 	CombatFeed.clear()
 	CombatFeed.hurt(P, 12.4)
-	CombatFeed.xp({ P, Q }, M.Vector3.zero, 5)
+	CombatFeed.xp(P, M.Vector3.zero, 5)
+	CombatFeed.xp(P, M.Vector3.zero, 3) -- dos orbes en el mismo envío: un solo "+8 XP"
+	CombatFeed.kill({ P, Q }, M.Vector3.zero, M.Color3.new(1, 0, 0), 3, true)
 	CombatFeed.loot(Q, M.Vector3.zero, { Gold = 3 })
 	CombatFeed.loot(P, M.Vector3.zero, {}) -- vacío: no se manda
 	local out = CombatFeed.collect()
-	eq(#out[P], 2, "Ana: daño recibido y XP")
-	eq(out[P][1].k, "hurt", "tipo")
-	eq(out[P][1].a, 12, "redondeo")
-	eq(#out[Q], 2, "Beto: XP y botín")
+	local byKind = {}
+	for _, e in out[P] do byKind[e.k] = e end
+	eq(#out[P], 3, "Ana: XP, daño recibido y muerte")
+	eq(byKind.xp.a, 8, "XP sumada")
+	eq(byKind.hurt.a, 12, "redondeo")
+	eq(byKind.kill.x, true, "dorado")
+	eq(#out[Q], 2, "Beto: muerte y botín")
 	eq(out[Q][2].g.Gold, 3, "oro")
 	eq(next(CombatFeed.collect()), nil, "después de mandar, no queda nada")
+end)
+
+test("los golpes llevan la parte del enemigo (destello) y el crítico va aparte", function()
+	CombatFeed.clear()
+	local part = M.Instance.new("Part")
+	CombatFeed.dealt(P, enemyA, M.Vector3.zero, 10, "hit", part)
+	CombatFeed.dealt(P, enemyA, M.Vector3.zero, 40, "crit", part)
+	local out = CombatFeed.collect()
+	eq(#out[P], 2, "golpe y crítico separados")
+	eq(out[P][1].i, part, "parte")
 end)
 
 test("se manda como mucho una vez cada FlushInterval", function()

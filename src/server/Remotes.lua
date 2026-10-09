@@ -16,6 +16,12 @@ local function event(name: string): RemoteEvent
 end
 
 local Remotes = {
+	ItemGranted = event("ItemGranted"),
+	ItemEffect = event("ItemEffect"),
+	RewardNotice = event("RewardNotice"),
+	EquipmentState = event("EquipmentState"),
+	EquipmentRequest = event("EquipmentRequest"),
+	DashRequest = event("DashRequest"),
 	-- servidor -> todos: (id, origen, dirección, velocidad, duración, userId del dueño)
 	ProjectileFired = event("ProjectileFired"),
 	-- servidor -> todos: (id)
@@ -41,6 +47,11 @@ local Remotes = {
 	-- servidor -> jugador: ({ eventos }) números flotantes: daño hecho y recibido, XP y botín.
 	-- Llegan agrupados cada Config.CombatText.FlushInterval (ver CombatFeed).
 	CombatText = event("CombatText"),
+	-- servidor -> todos: ({ spawn = {{id, pos, valor}}, take = {{id, userId}}, clear = bool })
+	-- orbes de XP que aparecen y que alguien juntó (ver Orbs)
+	Orbs = event("Orbs"),
+	-- servidor -> todos: (posición, userId de quien lo abrió o 0) se abrió un cofre
+	ChestOpened = event("ChestOpened"),
 }
 
 folder.Parent = ReplicatedStorage

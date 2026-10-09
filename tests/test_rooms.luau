@@ -1,9 +1,11 @@
--- Salas y puertas: al terminar una oleada se abre la puerta, el equipo tiene que entrar
--- (o se acaba el tiempo) y recién ahí cambia la sala y arranca la oleada siguiente.
+-- Salas y puertas (modo opcional, Config.Waves.UseDoors = true): al terminar una oleada se abre
+-- la puerta, el equipo tiene que entrar (o se acaba el tiempo) y recién ahí se arma un mapa nuevo
+-- y arranca la oleada siguiente. Lo normal es el mapa abierto (sin puertas): ver test_map.
 -- Carga el GameServer real y lo hace avanzar frame a frame.
 local M = require("./mocks")
 local Config = require("./Config")
 Config.Camera.Mode = "TopDown"
+Config.Waves.UseDoors = true
 local Remotes = require("./Remotes")
 local PlayerData = require("./PlayerData")
 local Enemies = require("./Enemies")
@@ -89,14 +91,19 @@ tick(Config.Match.RequestCooldown + 0.1)
 Remotes.LobbyRequest.OnServerEvent:Fire(B, "SetReady", true)
 tick(Config.Match.CountdownTime + 1)
 
-test("al empezar: sala 1, puerta cerrada, todos en la entrada (sur)", function()
+local function nearCenter(p)
+	local pos = root(p).Position
+	return math.sqrt(pos.X * pos.X + pos.Z * pos.Z) < Config.Map.SafeRadius
+end
+
+test("al empezar: sala 1, puerta cerrada, todos en el centro del mapa", function()
 	eq(MatchManager.getState(), "PLAYING", "estado")
 	eq(gameState:GetAttribute("RoomIndex"), 1, "sala")
 	eq(doorModel(), nil, "puerta")
 	for _, p in players do
-		assert(root(p).Position.Z > Arena.Half.Z * 0.5, "debería estar en la entrada, Z = " .. root(p).Position.Z)
+		assert(nearCenter(p), "debería estar en el centro, Z = " .. root(p).Position.Z)
 	end
-	assert(#M.workspace.Arena.Room:GetChildren() > 0, "la sala tiene decoración")
+	assert(#M.workspace.Arena.Room:GetChildren() > 0, "el mapa tiene decoración")
 end)
 
 test("al terminar la oleada se abre la puerta y no arranca la siguiente sola", function()
@@ -118,14 +125,14 @@ test("si entra uno solo, la sala no cambia", function()
 	eq(phase(), "Break", "fase")
 end)
 
-test("cuando entran todos: sala 2, puerta cerrada, todos en la entrada", function()
+test("cuando entran todos: sala 2 (mapa nuevo), puerta cerrada, todos en el centro", function()
 	root(B).Position = Arena.doorPosition() + V.new(2, 3, 0)
 	tick(0.2)
 	eq(gameState:GetAttribute("RoomIndex"), 2, "sala")
 	eq(doorModel(), nil, "puerta")
 	eq(gameState:GetAttribute("DoorEnd"), 0, "DoorEnd")
 	for _, p in players do
-		assert(root(p).Position.Z > Arena.Half.Z * 0.5, "debería estar en la entrada, Z = " .. root(p).Position.Z)
+		assert(nearCenter(p), "debería estar en el centro, Z = " .. root(p).Position.Z)
 		assert(not Arena.inDoorZone(root(p).Position), "no debería quedar en la puerta")
 	end
 	eq(phase(), "Break", "todavía no arranca (EnterDelay)")
@@ -170,38 +177,6 @@ test("si se van todos con la puerta abierta, se cierra y se limpia", function()
 	eq(gameState:GetAttribute("DoorEnd"), 0, "DoorEnd")
 end)
 
-test("salas hechas a mano: se usa el Model de ServerStorage > Rooms > <capítulo>", function()
-	local ServerStorage = M.game:GetService("ServerStorage")
-	local rooms = M.Instance.new("Folder")
-	rooms.Name = "Rooms"
-	rooms.Parent = ServerStorage
-	local set = M.Instance.new("Folder")
-	set.Name = "forest"
-	set.Parent = rooms
-	for _, name in { "Sala2", "Sala1" } do
-		local model = M.Instance.new("Model")
-		model.Name = name
-		model.Clone = function(self)
-			local copy = M.Instance.new("Model")
-			copy.Name = self.Name
-			return copy
-		end
-		model.Parent = set
-	end
-	Arena.buildRoom(Chapters[1], 1)
-	local kids = M.workspace.Arena.Room:GetChildren()
-	eq(#kids, 1, "un solo modelo")
-	eq(kids[1].Name, "Sala1", "sala 1 usa el primero por nombre")
-	Arena.buildRoom(Chapters[1], 2)
-	eq(M.workspace.Arena.Room:GetChildren()[1].Name, "Sala2", "sala 2")
-	Arena.buildRoom(Chapters[1], 3)
-	eq(M.workspace.Arena.Room:GetChildren()[1].Name, "Sala1", "sala 3 vuelve a empezar")
-	-- Otro capítulo sin modelos: se genera por código
-	Arena.buildRoom(Chapters[2], 1)
-	assert(#M.workspace.Arena.Room:GetChildren() >= RoomCfg.PropsPerRoom, "decoración generada para ruins")
-	rooms.Parent = nil
-end)
-
 test("más enemigos por oleada: EnemyCountMultiplier agranda el presupuesto", function()
 	local ch = Chapters[1]
 	local old = Config.Waves.EnemyCountMultiplier
@@ -217,25 +192,6 @@ test("más enemigos por oleada: EnemyCountMultiplier agranda el presupuesto", fu
 	Config.Waves.EnemyCountMultiplier = old
 	print(string.format("         enemigos oleada 4: x1 = %.1f · x1.5 = %.1f", base, more))
 	assert(more > base * 1.3, "debería haber ~50% más enemigos")
-end)
-
-test("la decoración queda pegada a las paredes y lejos de puerta y entrada", function()
-	for _, ch in Chapters do
-		Arena.buildRoom(ch, 1)
-		for _, prop in M.workspace.Arena.Room:GetChildren() do
-			local pos = prop.Position or (prop.PrimaryPart and prop.PrimaryPart.Position)
-			if not pos then
-				for _, part in prop:GetChildren() do
-					if part.Position then pos = part.Position break end
-				end
-			end
-			if pos then
-				local edge = math.min(Arena.Half.X - math.abs(pos.X), Arena.Half.Z - math.abs(pos.Z))
-				assert(edge <= RoomCfg.PropBand + 6, string.format("%s: prop en el centro (%.0f, %.0f)", ch.Id, pos.X, pos.Z))
-				assert(not Arena.inDoorZone(pos), ch.Id .. ": prop en la puerta")
-			end
-		end
-	end
 end)
 
 print(string.format("\n%d pruebas, %d fallas", passed + failed, failed))

@@ -1,21 +1,21 @@
 -- Arena (ModuleScript)
 -- Ubicación: ServerScriptService > Server > Arena
--- La arena es una "sala": piso, paredes, decoración, puerta y entrada.
--- Cada oleada se juega en una sala distinta: al terminarla se abre la puerta del norte y,
--- cuando el equipo entra, se arma la sala siguiente y aparecen en la entrada del sur.
+-- El mapa de la partida: bordes, piso de seguridad, terreno con relieve y decoración
+-- (los arma MapBuilder), puntos de aparición en el centro y, opcionalmente, la puerta.
 --
--- Decoración de las salas:
---   · Si en ServerStorage > Rooms > <Id del capítulo> (por ejemplo Rooms > forest) hay
---     Models hechos a mano en Studio, se usan esos (uno por sala, en orden).
---   · Si no, se genera por código según el Theme del capítulo (árboles, columnas, braseros...).
--- La decoración va pegada a las paredes: el centro queda libre para pelear.
+-- Mapa abierto (Config.Waves.UseDoors = false, lo normal): un mapa grande por partida.
+-- Con puertas: al terminar cada oleada se abre la puerta del norte y, cuando entra el equipo,
+-- se genera un mapa nuevo.
+--
+-- Mapas hechos a mano: ServerStorage > Maps > <Id del capítulo> (ver MapBuilder y el README).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerStorage = game:GetService("ServerStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
 local ArenaCfg = Config.Arena
 local RoomCfg = Config.Rooms
+local MapBuilder = require(script.Parent.MapBuilder)
+local Ground = require(script.Parent.Ground)
 
 local Arena = {}
 
@@ -26,6 +26,7 @@ local folder: Folder
 local roomFolder: Folder
 local floor: Part? = nil
 local walls: { Part } = {}
+local strips: { Part } = {} -- líneas neón en las paredes (color del capítulo)
 local door: Model? = nil
 
 local GOLD = Color3.fromRGB(212, 168, 70)
@@ -62,8 +63,9 @@ function Arena.build()
 	roomFolder.Parent = folder
 
 	local half = Arena.Half
-	-- El piso queda con la cara de arriba en Y = 0.
-	floor = makePart(folder, "Floor", ArenaCfg.Size, CFrame.new(0, -ArenaCfg.Size.Y / 2, 0), Color3.fromRGB(70, 90, 70))
+	-- Piso de seguridad debajo del terreno (por si algo atraviesa el relieve). El terreno de
+	-- verdad lo arma MapBuilder en cada partida.
+	floor = makePart(folder, "Floor", ArenaCfg.Size, CFrame.new(0, -3 - ArenaCfg.Size.Y / 2, 0), Color3.fromRGB(70, 90, 70))
 
 	local wallColor = Color3.fromRGB(60, 60, 70)
 	local h = ArenaCfg.WallHeight
@@ -73,28 +75,53 @@ function Arena.build()
 		makePart(folder, "WallW", Vector3.new(1, h, ArenaCfg.Size.Z), CFrame.new(-half.X - 0.5, h / 2, 0), wallColor),
 		makePart(folder, "WallE", Vector3.new(1, h, ArenaCfg.Size.Z), CFrame.new(half.X + 0.5, h / 2, 0), wallColor),
 	}
+	-- Paredes invisibles: el borde se ve como montañas; esto solo evita salirse trepando
+	for _, w in walls do
+		w.Transparency = 1
+		w.CastShadow = false
+	end
+	-- Líneas neón arriba y abajo de cada pared: marcan el borde de la sala con el color del capítulo
+	-- (en primera persona ayudan a orientarse, y con el bloom de la arena brillan).
+	local neon = Color3.fromRGB(120, 255, 200)
+	for _, w in (if Config.Effects.NeonStrips then walls else {}) :: { Part } do
+		for _, y in { 0.15, h - 0.15 } do
+			local strip = makePart(folder, "NeonStrip", Vector3.new(w.Size.X + 0.1, 0.3, w.Size.Z + 0.1), CFrame.new(w.Position.X, y, w.Position.Z), neon, Enum.Material.Neon)
+			strip.CanCollide = false
+			table.insert(strips, strip)
+		end
+	end
 	-- Sin SpawnLocation: se aparece en el lobby y MatchManager trae a los participantes acá.
 end
 
--- Puntos de aparición en la entrada (sur), en fila, mirando hacia la puerta (norte).
+-- Puntos de aparición en el centro del mapa (zona plana), en fila, mirando al norte.
 function Arena.spawnPoints(count: number): { CFrame }
 	local points = {}
-	local z = Arena.Half.Z - RoomCfg.EntranceDistance
+	local z = RoomCfg.EntranceDistance
 	for i = 1, count do
 		local x = (i - (count + 1) / 2) * 5
-		local pos = Vector3.new(x, 3, z)
+		local pos = Vector3.new(x, Ground.y(x, z) + 3, z)
 		points[i] = CFrame.lookAt(pos, pos + Vector3.new(0, 0, -1))
 	end
 	return points
 end
 
+-- Altura del piso en (x, z) (la usan los demás módulos a través de Ground).
+function Arena.groundY(x: number, z: number): number
+	return Ground.y(x, z)
+end
+
 -- Colores base del capítulo.
-function Arena.setTheme(floorColor: Color3, wallColor: Color3)
+function Arena.setTheme(floorColor: Color3, wallColor: Color3, accent: Color3?)
 	if floor then
 		floor.Color = floorColor
 	end
 	for _, w in walls do
 		w.Color = wallColor
+	end
+	if accent then
+		for _, s in strips do
+			s.Color = accent
+		end
 	end
 end
 
@@ -102,31 +129,8 @@ end
 -- Decoración generada por código
 ---------------------------------------------------------------------
 
--- Un punto al azar en la franja pegada a las paredes (el centro queda libre).
-local function edgePoint(rng: Random): Vector3
-	local half = Arena.Half
-	local band = RoomCfg.PropBand
-	local side = rng:NextInteger(1, 4)
-	local along = rng:NextNumber(-1, 1)
-	local inset = rng:NextNumber(2, band)
-	local x, z
-	if side == 1 then
-		x, z = along * (half.X - 4), -half.Z + inset
-	elseif side == 2 then
-		x, z = along * (half.X - 4), half.Z - inset
-	elseif side == 3 then
-		x, z = -half.X + inset, along * (half.Z - 4)
-	else
-		x, z = half.X - inset, along * (half.Z - 4)
-	end
-	-- La puerta (norte) y la entrada (sur) quedan despejadas
-	if math.abs(x) < 10 and math.abs(z) > half.Z - band - 2 then
-		x += if x < 0 then -12 else 12
-	end
-	return Vector3.new(x, 0, z)
-end
-
 local Props = {}
+Arena.Props = Props
 
 Props.forest = function(parent: Instance, pos: Vector3, rng: Random)
 	local kind = rng:NextInteger(1, 3)
@@ -187,63 +191,36 @@ local function shade(color: Color3, rng: Random): Color3
 	return Color3.new(math.clamp(color.R * k, 0, 1), math.clamp(color.G * k, 0, 1), math.clamp(color.B * k, 0, 1))
 end
 
--- Arma la sala `roomIndex` del capítulo (borra la decoración anterior).
+-- Arma el mapa del capítulo: terreno con relieve y decoración (MapBuilder). roomIndex cambia la
+-- semilla: con puertas (Config.Waves.UseDoors) cada sala es un mapa nuevo.
 function Arena.buildRoom(chapter, roomIndex: number)
-	roomFolder:ClearAllChildren()
-	local rng = Random.new(math.floor(os.clock() * 1000) + roomIndex)
-	Arena.setTheme(shade(chapter.Floor, rng), shade(chapter.Wall, rng))
-	if floor then
-		floor.Material = (RoomCfg.FloorMaterials :: any)[chapter.Theme] or Enum.Material.SmoothPlastic
-	end
-
-	-- ¿Hay salas hechas a mano para este capítulo?
-	local custom = ServerStorage:FindFirstChild("Rooms")
-	local set = custom and custom:FindFirstChild(chapter.Id)
-	local models = {}
-	if set then
-		for _, child in set:GetChildren() do
-			if child:IsA("Model") then
-				table.insert(models, child)
-			end
-		end
-		table.sort(models, function(a, b)
-			return a.Name < b.Name
-		end)
-	end
-	if #models > 0 then
-		local model = models[(roomIndex - 1) % #models + 1]:Clone()
-		model.Parent = roomFolder
-		return
-	end
-
-	local builder = Props[chapter.Theme]
-	if builder then
-		for _ = 1, RoomCfg.PropsPerRoom do
-			builder(roomFolder, edgePoint(rng), rng)
-		end
-	end
+	local seed = math.floor(os.clock() * 1000) % 100000 + roomIndex * 7919
+	local rng = Random.new(seed)
+	Arena.setTheme(shade(chapter.Floor, rng), shade(chapter.Wall, rng), chapter.Accent)
+	return MapBuilder.build(chapter, seed, Arena.Half, roomFolder, Props[chapter.Theme])
 end
 
 ---------------------------------------------------------------------
 -- Puerta
 ---------------------------------------------------------------------
 
--- Centro de la zona de la puerta (al pie de la pared norte).
+-- Centro de la zona de la puerta (al norte, antes de las montañas del borde), apoyado en el piso.
 function Arena.doorPosition(): Vector3
-	return Vector3.new(0, 0, -Arena.Half.Z + 4)
+	local z = -Arena.Half.Z + Config.Map.EdgeWidth + 8
+	return Vector3.new(0, Ground.y(0, z), z)
 end
 
 -- ¿Este punto está dentro de la zona de la puerta?
 function Arena.inDoorZone(pos: Vector3): boolean
-	local d = Vector3.new(pos.X, 0, pos.Z) - Arena.doorPosition()
-	return d.Magnitude <= RoomCfg.DoorRadius
+	local door = Arena.doorPosition()
+	return Vector3.new(pos.X - door.X, 0, pos.Z - door.Z).Magnitude <= RoomCfg.DoorRadius
 end
 
 function Arena.openDoor()
 	Arena.closeDoor()
 	local model = Instance.new("Model")
 	model.Name = "Door"
-	local base = Vector3.new(0, 0, -Arena.Half.Z + 0.6)
+	local base = Arena.doorPosition() - Vector3.new(0, 0, 3)
 	local h = 11
 	makePart(model, "PostL", Vector3.new(1.5, h, 1.5), CFrame.new(base + Vector3.new(-5, h / 2, 0)), GOLD, Enum.Material.Metal)
 	makePart(model, "PostR", Vector3.new(1.5, h, 1.5), CFrame.new(base + Vector3.new(5, h / 2, 0)), GOLD, Enum.Material.Metal)

@@ -2,9 +2,10 @@
 -- Ubicación: StarterPlayer > StarterPlayerScripts > Client > CombatText
 -- Dibuja los números flotantes que manda el servidor (Remotes.CombatText, ver CombatFeed):
 --   · daño que hacés: número blanco sobre el enemigo (grande y amarillo si es un golpe fuerte)
+--   · crítico: número amarillo enorme con "!"
 --   · quemadura: naranja · daño de compañeros (opcional): gris
 --   · daño que recibís: número rojo que sube desde tu barra de vida
---   · XP: "+5 XP" celeste donde murió el enemigo
+--   · XP: "+5 XP" celeste al juntar orbes
 --   · botín: monedas y gemas que saltan del enemigo y vuelan hacia vos, con "+3 💰"
 -- Es solo visual: no cambia nada del juego.
 
@@ -189,6 +190,8 @@ combatText.OnClientEvent:Connect(function(events)
 				if big then 34 else 26,
 				3
 			)
+		elseif kind == "crit" and typeof(amount) == "number" then
+			popup(pos + Vector3.new(0, 2.5, 0), tostring(amount) .. "!", Color3.fromRGB(255, 200, 40), 40, 4, LIFETIME * 1.2)
 		elseif kind == "burn" and typeof(amount) == "number" then
 			popup(pos + Vector3.new(0, 1.5, 0), tostring(amount), Color3.fromRGB(255, 150, 40), 20, 2.5)
 		elseif kind == "ally" and typeof(amount) == "number" then

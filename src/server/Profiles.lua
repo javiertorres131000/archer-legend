@@ -34,11 +34,16 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Currencies = require(Shared:WaitForChild("Currencies"))
 
+local EquipmentDefs = require(Shared:WaitForChild("EquipmentDefs"))
+local Rarities = require(Shared:WaitForChild("Rarities"))
 local Cfg = Config.Profiles
 
 export type ChapterRecord = { Unlocked: boolean, Clears: number, BestWave: number }
 export type Stats = { Runs: number, Victories: number, Kills: number, BossKills: number }
 export type Data = {
+	Inventory: { { Uid: string, Id: string, Rarity: string, Level: number } },
+	Equipment: { [string]: string },
+	EquipmentInitialized: boolean,
 	Currencies: { [string]: number },
 	Chapters: { [string]: ChapterRecord },
 	Stats: Stats,
@@ -61,12 +66,13 @@ type Session = {
 
 local Profiles = {}
 
-Profiles.SCHEMA_VERSION = 1
+Profiles.SCHEMA_VERSION = 2
 
 -- Migraciones: Migrations[n] recibe los datos guardados con la versión n y devuelve los de n + 1.
 -- Para cambiar el formato: subí SCHEMA_VERSION y agregá la migración de la versión anterior.
 -- (Los campos nuevos con valor por defecto no necesitan migración: los completa reconcile.)
 Profiles.Migrations = {
+	[1] = function(data: any): any return data end, -- inventario: reconcile agrega campos sin tocar el progreso
 	-- 0 = guardado sin versión: lo que haya se aprovecha y se completa
 	[0] = function(data: any): any
 		return if type(data) == "table" then data else {}
@@ -108,6 +114,7 @@ function Profiles.defaultData(): Data
 		currencies[c.Id] = 0
 	end
 	return {
+		Inventory = {}, Equipment = {}, EquipmentInitialized = false,
 		Currencies = currencies,
 		Chapters = {},
 		Stats = { Runs = 0, Victories = 0, Kills = 0, BossKills = 0 },
@@ -151,6 +158,24 @@ function Profiles.reconcile(raw: any): Data
 			stats[k] = count(raw.Stats[k]) or 0
 		end
 	end
+	local seen = {}
+	if type(raw.Inventory) == "table" then
+		for _, item in raw.Inventory do
+			if #data.Inventory >= EquipmentDefs.MaxInventory then break end
+			if type(item) == "table" and type(item.Uid) == "string" and #item.Uid <= 80 and not seen[item.Uid]
+				and type(item.Id) == "string" and EquipmentDefs.ById[item.Id] and Rarities.index(item.Rarity) then
+				seen[item.Uid] = item.Id
+				table.insert(data.Inventory, { Uid = item.Uid, Id = item.Id, Rarity = item.Rarity, Level = math.clamp(count(item.Level) or 1, 1, EquipmentDefs.MaxLevel) })
+			end
+		end
+	end
+	if type(raw.Equipment) == "table" then
+		for _, slot in EquipmentDefs.Slots do
+			local uid = raw.Equipment[slot]
+			if type(uid) == "string" and seen[uid] and EquipmentDefs.ById[seen[uid]].Slot == slot then data.Equipment[slot] = uid end
+		end
+	end
+	data.EquipmentInitialized = raw.EquipmentInitialized == true or #data.Inventory > 0
 	data.CreatedAt = count(raw.CreatedAt) or data.CreatedAt
 	return data
 end

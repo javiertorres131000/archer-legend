@@ -5,6 +5,10 @@ local PlayerData = require("./PlayerData")
 local PlayerLife = require("./PlayerLife")
 
 local Coop = Config.Coop
+-- Estas pruebas encadenan golpes sin dejar pasar el tiempo: sin pausa entre golpes
+-- (la pausa tiene su propia prueba al final).
+local HURT_PAUSE = Config.Player.HurtInvulnerability
+Config.Player.HurtInvulnerability = 0
 local V = M.Vector3
 local passed, failed = 0, 0
 
@@ -283,6 +287,22 @@ test("fin de partida: derribos limpios y todos de vuelta al lobby", function()
 	eq(prompt(A), nil, "sin botón de rescate")
 	eq(PlayerData.get(B).revives, 0, "estadísticas a cero")
 	eq(PlayerLife.noneActive(), false, "sin participantes no hay derrota")
+end)
+
+test("pausa entre golpes: dos golpes seguidos, solo cuenta el primero", function()
+	Config.Player.HurtInvulnerability = HURT_PAUSE
+	local C = M.addPlayer("Caro")
+	PlayerLife.beginMatch({ C }, { M.CFrame.new(10, 3, 0) })
+	clearShields(C)
+	run(0.1)
+	local before = hum(C).Health
+	PlayerLife.damage(target(C), 10)
+	PlayerLife.damage(target(C), 10)
+	eq(hum(C).Health, before - 10, "un solo golpe")
+	run(HURT_PAUSE + 0.05)
+	PlayerLife.damage(target(C), 10)
+	eq(hum(C).Health, before - 20, "pasada la pausa, vuelve a recibir")
+	Config.Player.HurtInvulnerability = 0
 end)
 
 print(string.format("\n%d pruebas, %d fallas", passed + failed, failed))

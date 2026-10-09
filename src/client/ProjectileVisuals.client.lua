@@ -9,12 +9,38 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local FxQuality = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FxQuality"))
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local projectileFired = remotes:WaitForChild("ProjectileFired") :: RemoteEvent
 local projectileEnded = remotes:WaitForChild("ProjectileEnded") :: RemoteEvent
 local projectileRedirected = remotes:WaitForChild("ProjectileRedirected") :: RemoteEvent
 
+local gameState = ReplicatedStorage:WaitForChild("GameState")
 local localPlayer = Players.LocalPlayer
+local low = FxQuality.isLow()
+local lights = 0 -- luces en proyectiles enemigos (con muchas, cuesta rendimiento)
+local MAX_LIGHTS = 10
+local pools = { Arrow = {}, EnemyOrb = {} }
+local MAX_POOL = if low then 40 else 100
+
+-- Estela de color detrás de la flecha (no en calidad baja)
+local function addTrail(part: Part, color: Color3, width: number)
+	local a0 = Instance.new("Attachment")
+	a0.Position = Vector3.new(0, width / 2, part.Size.Z / 2)
+	a0.Parent = part
+	local a1 = Instance.new("Attachment")
+	a1.Position = Vector3.new(0, -width / 2, part.Size.Z / 2)
+	a1.Parent = part
+	local trail = Instance.new("Trail")
+	trail.Attachment0 = a0
+	trail.Attachment1 = a1
+	trail.Lifetime = 0.15
+	trail.LightEmission = 1
+	trail.FaceCamera = true
+	trail.Color = ColorSequence.new(color)
+	trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+	trail.Parent = part
+end
 
 -- Carpeta solo de este cliente (no se replica al servidor)
 local folder = Instance.new("Folder")
@@ -31,13 +57,29 @@ type Visual = {
 	segAge: number, -- edad del tramo actual
 	zigAmp: number,
 	zigFreq: number,
+	above: number?, -- altura sobre el piso al salir (sigue el relieve)
 }
 local visuals: { [number]: Visual } = {}
+
+-- Altura del terreno debajo de un punto (los proyectiles suben y bajan con las colinas).
+local groundParams = RaycastParams.new()
+groundParams.FilterType = Enum.RaycastFilterType.Include
+groundParams.FilterDescendantsInstances = { workspace.Terrain }
+local function groundAt(pos: Vector3): number?
+	local hit = workspace:Raycast(Vector3.new(pos.X, pos.Y + 60, pos.Z), Vector3.new(0, -200, 0), groundParams)
+	return hit and hit.Position.Y
+end
 
 local function removeVisual(id: number)
 	local v = visuals[id]
 	if v then
-		v.part:Destroy()
+		local light = v.part:FindFirstChildOfClass("PointLight")
+		if light and light.Enabled then lights -= 1; light.Enabled = false end
+		local trail = v.part:FindFirstChildOfClass("Trail")
+		if trail then trail.Enabled = false; trail:Clear() end
+		local pool = pools[v.part.Name]
+		v.part.Parent = nil
+		if pool and #pool < MAX_POOL then table.insert(pool, v.part) else v.part:Destroy() end
 		visuals[id] = nil
 	end
 end
@@ -53,8 +95,9 @@ end
 projectileFired.OnClientEvent:Connect(
 	function(id: number, origin: Vector3, dir: Vector3, speed: number, lifetime: number, ownerUserId: number, style)
 		local isEnemy = ownerUserId == 0 -- 0 = proyectil enemigo
-		local part = Instance.new("Part")
-		part.Name = if isEnemy then "EnemyOrb" else "Arrow"
+		local kind = if isEnemy then "EnemyOrb" else "Arrow"
+		local part = table.remove(pools[kind]) or Instance.new("Part")
+		part.Name = kind
 		part.Anchored = true
 		part.CanCollide = false
 		part.CanQuery = false
@@ -65,11 +108,25 @@ projectileFired.OnClientEvent:Connect(
 			part.Shape = Enum.PartType.Ball
 			part.Size = Vector3.one * (style and style.size or 1.4)
 			part.Color = style and style.color or Color3.fromRGB(255, 60, 110)
+			if not low and lights < MAX_LIGHTS then
+				lights += 1
+				local light = part:FindFirstChildOfClass("PointLight") or Instance.new("PointLight")
+				light.Enabled = true
+				light.Color = part.Color
+				light.Range = 8
+				light.Brightness = 2
+				light.Parent = part
+			end
 		else
+			part.Shape = Enum.PartType.Block
 			part.Size = Vector3.new(0.3, 0.3, 2)
 			part.Color = if ownerUserId == localPlayer.UserId
 				then Color3.fromRGB(255, 230, 120)
 				else Color3.fromRGB(150, 200, 255)
+			if not low then
+				local trail = part:FindFirstChildOfClass("Trail")
+				if trail then trail.Enabled = true; trail.Color = ColorSequence.new(part.Color) else addTrail(part, part.Color, 0.5) end
+			end
 		end
 		part.CFrame = CFrame.lookAt(origin, origin + dir)
 		part.Parent = folder
@@ -84,6 +141,10 @@ projectileFired.OnClientEvent:Connect(
 			segAge = 0,
 			zigAmp = style and style.zigAmp or 0,
 			zigFreq = style and style.zigFreq or 0,
+			above = (function()
+				local g = groundAt(origin)
+				return g and math.max(1, origin.Y - g)
+			end)(),
 		}
 
 		-- Si la flecha es nuestra, giramos el personaje hacia el objetivo.
@@ -93,7 +154,9 @@ projectileFired.OnClientEvent:Connect(
 		if ownerUserId == localPlayer.UserId and not firstPerson then
 			local character = localPlayer.Character
 			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-			if root then
+			-- Caminando (modo frenético) no se gira: lo haría pelear con la dirección de movimiento
+			local moving = root and Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z).Magnitude > 1
+			if root and not moving then
 				root.CFrame = CFrame.lookAt(root.Position, root.Position + dir)
 			end
 		end
@@ -116,6 +179,7 @@ projectileRedirected.OnClientEvent:Connect(function(id: number, pos: Vector3, di
 end)
 
 RunService.RenderStepped:Connect(function(dt)
+	if gameState:GetAttribute("ChoosingPaused") then return end
 	for id, v in visuals do
 		v.age += dt
 		v.segAge += dt
@@ -124,6 +188,12 @@ RunService.RenderStepped:Connect(function(dt)
 			continue
 		end
 		local pos = positionOf(v)
+		if v.above then
+			local g = groundAt(pos)
+			if g then
+				pos = Vector3.new(pos.X, g + v.above, pos.Z)
+			end
+		end
 		v.part.CFrame = CFrame.lookAt(pos, pos + v.dir)
 	end
 end)

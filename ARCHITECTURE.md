@@ -19,7 +19,10 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | --- | --- |
 | `Config` | Todos los números de balance, lobby, partida, coop, UI y debug |
 | `Chapters` | Capítulos: presentación (Id, nombre, descripción, ícono, desbloqueo) y generación de oleadas |
-| `Skills` | Habilidades de partida y rarezas |
+| `Skills` | Once habilidades de partida |
+| `Rarities` | Rarezas y colores comunes; mítico arcoíris |
+| `RunItems` | Diez objetos temporales, límites y efectos sobre stats |
+| `EquipmentDefs` | Seis espacios, dos conjuntos, costos y topes de equipo |
 | `UITheme` | Colores, tipografías, íconos y constructores de UI (fantasía oscura y dorado) |
 
 ### Servidor (`src/server`)
@@ -34,7 +37,12 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `Profiles` ★ | Perfil guardado con DataStore: carga, guardado, bloqueo de sesión, versiones, monedas |
 | `Rewards` ★ | Calcula y entrega las recompensas al terminar la partida |
 | `Loot` ★ | Botín de cada enemigo al morir: lo sortea y lo cobra cada participante |
+| `Orbs` ★ | Orbes de XP: dónde están, quién los junta (imán) y aspiradora al final de la oleada |
+| `Chests` ★ | Cofres con rareza: aparecen cada tantas muertes, se abren por cercanía |
 | `CombatFeed` ★ | Junta los números flotantes de cada jugador y los manda agrupados cada 0,1 s |
+| `ItemService` | Entrega de objetos temporales; aura, rayos y explosiones calculados en servidor |
+| `Equipment` | Inventario permanente, equipar, mejorar, fusionar, botín y base de stats |
+| `Dash` | Validación, recarga, protección e impulso con propiedad física del servidor |
 | `PlayerData` | Stats, habilidades y estadísticas por jugador; `inMatch` |
 | `PlayerLife` ★ | Ciclo de vida: aparición (lobby o arena), daño, derribo, rescate, eliminación |
 | `Waves` | Genera y corre las oleadas del capítulo; escalado por jugadores |
@@ -43,9 +51,11 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `Hazards` | Avisos y zonas en el piso |
 | `Boss` | Publica la barra del jefe |
 | `Progression` | XP compartida, niveles y ofertas de habilidades (solo participantes) |
-| `Arena` | Piso, paredes, salas (decoración por código o Models de `ServerStorage > Rooms > <capítulo>`), puerta y puntos de aparición en la entrada |
+| `Arena` | Bordes, piso de seguridad, arma el mapa (vía `MapBuilder`), puntos de aparición en el centro y la puerta (modo opcional) |
+| `MapBuilder` ★ | Terreno con relieve generado (lomas, mesetas con rampa, montañas) o pegado de un mapa hecho a mano; reparte la decoración |
+| `Ground` ★ | Altura del piso en una grilla interpolada (la usan enemigos, avisos, orbes, cofres y apariciones) |
 | `Remotes` | RemoteEvents y carpeta `GameState` |
-| `Data/EnemyTypes` | Catálogo de 35 enemigos y jefes |
+| `Data/EnemyTypes` | Catálogo de 40 enemigos y jefes, con cinco roles nuevos |
 
 ★ = escrito en `--!strict`. Los módulos de IA y enemigos usan modo normal: sus tablas de ataques son muy variables y tiparlas no suma seguridad real (deuda técnica anotada).
 
@@ -58,7 +68,16 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `ScreenEffects` | Efectos de pantalla solo visuales (calculados en el cliente): alerta de amenazas fuera de la vista, destello rojo al recibir daño y sangre en los bordes según la vida |
 | `CameraController` | Tercera persona en el lobby; en la partida primera persona o cenital según `Config.Camera.Mode`; desde arriba siguiendo a un compañero si estás eliminado |
 | `CombatText` | Números flotantes (daño hecho y recibido, XP, botín) y monedas que vuelan al jugador. Solo visual |
-| `ProjectileVisuals` | Dibuja los proyectiles con la misma cuenta que el servidor |
+| `Juice` | Destello de golpes, explosiones, sacudón, combo y subida de nivel |
+| `Pickups` | Dibuja orbes de XP (y su vuelo al jugador) y adorna los cofres |
+| `Atmosphere` | Luz de día, bloom suave, bruma y tinte del capítulo |
+| `Sfx` | Sonidos (definidos en `Shared/Sounds.lua`), con mínimo de tiempo entre repeticiones |
+| `ProjectileVisuals` | Dibuja los proyectiles; pools separados de flechas y balas enemigas |
+| `EquipmentUI` | Inventario, espacios, mejoras y confirmación de fusión |
+| `RewardsUI` / `RarityVisuals` | Avisos por rareza, arcoíris y lista de pasivos |
+| `Dash` (cliente) | Teclado, mando, botón táctil y recarga visible |
+| `ItemEffects` | Efectos de pasivos con límite por calidad |
+| `Performance` | Diagnóstico optativo de FPS y presupuesto |
 
 ## Ciclo de partida (`MatchManager`)
 
@@ -131,6 +150,14 @@ Solo los participantes (`inMatch`) reciben daño y cuentan para la derrota y el 
 
 ## Rendimiento
 
+Con el modo frenético hay hasta 110 enemigos y 200 orbes a la vez:
+- Orbes y efectos (partículas, destellos, combo) existen solo en el cliente; el servidor manda eventos agrupados cada 0,1 s.
+- Barras de vida solo en jefes y dorados. Luces en proyectiles con tope de 10.
+- `FxQuality` baja los efectos en celulares (sin bloom ni estelas, menos partículas).
+- La separación usa una grilla espacial con consultas vecinas. Los grupos y las invocaciones respetan el límite de 110; el número de enemigos por sí solo no garantiza fluidez.
+- Los efectos de pasivos están limitados a 12 en calidad baja y 30 en alta; el daño siempre se calcula en servidor.
+- `Config.Debug.ShowPerformance` habilita FPS, peor frame del segundo, enemigos y proyectiles para medir en Studio.
+
 - Enemigos: Parts anclados sin Humanoid, movidos juntos con `BulkMoveTo`.
 - Proyectiles: matemática en el servidor; el cliente solo dibuja y recibe eventos al disparar, rebotar y terminar.
 - Interfaz: se redibuja por cambios de atributos, no cada frame (salvo la cuenta regresiva visible).
@@ -143,7 +170,15 @@ Solo los participantes (`inMatch`) reciben daño y cuentan para la derrota y el 
 ## Deuda técnica conocida
 
 - `EnemyAI`, `Enemies` y los datos de enemigos en modo no estricto.
-- Los proyectiles visuales se crean y destruyen (sin pool). Para muchas balas en móvil conviene un pool.
-- Las piedras de mejora y las gemas todavía no se gastan en nada (llegan con equipamiento y tienda).
+- Pools de proyectiles visuales implementados; falta medir red y FPS con cuatro jugadores en móvil.
+- Oro y piedras se gastan en mejoras de equipo. Las gemas, el reciclaje y la tienda quedan para etapa 8.
 - Las pruebas del perfil corren sin hilos reales: los casos con dos pedidos a la vez se simulan con `onCall` del DataStore falso. Conviene probar en Studio con dos servidores.
 - Enemigos con formas básicas (sin modelos ni animaciones).
+
+## Objetos, equipo y selección
+
+`PlayerData.items` sólo dura la partida. `ItemService` valida límites, modifica stats y aplica daño de aura, rayos y explosiones. Las explosiones secundarias no generan más explosiones, para limitar cadenas y evitar recursión. Las recompensas de cofres son personales para cada participante; la XP sigue compartida.
+
+`Profiles` v2 agrega `Inventory`, `Equipment` y `EquipmentInitialized`, preservando el StoreName y los datos previos. Reconcile valida IDs, rarezas, niveles, UIDs duplicados y correspondencia de espacios. `Equipment` sólo permite cambios en el lobby y sin LISTO; valida propiedad, recursos, rarezas y tres UIDs distintos para fusionar. Cobros y mutaciones no contienen yields. El cliente pide acciones y recibe snapshots.
+
+Al comenzar, `Run` crea stats nuevas y aplica el equipo una vez antes de reaparecer. Al terminar, limpia pasivos y ofertas. Por defecto elegir pausa a todo el equipo, inmoviliza personajes y suspende daño, enemigos, proyectiles y relojes de combate. Se reanuda cuando ningún participante vivo tiene ofertas pendientes; las cartas están centradas con cursor libre y atajos 1/2/3. El dash limita dirección y recarga, controla la física durante el impulso y devuelve la propiedad automática después.
