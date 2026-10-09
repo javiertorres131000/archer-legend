@@ -15,7 +15,7 @@ export type Currency = {
 }
 
 local list: { Currency } = {
-	{ Id = "Gold", Name = "Oro", Icon = "🪙", Color = Color3.fromRGB(246, 208, 122) },
+	{ Id = "gold", Name = "Oro", Icon = "🪙", Color = Color3.fromRGB(246, 208, 122) },
 	{ Id = "Gems", Name = "Gemas", Icon = "💎", Color = Color3.fromRGB(130, 210, 255) },
 	{ Id = "Stones", Name = "Piedras de mejora", Icon = "🔷", Color = Color3.fromRGB(150, 160, 255) },
 }
