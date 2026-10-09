@@ -9,7 +9,7 @@ Roguelite de acción cooperativo para Roblox (1 a 4 jugadores), inspirado en las
 - **Lobby** seguro con interfaz propia: equipo con quién está listo, capítulos con desbloqueo, botón **JUGAR**, cuenta regresiva de 5 s y accesos a inventario, equipamiento y tienda (bloqueados hasta que existan).
 - **Ciclo de partida** controlado por el servidor: `LOBBY → PREPARING → STARTING → PLAYING → RESULTS → RETURNING`.
 - **3 capítulos**: Bosque Maldito (disponible), Ruinas Perdidas y Fortaleza Demoníaca (se desbloquean ganando el anterior).
-- **Perfil guardado** (DataStore): capítulos desbloqueados, récords, estadísticas y monedas: oro 🪙, gemas 💎 y piedras de mejora 🔷.
+- **Perfil guardado** (DataStore): capítulos desbloqueados, récords, estadísticas y monedas: oro 💰, gemas 💎 y piedras de mejora 🔷.
 - **Recompensas** al terminar la partida: oro por oleada superada (también si perdés), oro y piedras por cada jefe, y al ganar oro y gemas (más gemas la primera vez).
 - **Combate**: 10 oleadas generadas al azar por capítulo, 25 enemigos con comportamientos (embestidas, áreas, rebotes, zigzag, teletransporte, enterrarse, invocar), mini-jefe y jefe con 2 fases.
 - **Habilidades**: 8 con rarezas, elegir 1 de 3 al subir de nivel (XP compartida).
