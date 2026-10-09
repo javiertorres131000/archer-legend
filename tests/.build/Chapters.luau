@@ -1,0 +1,108 @@
+local __M = require("./mocks")
+local game, workspace, script, Instance, Vector3, Vector2, CFrame, Color3, UDim2, UDim, Enum, task, os, typeof, TweenInfo = __M.game, __M.workspace, __M.script, __M.Instance, __M.Vector3, __M.Vector2, __M.CFrame, __M.Color3, __M.UDim2, __M.UDim, __M.Enum, __M.task, __M.os, __M.typeof, __M.TweenInfo
+-- Chapters (ModuleScript)
+-- Ubicación: ReplicatedStorage > Shared > Chapters
+-- Definición de los capítulos. Está en Shared porque el lobby (cliente) muestra nombre,
+-- descripción y estado de bloqueo; el servidor usa el resto para generar las oleadas.
+--
+-- Campos de presentación:
+--   Id: identificador estable (se usará para guardar desbloqueos en la etapa 6)
+--   Name, Description, Icon
+--   UnlockedByDefault: disponible desde el principio
+--   Requires: Id del capítulo que hay que ganar para desbloquearlo
+--
+-- Las oleadas no están escritas a mano: se generan al azar en cada partida.
+-- Cada oleada tiene un "presupuesto" (Budget.Base + Budget.PerWave por oleada) que se gasta
+-- comprando enemigos del Pool (cada uno cuesta su Cost en EnemyTypes).
+--   Pool: Type = enemigo, From = primera oleada en la que puede salir, Weight = qué tan seguido.
+--   Un enemigo nuevo sale al menos una vez en su oleada de debut, así se presenta.
+--   En las oleadas de jefe el presupuesto se multiplica por Budget.BossWaveFactor.
+
+local C = Color3.fromRGB
+
+return {
+	{
+		Id = "forest",
+		Name = "Bosque Maldito",
+		Description = "Slimes, murciélagos y plantas venenosas. Lo protege el Guardián Treant.",
+		Icon = "🌲",
+		UnlockedByDefault = true,
+		Floor = C(70, 100, 60),
+		Wall = C(70, 50, 35),
+		Waves = 10,
+		HealthMult = 1,
+		DamageMult = 1,
+		Budget = { Base = 6, PerWave = 2, BossWaveFactor = 0.35 },
+		Interval = { 1.3, 0.75 }, -- segundos entre spawns: primera oleada -> última
+		MiniBoss = { Wave = 5, Type = "KingSlime" },
+		Boss = { Wave = 10, Type = "Treant" },
+		Pool = {
+			{ Type = "GreenSlime", From = 1, Weight = 4 },
+			{ Type = "GreenBat", From = 1, Weight = 3 },
+			{ Type = "WhiteSkull", From = 2, Weight = 3 },
+			{ Type = "GreenPlant", From = 3, Weight = 2 },
+			{ Type = "GreenStump", From = 4, Weight = 2 },
+			{ Type = "Snake", From = 6, Weight = 2 },
+			{ Type = "RedSlime", From = 6, Weight = 2 },
+			{ Type = "GreyWolf", From = 7, Weight = 2 },
+			{ Type = "Cactus", From = 8, Weight = 1 },
+		},
+	},
+	{
+		Id = "ruins",
+		Name = "Ruinas Perdidas",
+		Description = "Esqueletos, gólems y magos entre piedras antiguas. Duerme ahí el Gólem de Piedra.",
+		Icon = "🏛",
+		Requires = "forest",
+		Floor = C(75, 72, 85),
+		Wall = C(45, 40, 55),
+		Waves = 10,
+		HealthMult = 1.4,
+		DamageMult = 1.15,
+		Budget = { Base = 8, PerWave = 2.4, BossWaveFactor = 0.35 },
+		Interval = { 1.2, 0.7 },
+		MiniBoss = { Wave = 5, Type = "CyclopsMage" },
+		Boss = { Wave = 10, Type = "StoneGolem" },
+		Pool = {
+			{ Type = "WhiteSkull", From = 1, Weight = 3 },
+			{ Type = "SkeletonArcher", From = 1, Weight = 3 },
+			{ Type = "Spider", From = 2, Weight = 2 },
+			{ Type = "WhiteGolem", From = 3, Weight = 2 },
+			{ Type = "YellowSkull", From = 3, Weight = 2 },
+			{ Type = "Worm", From = 4, Weight = 2 },
+			{ Type = "BlueStump", From = 6, Weight = 2 },
+			{ Type = "RedArcher", From = 6, Weight = 2 },
+			{ Type = "TornadoMage", From = 7, Weight = 2 },
+			{ Type = "BlueGolem", From = 8, Weight = 1 },
+		},
+	},
+	{
+		Id = "fortress",
+		Name = "Fortaleza Demoníaca",
+		Description = "Fuego, bombas y torres arcanas. Te espera el Demonio de Fuego.",
+		Icon = "🔥",
+		Requires = "ruins",
+		Floor = C(75, 45, 40),
+		Wall = C(40, 25, 25),
+		Waves = 10,
+		HealthMult = 1.8,
+		DamageMult = 1.3,
+		Budget = { Base = 9, PerWave = 2.6, BossWaveFactor = 0.35 },
+		Interval = { 1.1, 0.65 },
+		MiniBoss = { Wave = 5, Type = "Reaper" },
+		Boss = { Wave = 10, Type = "FlameDemon" },
+		Pool = {
+			{ Type = "FireSpirit", From = 1, Weight = 3 },
+			{ Type = "RedBat", From = 1, Weight = 3 },
+			{ Type = "WhiteBomb", From = 2, Weight = 2 },
+			{ Type = "Crocodile", From = 3, Weight = 2 },
+			{ Type = "BrownWolf", From = 3, Weight = 2 },
+			{ Type = "BlueBomb", From = 4, Weight = 2 },
+			{ Type = "FireMage", From = 6, Weight = 2 },
+			{ Type = "OrbTower", From = 6, Weight = 1 },
+			{ Type = "RedBomb", From = 7, Weight = 2 },
+			{ Type = "ElectricTower", From = 8, Weight = 1 },
+			{ Type = "BluePlant", From = 8, Weight = 1 },
+		},
+	},
+}

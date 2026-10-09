@@ -1,0 +1,8 @@
+-- Health (Script)
+-- Ubicación: StarterPlayer > StarterCharacterScripts > Health
+-- Reemplaza el script "Health" que Roblox pone por defecto en cada personaje, que regenera
+-- vida sola con el tiempo. Lo dejamos vacío a propósito:
+--   · En este género la vida solo se recupera con habilidades o al revivir.
+--   · Un derribado queda con 1 de vida; la regeneración lo "curaría" por debajo del sistema
+--     de derribo y confundiría la barra de vida.
+-- Si querés regeneración, borrá este archivo (y Roblox vuelve a usar el suyo).
