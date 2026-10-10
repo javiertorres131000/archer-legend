@@ -21,6 +21,10 @@ local Remotes = {
 	RewardNotice = event("RewardNotice"),
 	EquipmentState = event("EquipmentState"),
 	EquipmentRequest = event("EquipmentRequest"),
+	-- servidor -> jugador: (runas {Id = nivel}, activas {Id | ""}, espacios abiertos, aviso?, Id recién conseguida?)
+	RuneState = event("RuneState"),
+	-- jugador -> servidor: ("Get") · ("Equip", espacio, Id) · ("Unequip", espacio) · ("OpenChest")
+	RuneRequest = event("RuneRequest"),
 	DashRequest = event("DashRequest"),
 	-- servidor -> todos: (id, origen, dirección, velocidad, duración, userId del dueño)
 	ProjectileFired = event("ProjectileFired"),

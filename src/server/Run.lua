@@ -21,6 +21,7 @@ local Ground = require(script.Parent.Ground)
 local Chests = require(script.Parent.Chests)
 local ItemService = require(script.Parent.ItemService)
 local Equipment = require(script.Parent.Equipment)
+local Runes = require(script.Parent.Runes)
 local Dash = require(script.Parent.Dash)
 local Rarities = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Rarities"))
 
@@ -65,6 +66,7 @@ function Run.init()
 	ItemService.init(Remotes)
 	Dash.init(Remotes)
 	Equipment.init(Remotes)
+	Runes.init(Remotes)
 	Arena.build()
 	Hazards.init()
 	Combat.init(Remotes, Arena.Half)
@@ -129,6 +131,7 @@ function Run.init()
 				CombatFeed.kill(participants, pos, enemy.color, enemy.radius * 2, enemy.golden)
 				if enemy.isBoss then
 					table.insert(bossesKilled, enemy.typeId)
+					Runes.onBossKilled(participants)
 				end
 				-- Botín (los invocados por un jefe no dan)
 				if not enemy.summoner then
@@ -193,7 +196,10 @@ function Run.start(index: number, participants: { Player })
 	-- Cada uno en su punto de la entrada, con vida, XP y habilidades de partida en cero
 	for _, p in participants do
 		local s = PlayerData.get(p)
-		if s then Equipment.apply(p, s.stats) end
+		if s then
+			Equipment.apply(p, s.stats)
+			Runes.apply(p, s.stats)
+		end
 		p:SetAttribute("DashReadyAt", 0)
 	end
 	PlayerLife.beginMatch(participants, Arena.spawnPoints(#participants))

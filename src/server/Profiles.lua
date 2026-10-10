@@ -35,6 +35,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Currencies = require(Shared:WaitForChild("Currencies"))
 
 local EquipmentDefs = require(Shared:WaitForChild("EquipmentDefs"))
+local RuneDefs = require(Shared:WaitForChild("RuneDefs"))
 local Rarities = require(Shared:WaitForChild("Rarities"))
 local Cfg = Config.Profiles
 
@@ -44,6 +45,8 @@ export type Data = {
 	Inventory: { { Uid: string, Id: string, Rarity: string, Level: number } },
 	Equipment: { [string]: string },
 	EquipmentInitialized: boolean,
+	-- Runas: nivel de cada una que tenés y las especiales puestas ("" = espacio vacío)
+	Runes: { Owned: { [string]: number }, Active: { string } },
 	Currencies: { [string]: number },
 	Chapters: { [string]: ChapterRecord },
 	Stats: Stats,
@@ -115,6 +118,7 @@ function Profiles.defaultData(): Data
 	end
 	return {
 		Inventory = {}, Equipment = {}, EquipmentInitialized = false,
+		Runes = { Owned = {}, Active = table.create(RuneDefs.ActiveSlots, "") },
 		Currencies = currencies,
 		Chapters = {},
 		Stats = { Runs = 0, Victories = 0, Kills = 0, BossKills = 0 },
@@ -176,6 +180,28 @@ function Profiles.reconcile(raw: any): Data
 		end
 	end
 	data.EquipmentInitialized = raw.EquipmentInitialized == true or #data.Inventory > 0
+	if type(raw.Runes) == "table" then
+		if type(raw.Runes.Owned) == "table" then
+			for id, level in raw.Runes.Owned do
+				local def = type(id) == "string" and RuneDefs.ById[id]
+				local n = count(level)
+				if def and n and n > 0 then
+					data.Runes.Owned[id] = if def.Kind == "Special" then 1 else math.min(n, RuneDefs.MaxLevel)
+				end
+			end
+		end
+		if type(raw.Runes.Active) == "table" then
+			local used = {}
+			for i = 1, RuneDefs.ActiveSlots do
+				local id = raw.Runes.Active[i]
+				local def = type(id) == "string" and RuneDefs.ById[id]
+				if def and def.Kind == "Special" and data.Runes.Owned[id] and not used[id] then
+					used[id] = true
+					data.Runes.Active[i] = id
+				end
+			end
+		end
+	end
 	data.CreatedAt = count(raw.CreatedAt) or data.CreatedAt
 	return data
 end

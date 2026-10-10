@@ -7,7 +7,6 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Defs = require(Shared:WaitForChild("EquipmentDefs"))
@@ -15,6 +14,8 @@ local Rarities = require(Shared:WaitForChild("Rarities"))
 local Currencies = require(Shared:WaitForChild("Currencies"))
 local Theme = require(Shared:WaitForChild("UITheme"))
 local Visuals = require(script.Parent.RarityVisuals)
+local AvatarView = require(script.Parent.AvatarView)
+local MenuTabs = require(script.Parent.MenuTabs)
 
 local Colors, Fonts = Theme.Colors, Theme.Fonts
 local make, text = Theme.make, Theme.text
@@ -98,110 +99,9 @@ local bag = make("Frame", { BackgroundColor3 = Colors.PanelLight, Parent = windo
 -- El personaje va en el hueco entre las dos columnas de espacios (lo ubica layoutHero)
 local STATS_HEIGHT = 96 -- lugar que ocupa abajo la barra de ataque y vida
 local SIDE_PAD, GAP = 12, 10
-local viewport = make("ViewportFrame", {
-	BackgroundTransparency = 1,
-	Ambient = Color3.fromRGB(200, 190, 170),
-	LightColor = Color3.fromRGB(255, 245, 225),
-	Active = true, -- recibe el arrastre para girarlo
-	Parent = hero,
-})
-local viewCamera = make("Camera", { FieldOfView = 30, Parent = viewport })
-viewport.CurrentCamera = viewCamera
-local world = make("WorldModel", { Parent = viewport })
-text({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -2), Size = UDim2.new(1, 0, 0, 16), Text = "↔ arrastrá para girar", TextSize = 12, TextColor3 = Colors.TextMuted, TextStrokeTransparency = 0.6, Parent = viewport })
-
-local avatar: Model? = nil
-local avatarHeight, avatarWidth, avatarCenterY = 5, 3, 0
-local yaw = math.rad(-20) -- un poco girado al abrir
-
--- Gira el personaje sobre su eje (la cámara queda fija en -Z mirándolo de frente)
-local function applyYaw()
-	if avatar then
-		avatar:PivotTo(CFrame.Angles(0, yaw, 0))
-	end
-end
-
--- Encuadra al personaje entero, con margen, según el tamaño del visor
-local function frameCamera()
-	local size = viewport.AbsoluteSize
-	if size.Y < 1 then
-		return
-	end
-	local halfV = math.rad(viewCamera.FieldOfView / 2)
-	local halfH = math.atan(math.tan(halfV) * size.X / size.Y)
-	local margin = 1.5 -- más grande = personaje más chico
-	local byHeight = (avatarHeight / 2) / math.tan(halfV)
-	local byWidth = (avatarWidth / 2) / math.tan(halfH)
-	local distance = math.max(byHeight, byWidth) * margin
-	viewCamera.CFrame = CFrame.lookAt(Vector3.new(0, avatarCenterY, -distance), Vector3.new(0, avatarCenterY, 0))
-end
-viewport:GetPropertyChangedSignal("AbsoluteSize"):Connect(frameCamera)
-
-local function refreshAvatar()
-	world:ClearAllChildren()
-	avatar = nil
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not character or not root then
-		return
-	end
-	local archivable = character.Archivable
-	character.Archivable = true
-	local copy = character:Clone()
-	character.Archivable = archivable
-	if not copy then
-		return
-	end
-	for _, d in copy:GetDescendants() do
-		if d:IsA("LuaSourceContainer") or d:IsA("ForceField") or d:IsA("Sound") then
-			d:Destroy()
-		elseif d:IsA("BasePart") then
-			d.Anchored = true
-		end
-	end
-	copy:PivotTo(CFrame.new())
-	copy.Parent = world
-	local box, size = copy:GetBoundingBox()
-	avatarHeight = size.Y
-	-- Al girar puede quedar de costado: el ancho a encuadrar es el mayor de los dos lados
-	avatarWidth = math.max(size.X, size.Z)
-	avatarCenterY = box.Position.Y
-	avatar = copy
-	applyYaw()
-	frameCamera()
-end
-player.CharacterAdded:Connect(function()
-	task.wait(1) -- que carguen ropa y accesorios
-	if gui.Enabled then
-		refreshAvatar()
-	end
-end)
-
--- Girar arrastrando (mouse o dedo)
-local dragInput: InputObject? = nil
-local lastX = 0
-viewport.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		dragInput = input
-		lastX = input.Position.X
-	end
-end)
-UserInputService.InputChanged:Connect(function(input)
-	if not dragInput then
-		return
-	end
-	local isMouse = dragInput.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseMovement
-	if isMouse or input == dragInput then
-		yaw += (input.Position.X - lastX) * 0.012
-		lastX = input.Position.X
-		applyYaw()
-	end
-end)
-UserInputService.InputEnded:Connect(function(input)
-	if input == dragInput or (dragInput and input.UserInputType == Enum.UserInputType.MouseButton1) then
-		dragInput = nil
-	end
-end)
+local avatarView = AvatarView.new(hero)
+local viewport = avatarView.frame
+local refreshAvatar = avatarView.refresh
 
 -- Espacios: 3 a la izquierda y 3 a la derecha, como en Archero (tamaño en layoutHero)
 local slotButtons = {}
@@ -581,18 +481,19 @@ end)
 local function layout()
 	local size = window.AbsoluteSize
 	local top, pad = 50, 10
+	local bottom = pad + MenuTabs.Height -- lugar para las pestañas de abajo
 	if size.X > size.Y * 1.25 then
 		local heroWidth = math.floor((size.X - pad * 3) * 0.48)
 		hero.Position = UDim2.fromOffset(pad, top)
-		hero.Size = UDim2.new(0, heroWidth, 1, -top - pad)
+		hero.Size = UDim2.new(0, heroWidth, 1, -top - bottom)
 		bag.Position = UDim2.fromOffset(pad * 2 + heroWidth, top)
-		bag.Size = UDim2.new(1, -heroWidth - pad * 3, 1, -top - pad)
+		bag.Size = UDim2.new(1, -heroWidth - pad * 3, 1, -top - bottom)
 	else
-		local heroHeight = math.floor((size.Y - top - pad * 2) * 0.55)
+		local heroHeight = math.floor((size.Y - top - pad - bottom) * 0.55)
 		hero.Position = UDim2.fromOffset(pad, top)
 		hero.Size = UDim2.new(1, -pad * 2, 0, heroHeight)
 		bag.Position = UDim2.fromOffset(pad, top + heroHeight + pad)
-		bag.Size = UDim2.new(1, -pad * 2, 1, -top - heroHeight - pad * 2)
+		bag.Size = UDim2.new(1, -pad * 2, 1, -top - heroHeight - pad - bottom)
 	end
 	layoutHero()
 end
@@ -600,7 +501,10 @@ window:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
 layout()
 
 ---------------------------------------------------------------------
--- Abrir y cerrar (los botones Inventario / Equipo del lobby ponen EquipmentTab)
+MenuTabs.new(window, "Equipo")
+
+---------------------------------------------------------------------
+-- Abrir y cerrar (el botón Equipo del lobby y las pestañas ponen EquipmentTab = "Equipo")
 ---------------------------------------------------------------------
 local function closeWindow()
 	gui.Enabled = false
@@ -617,7 +521,7 @@ remotes:WaitForChild("EquipmentState").OnClientEvent:Connect(function(items, slo
 	refresh()
 end)
 playerGui:GetAttributeChangedSignal("EquipmentTab"):Connect(function()
-	gui.Enabled = playerGui:GetAttribute("EquipmentTab") ~= nil and player:GetAttribute("InMatch") ~= true
+	gui.Enabled = playerGui:GetAttribute("EquipmentTab") == "Equipo" and player:GetAttribute("InMatch") ~= true
 	if gui.Enabled then
 		send("Get")
 		refreshAvatar()

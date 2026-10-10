@@ -24,7 +24,8 @@
 - [x] Activar los botones de Inventario y Equipamiento del lobby
 
 ### Etapa 8 · Talentos, runas y economía
-- [ ] Talentos y runas
+- [x] Runas: 12 de colección (suben con duplicados), 3 espacios de especiales, cofre con gemas y botín de jefes
+- [ ] Talentos
 - [ ] Cofres gratuitos y especiales
 - [ ] Reciclaje de equipo y balance de costos/botín
 - [ ] Misiones diarias y semanales

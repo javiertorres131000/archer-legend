@@ -26,6 +26,7 @@ local PlayerLife = require(script.Parent.PlayerLife)
 local ChapterUnlocks = require(script.Parent.ChapterUnlocks)
 local Profiles = require(script.Parent.Profiles)
 local Rewards = require(script.Parent.Rewards)
+local Runes = require(script.Parent.Runes)
 local Run = require(script.Parent.Run)
 
 local MatchCfg = Config.Match
@@ -222,6 +223,9 @@ local function enterResults(result: Run.Result)
 		personal.loot = if stats then table.clone(stats.runLoot) else {} -- botín juntado (ya cobrado)
 		if result == "Victory" then
 			ChapterUnlocks.onChapterCleared(p, selectedChapter)
+		end
+		if personal.firstClear then
+			Runes.onFirstClear(p) -- runa garantizada (y quizás un espacio activo nuevo)
 		end
 		ChapterUnlocks.publish(p) -- récords nuevos para el lobby
 		Profiles.saveSoon(p) -- guardar ya: no esperar al guardado automático
