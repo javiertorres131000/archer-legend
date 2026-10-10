@@ -15,6 +15,8 @@ local EnemyCfg = Config.Enemy
 local flat = PlayerData.flat
 
 local BURN_COLOR = Color3.fromRGB(255, 120, 20)
+local POISON_COLOR = Color3.fromRGB(110, 220, 60)
+local PoisonCfg = Config.Poison
 
 export type Enemy = {
 	typeId: string,
@@ -38,6 +40,9 @@ export type Enemy = {
 	burnUntil: number,
 	burnDps: number,
 	burnOwner: Player?,
+	poisonUntil: number,
+	poisonFraction: number, -- fracción de la vida máxima por segundo
+	poisonOwner: Player?,
 	summoner: any?, -- enemigo que lo invocó
 	isBoss: boolean,
 	golden: boolean, -- enemigo dorado: brilla y suelta mucho botín
@@ -237,6 +242,9 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 		burnUntil = 0,
 		burnDps = 0,
 		burnOwner = nil,
+		poisonUntil = 0,
+		poisonFraction = 0,
+		poisonOwner = nil,
 		summoner = o.summoner,
 		isBoss = def.Boss == true,
 		golden = golden,
@@ -316,9 +324,26 @@ function Enemies.applyBurn(enemy: Enemy, dps: number, duration: number, owner: P
 	enemy.part.Color = BURN_COLOR
 end
 
--- Color "normal" del enemigo (el de su tipo, o naranja si se está quemando).
+-- Veneno: quita `fraction` de la vida máxima por segundo durante `duration` (se renueva al pegar).
+-- Se queda con el más fuerte si dos jugadores lo envenenan.
+function Enemies.applyPoison(enemy: Enemy, fraction: number, duration: number, owner: Player?)
+	if not enemy.alive or enemy.hidden or fraction <= 0 then
+		return
+	end
+	enemy.poisonUntil = os.clock() + duration
+	if fraction >= enemy.poisonFraction then
+		enemy.poisonFraction = fraction
+		enemy.poisonOwner = owner
+	end
+	enemy.part.Color = Enemies.baseColor(enemy)
+end
+
+-- Color "normal" del enemigo: el de su tipo, naranja si se quema o verde si está envenenado.
 function Enemies.baseColor(enemy: Enemy): Color3
-	return if enemy.burnDps > 0 then BURN_COLOR else enemy.color
+	if enemy.burnDps > 0 then
+		return BURN_COLOR
+	end
+	return if enemy.poisonFraction > 0 then POISON_COLOR else enemy.color
 end
 
 -- Enemigo vivo y visible más cercano a pos. exclude: enemigos a ignorar. maxDist: opcional.
@@ -388,6 +413,15 @@ function Enemies.update(dt: number, targets: { PlayerData.Target }, now: number,
 				e.part.Color = e.color
 			else
 				Enemies.damage(e, e.burnDps * dt, e.burnOwner, "burn")
+			end
+		end
+		if e.alive and e.poisonFraction > 0 then
+			if now >= e.poisonUntil then
+				e.poisonFraction = 0
+				e.part.Color = Enemies.baseColor(e)
+			else
+				local mult = if e.isBoss then PoisonCfg.BossMult else 1
+				Enemies.damage(e, e.maxHealth * e.poisonFraction * mult * dt, e.poisonOwner, "poison")
 			end
 		end
 	end

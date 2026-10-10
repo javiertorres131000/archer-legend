@@ -285,7 +285,7 @@ combatText.OnClientEvent:Connect(function(events)
 	end
 	for _, e in events do
 		local kind = e.k
-		if kind == "hit" or kind == "crit" or kind == "burn" then
+		if kind == "hit" or kind == "crit" or kind == "burn" or kind == "poison" then
 			flash(e.i)
 			if kind == "crit" then
 				addShake(0.12)

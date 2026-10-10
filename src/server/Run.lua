@@ -109,7 +109,7 @@ function Run.init()
 			end
 		end
 		if attacker and active then
-			local feedKind = if kind == "burn" or kind == "crit" then kind else "hit"
+			local feedKind = if kind == "burn" or kind == "crit" or kind == "poison" then kind else "hit"
 			CombatFeed.dealt(attacker, enemy, pos, dealt, feedKind :: any, enemy.part)
 			if Config.CombatText.ShowTeammateDamage then
 				for _, p in PlayerLife.participants() do
@@ -234,6 +234,7 @@ function Run.step(dt: number): Result?
 		-- Relojes absolutos de combate también se suspenden.
 		for _, enemy in Enemies.list do
 			if enemy.burnDps > 0 then enemy.burnUntil += dt end
+			if enemy.poisonFraction > 0 then enemy.poisonUntil += dt end
 			enemy.lastContact += dt
 		end
 		for _, state in PlayerData.all() do
@@ -241,6 +242,8 @@ function Run.step(dt: number): Result?
 				state.lastShot += dt
 				state.lastHurt += dt
 				state.nextStorm += dt
+				state.nextLightning += dt
+				state.nextMeteor += dt
 				state.dashReady += dt
 			end
 		end

@@ -25,6 +25,9 @@ export type Stats = {
 	critChance: number,
 	critMultiplier: number,
 	pickupRadius: number, -- imán de orbes de XP
+	lightningBolts: number, -- rayos por tanda (mejora Tormenta)
+	meteors: number, -- copias de la mejora Meteorito (agrandan el área)
+	poison: number, -- veneno de las flechas: fracción de la vida máxima por segundo (0.05 = 5%)
 	stacks: { [string]: number }, -- skillId -> veces elegida
 }
 
@@ -38,6 +41,8 @@ export type AimMode = "Auto" | "Manual"
 export type State = {
 	items: { [string]: number },
 	nextStorm: number,
+	nextLightning: number, -- próxima tanda de rayos de la mejora Tormenta
+	nextMeteor: number, -- próxima tanda de la mejora Meteorito
 	dashReady: number,
 	dashUntil: number,
 	dashDirection: Vector3,
@@ -102,6 +107,9 @@ function PlayerData.newStats(): Stats
 		critChance = PlayerCfg.CritChance,
 		critMultiplier = PlayerCfg.CritMultiplier,
 		pickupRadius = PlayerCfg.PickupRadius,
+		lightningBolts = 0,
+		meteors = 0,
+		poison = 0,
 		stacks = {},
 	}
 end
@@ -158,6 +166,8 @@ function PlayerData.resetStats()
 	for _, state in states do
 		table.clear(state.items)
 		state.nextStorm = 0
+		state.nextLightning = 0
+		state.nextMeteor = 0
 		state.dashReady = 0
 		state.dashUntil = 0
 		state.dashOwned = false
@@ -178,7 +188,7 @@ end
 function PlayerData.init(onAdded: (Player) -> (), onRemoving: (Player) -> ())
 	local function added(player: Player)
 		states[player] = {
-			items = {}, nextStorm = 0, dashReady = 0, dashUntil = 0, dashDirection = Vector3.zero, dashOwned = false,
+			items = {}, nextStorm = 0, nextLightning = 0, nextMeteor = 0, dashReady = 0, dashUntil = 0, dashDirection = Vector3.zero, dashOwned = false,
 			stats = PlayerData.newStats(),
 			lastShot = 0,
 			aimMode = if PlayerCfg.DefaultAimMode == "Manual" then "Manual" else "Auto",

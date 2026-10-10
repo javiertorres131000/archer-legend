@@ -28,6 +28,7 @@ type Projectile = {
 	pierce: number,
 	bounces: number,
 	burn: boolean,
+	poison: number,
 	hit: { [Enemies.Enemy]: boolean }, -- enemigos ya golpeados (no se repiten)
 }
 
@@ -95,6 +96,7 @@ local function spawnProjectile(player: Player, stats: PlayerData.Stats, origin: 
 		pierce = stats.pierce,
 		bounces = stats.ricochet,
 		burn = stats.burn,
+		poison = stats.poison,
 		hit = {},
 	})
 	remotes.ProjectileFired:FireAllClients(nextId, origin, dir, ProjCfg.Speed, ProjCfg.Lifetime, player.UserId)
@@ -213,6 +215,9 @@ local function updateProjectiles(dt: number, allowDamage: boolean)
 			-- El fuego se aplica antes del golpe, por si el golpe lo mata.
 			if p.burn then
 				Enemies.applyBurn(e, p.damage * ProjCfg.BurnFraction * (1 + ((PlayerData.get(p.owner) and PlayerData.get(p.owner).stats.burnBonus) or 0)), ProjCfg.BurnDuration, p.owner)
+			end
+			if p.poison > 0 then
+				Enemies.applyPoison(e, p.poison, Config.Poison.Duration, p.owner)
 			end
 			-- Crítico: se sortea en cada impacto
 			local crit = math.random() < p.critChance
@@ -355,9 +360,127 @@ local function updateEnemyProjectiles(dt: number, targets: { PlayerData.Target }
 	end
 end
 
+-- Mejora Tormenta: cada Interval segundos caen lightningBolts rayos, cada uno sobre un enemigo
+-- distinto dentro de Range (el más cercano primero).
+local LightCfg = Config.Lightning
+local function updateLightning(targets: { PlayerData.Target }, now: number)
+	for _, t in targets do
+		local state = t.state
+		local bolts = state.stats.lightningBolts or 0
+		if bolts <= 0 or now < (state.nextLightning or 0) then
+			continue
+		end
+		state.nextLightning = now + LightCfg.Interval
+		local hit = {}
+		for _ = 1, bolts do
+			local enemy = Enemies.nearest(t.root.Position, hit, LightCfg.Range)
+			if not enemy then
+				break
+			end
+			hit[enemy] = true
+			local pos = enemy.part.Position
+			-- Rayo en zigzag desde el cielo (3 tramos) y destello en el piso
+			local points = { pos + Vector3.new(0, 40, 0) }
+			for k = 1, 2 do
+				local y = 40 - k * 13
+				table.insert(points, pos + Vector3.new((math.random() - 0.5) * 6, y, (math.random() - 0.5) * 6))
+			end
+			table.insert(points, pos)
+			for k = 1, #points - 1 do
+				remotes.ItemEffect:FireAllClients("bolt", points[k], 1, points[k + 1])
+			end
+			remotes.ItemEffect:FireAllClients("bolt", pos, enemy.radius + 1.5)
+			Enemies.damage(enemy, state.stats.damage * LightCfg.DamageMult, t.player, "lightning")
+		end
+	end
+end
+
+-- Mejora Meteorito: cada Interval segundos caen Count meteoritos sobre los grupos más densos de
+-- enemigos dentro de Range. Primero se avisa (círculo rojo) y a los FallTime segundos pega en área.
+-- `meteors` = copias de la mejora: cada copia extra agranda el radio en RadiusPerCopy.
+local MeteorCfg = Config.Meteor
+type PendingMeteor = { pos: Vector3, radius: number, timeLeft: number, damage: number, owner: Player }
+
+function Combat.meteorRadius(copies: number): number
+	return MeteorCfg.Radius + math.max(0, copies - 1) * MeteorCfg.RadiusPerCopy
+end
+local pendingMeteors: { PendingMeteor } = {}
+
+-- El enemigo con más enemigos alrededor (dentro del radio de la explosión), sin repetir zonas
+local function densestSpot(origin: Vector3, taken: { Vector3 }, radius: number): Vector3?
+	local best, bestCount = nil, 0
+	local o = flat(origin)
+	for _, e in Enemies.list do
+		if not e.alive or e.hidden or (flat(e.part.Position) - o).Magnitude > MeteorCfg.Range then
+			continue
+		end
+		local p = flat(e.part.Position)
+		local blocked = false
+		for _, spot in taken do
+			if (flat(spot) - p).Magnitude < radius then
+				blocked = true
+				break
+			end
+		end
+		if blocked then
+			continue
+		end
+		local count = 0
+		for _, other in Enemies.list do
+			if other.alive and not other.hidden and (flat(other.part.Position) - p).Magnitude <= radius then
+				count += 1
+			end
+		end
+		if count > bestCount then
+			best, bestCount = e.part.Position, count
+		end
+	end
+	return best
+end
+
+local function updateMeteors(dt: number, targets: { PlayerData.Target }, now: number)
+	for _, t in targets do
+		local state = t.state
+		local copies = state.stats.meteors or 0
+		if copies <= 0 or now < (state.nextMeteor or 0) then
+			continue
+		end
+		state.nextMeteor = now + MeteorCfg.Interval
+		local radius = Combat.meteorRadius(copies)
+		local taken = {}
+		for _ = 1, MeteorCfg.Count do
+			local spot = densestSpot(t.root.Position, taken, radius)
+			if not spot then
+				break
+			end
+			table.insert(taken, spot)
+			table.insert(pendingMeteors, { pos = spot, radius = radius, timeLeft = MeteorCfg.FallTime, damage = state.stats.damage * MeteorCfg.DamageMult, owner = t.player })
+			remotes.ItemEffect:FireAllClients("meteor", spot, radius, MeteorCfg.FallTime)
+		end
+	end
+	-- Impactos: daño a todos los enemigos del área
+	for i = #pendingMeteors, 1, -1 do
+		local m = pendingMeteors[i]
+		m.timeLeft -= dt
+		if m.timeLeft > 0 then
+			continue
+		end
+		table.remove(pendingMeteors, i)
+		local center = flat(m.pos)
+		for _, e in table.clone(Enemies.list) do
+			if e.alive and not e.hidden and math.abs(e.part.Position.Y - m.pos.Y) < 10
+				and (flat(e.part.Position) - center).Magnitude <= m.radius + e.radius then
+				Enemies.damage(e, m.damage, m.owner, "explosion")
+			end
+		end
+	end
+end
+
 function Combat.update(dt: number, targets: { PlayerData.Target }, now: number, frozen: boolean)
 	if not frozen then
 		updateAttacks(targets, now)
+		updateLightning(targets, now)
+		updateMeteors(dt, targets, now)
 	end
 	-- Los proyectiles en vuelo terminan su recorrido aunque el juego esté en pausa.
 	updateProjectiles(dt, not frozen)
@@ -377,6 +500,7 @@ function Combat.clear()
 	end
 	table.clear(projectiles)
 	table.clear(enemyProjectiles)
+	table.clear(pendingMeteors)
 end
 
 return Combat

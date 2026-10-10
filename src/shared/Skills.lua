@@ -6,6 +6,7 @@
 
 local Skills = {}
 local Rarities = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Rarities"))
+local PoisonCfg = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config")).Poison
 
 Skills.RarityColors = Rarities.Colors
 Skills.RarityNames = Rarities.Names
@@ -110,6 +111,36 @@ Skills.List = {
 		Max = 3,
 		Apply = function(s)
 			s.ricochet += 1
+		end,
+	},
+	{
+		Id = "Thunder",
+		Name = "Tormenta",
+		Description = "Cada 3 s cae un rayo sobre un enemigo cercano (150% del daño). Cada copia: +1 rayo.",
+		Rarity = "Epic",
+		Max = 5,
+		Apply = function(s)
+			s.lightningBolts += 1
+		end,
+	},
+	{
+		Id = "Meteor",
+		Name = "Meteorito",
+		Description = "Cada 5 s caen 3 meteoritos sobre los grupos de enemigos más grandes (300% del daño en área). Cada copia: área más grande.",
+		Rarity = "Epic",
+		Max = 5,
+		Apply = function(s)
+			s.meteors += 1
+		end,
+	},
+	{
+		Id = "Poison",
+		Name = "Veneno",
+		Description = "Las flechas envenenan: 5% de la vida máxima del enemigo por segundo durante 3 s. Cada copia: +5% (máx. 30%).",
+		Rarity = "Epic",
+		Max = math.floor(PoisonCfg.MaxPercent / PoisonCfg.PercentPerCopy + 0.5),
+		Apply = function(s)
+			s.poison = math.min(s.poison + PoisonCfg.PercentPerCopy, PoisonCfg.MaxPercent)
 		end,
 	},
 	{

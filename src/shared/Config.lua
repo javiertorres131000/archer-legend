@@ -138,6 +138,33 @@ Config.Frenzy = {
 	ComboWindow = 2.5,
 }
 
+-- Mejora "Tormenta": rayos que caen solos sobre enemigos cercanos (ver Combat.lua)
+Config.Lightning = {
+	Interval = 3, -- segundos entre tandas de rayos
+	DamageMult = 1.5, -- daño de cada rayo, sobre el daño de tus flechas
+	Range = 40, -- solo cae sobre enemigos a esta distancia del jugador
+	-- Cada copia de la mejora suma 1 rayo por tanda (cada rayo busca un enemigo distinto)
+}
+
+-- Mejora "Meteorito": cae sobre el grupo más denso de enemigos y daña en área (ver Combat.lua)
+Config.Meteor = {
+	Interval = 5, -- segundos entre tandas de meteoritos
+	Count = 3, -- meteoritos por tanda (cada uno a un grupo distinto)
+	DamageMult = 3, -- daño a cada enemigo del área, sobre el daño de tus flechas
+	Radius = 8, -- radio de la explosión con 1 copia (studs)
+	RadiusPerCopy = 3, -- cada copia extra agranda el radio esto
+	Range = 45, -- solo apunta a enemigos a esta distancia del jugador
+	FallTime = 0.8, -- segundos desde el aviso (círculo rojo) hasta que pega
+}
+
+-- Mejora "Veneno": las flechas envenenan; el veneno quita un % de la vida MÁXIMA por segundo
+Config.Poison = {
+	PercentPerCopy = 0.05, -- cada copia de la mejora: +5% de la vida máxima por segundo
+	MaxPercent = 0.30, -- tope (6 copias)
+	Duration = 3, -- segundos que dura; cada flecha que pega lo renueva
+	BossMult = 0.1, -- jefes y mini-jefes reciben esta fracción (0.1 = 30% → 3% por segundo). 1 = igual que todos
+}
+
 -- Salas: cada oleada se juega en una sala con otra decoración (ver Arena.lua)
 Config.Rooms = {
 	DoorRadius = 7, -- tamaño de la zona dorada frente a la puerta

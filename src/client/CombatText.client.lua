@@ -194,6 +194,8 @@ combatText.OnClientEvent:Connect(function(events)
 			popup(pos + Vector3.new(0, 2.5, 0), tostring(amount) .. "!", Color3.fromRGB(255, 200, 40), 40, 4, LIFETIME * 1.2)
 		elseif kind == "burn" and typeof(amount) == "number" then
 			popup(pos + Vector3.new(0, 1.5, 0), tostring(amount), Color3.fromRGB(255, 150, 40), 20, 2.5)
+		elseif kind == "poison" and typeof(amount) == "number" then
+			popup(pos + Vector3.new(0, 1.5, 0), tostring(amount), Color3.fromRGB(120, 230, 70), 20, 2.5)
 		elseif kind == "ally" and typeof(amount) == "number" then
 			popup(pos + Vector3.new(0, 2, 0), tostring(amount), Color3.fromRGB(180, 180, 195), 18, 2.5)
 		elseif kind == "xp" and typeof(amount) == "number" then

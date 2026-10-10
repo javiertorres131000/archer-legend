@@ -21,7 +21,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 
 local Cfg = Config.CombatText
 
-export type Kind = "hit" | "crit" | "burn" | "ally" | "hurt" | "xp" | "loot" | "kill"
+export type Kind = "hit" | "crit" | "burn" | "poison" | "ally" | "hurt" | "xp" | "loot" | "kill"
 export type Event = {
 	k: Kind,
 	p: Vector3?,
@@ -107,8 +107,8 @@ function CombatFeed.collect(): { [Player]: { Event } }
 	local out: { [Player]: { Event } } = {}
 	for player, byKey in merged do
 		for slot, entry in byKey do
-			-- La quemadura espera a juntar al menos 1 punto
-			if entry.kind ~= "burn" or entry.amount >= 1 then
+			-- La quemadura y el veneno esperan a juntar al menos 1 punto
+			if (entry.kind ~= "burn" and entry.kind ~= "poison") or entry.amount >= 1 then
 				local list = out[player] or {}
 				out[player] = list
 				table.insert(list, {
