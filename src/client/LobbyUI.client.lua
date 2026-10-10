@@ -378,7 +378,7 @@ local countdownScale = make("UIScale", { Parent = countdownLabel })
 local soonRow = make("Frame", {
 	AnchorPoint = Vector2.new(0, 1),
 	Position = UDim2.new(0, 40, 1, -48),
-	Size = UDim2.new(0, 3 * 84 + 2 * 12, 0, 84),
+	Size = UDim2.new(0, 2 * 84 + 12, 0, 84),
 	BackgroundTransparency = 1,
 	Parent = content,
 }, {
@@ -399,7 +399,8 @@ local soonTip = text({
 	TextXAlignment = Enum.TextXAlignment.Left,
 	Parent = content,
 })
-for i, item in { { Icons.Inventory, "Inventario" }, { Icons.Equipment, "Equipo" }, { Icons.Shop, "Tienda" } } do
+-- (El inventario está dentro de Equipo; item[3] = ya se puede abrir)
+for i, item in { { Icons.Equipment, "Equipo", true }, { Icons.Shop, "Tienda", false } } do
 	local b = make("TextButton", {
 		Size = UDim2.new(0, 84, 0, 84),
 		BackgroundColor3 = Colors.Panel,
@@ -416,15 +417,15 @@ for i, item in { { Icons.Inventory, "Inventario" }, { Icons.Equipment, "Equipo" 
 		Text = item[2],
 		Font = Fonts.Bold,
 		TextSize = 13,
-		TextColor3 = if i < 3 then Colors.GoldBright else Colors.Locked,
+		TextColor3 = if item[3] then Colors.GoldBright else Colors.Locked,
 		Parent = b,
 	})
 	local function showTip()
-		soonTip.Text = if i < 3 then "Abrir " .. item[2] else Icons.Locked .. "  " .. item[2] .. ": próximamente"
+		soonTip.Text = if item[3] then "Abrir " .. item[2] else Icons.Locked .. "  " .. item[2] .. ": próximamente"
 	end
 	b.MouseEnter:Connect(showTip)
 	b.Activated:Connect(function()
-		if i < 3 then player:WaitForChild("PlayerGui"):SetAttribute("EquipmentTab", item[2]) else showTip() end
+		if item[3] then player:WaitForChild("PlayerGui"):SetAttribute("EquipmentTab", item[2]) else showTip() end
 	end)
 	b.MouseLeave:Connect(function()
 		soonTip.Text = ""

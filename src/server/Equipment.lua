@@ -41,21 +41,12 @@ end
 function Equipment.apply(player, stats)
 	local data = Profiles.get(player)
 	if not data then return end
-	local bonus, sets = {}, {}
-	for _, slot in Defs.Slots do
-		local item = find(data, data.Equipment[slot])
-		local def = item and Defs.ById[item.Id]
-		if def and def.Slot == slot then
-			local amount = def.Bonus * Defs.power(item, Rarities.index(item.Rarity))
-			bonus[def.Stat] = (bonus[def.Stat] or 0) + amount
-			sets[def.Set] = (sets[def.Set] or 0) + 1
-		end
-	end
-	stats.damage *= 1 + math.min(0.3, bonus.damage or 0)
-	stats.maxHealth *= 1 + math.min(0.4, bonus.maxHealth or 0)
-	stats.walkSpeed *= 1 + math.min(0.15, bonus.walkSpeed or 0)
-	stats.pickupRadius *= 1 + math.min(0.4, bonus.pickupRadius or 0)
-	stats.critChance += math.min(0.1, bonus.critChance or 0)
+	local bonus, sets = Defs.summary(data.Inventory, data.Equipment, Rarities.index)
+	stats.damage *= 1 + bonus.damage
+	stats.maxHealth *= 1 + bonus.maxHealth
+	stats.walkSpeed *= 1 + bonus.walkSpeed
+	stats.pickupRadius *= 1 + bonus.pickupRadius
+	stats.critChance += bonus.critChance
 	if (sets.Hunter or 0) >= 3 then stats.pickupRadius *= 1.1 end
 	if (sets.Hunter or 0) >= 6 then stats.critChance += 0.03 end
 	if (sets.Ember or 0) >= 3 then stats.burnBonus = 0.15 end
