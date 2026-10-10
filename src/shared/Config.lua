@@ -6,9 +6,30 @@
 local Config = {}
 
 Config.Arena = {
-	Size = Vector3.new(120, 1, 120), -- ancho x alto x largo del piso (studs)
-	WallHeight = 8,
-	SpawnMargin = 6, -- distancia mínima a las paredes para spawnear enemigos
+	Size = Vector3.new(300, 1, 300), -- ancho x alto x largo del mapa (studs)
+	WallHeight = 90, -- paredes invisibles en el borde (para no salirse por las montañas)
+	SpawnMargin = 30, -- distancia mínima al borde para que aparezcan enemigos (las montañas)
+}
+
+-- Mapa abierto con relieve (MapBuilder.lua). Si en ServerStorage > Maps > <Id del capítulo> hay
+-- un TerrainRegion llamado "Terrain" (y Models con decoración), se usa ese mapa hecho a mano.
+Config.Map = {
+	VoxelSize = 4, -- resolución del terreno (studs)
+	SafeRadius = 30, -- centro casi plano donde se aparece
+	HillHeight = 6, -- altura de las lomas suaves
+	HillScale = 70, -- tamaño de las lomas (más = más anchas)
+	Plateaus = 8, -- mesetas para subir
+	PlateauHeight = { 8, 16 },
+	PlateauRadius = { 14, 26 },
+	RampLength = 24, -- largo de la rampa para subir a cada meseta
+	EdgeWidth = 30, -- montañas del borde
+	EdgeHeight = 34,
+	Props = 120, -- decoración repartida por el mapa (árboles, rocas, ruinas...)
+	Materials = {
+		forest = { Top = Enum.Material.Grass, Under = Enum.Material.Ground, Cliff = Enum.Material.Rock },
+		ruins = { Top = Enum.Material.Sandstone, Under = Enum.Material.Sandstone, Cliff = Enum.Material.Slate },
+		fortress = { Top = Enum.Material.Basalt, Under = Enum.Material.Basalt, Cliff = Enum.Material.CrackedLava },
+	},
 }
 
 Config.Player = {
@@ -25,8 +46,16 @@ Config.Player = {
 	DefaultAimMode = "Auto",
 	AimToggleKeys = { Enum.KeyCode.Q, Enum.KeyCode.DPadUp }, -- teclado / joystick
 	AttackInterval = 0.6, -- segundos entre disparos
-	StillThreshold = 1, -- velocidad horizontal debajo de la cual estás "quieto"
+	-- true: disparás mientras caminás (modo frenético). false: regla de Archero, solo quieto.
+	ShootWhileMoving = true,
+	StillThreshold = 1, -- velocidad horizontal debajo de la cual estás "quieto" (si ShootWhileMoving = false)
+	CritChance = 0.1, -- probabilidad de golpe crítico
+	CritMultiplier = 2, -- daño del crítico
+	PickupRadius = 14, -- radio del imán de orbes de XP (studs)
 	SpawnInvulnerability = 2, -- segundos de escudo al aparecer
+	-- Después de recibir un golpe, este tiempo no recibís otro (con hordas, evita que 10 enemigos
+	-- te peguen en el mismo instante). 0 = sin pausa.
+	HurtInvulnerability = 0.3,
 }
 
 Config.Projectile = {
@@ -43,9 +72,13 @@ Config.Projectile = {
 
 -- Reglas comunes a todos los enemigos
 Config.Enemy = {
-	MaxAlive = 35, -- tope de enemigos vivos a la vez (rendimiento); las invocaciones no lo respetan
+	MaxAlive = 110, -- tope de enemigos vivos a la vez (rendimiento); las invocaciones no lo respetan
+	-- Barras de vida sobre los enemigos: "Bosses" (solo jefes y dorados) o "All".
+	-- Con hordas grandes, "All" pesa en celulares; el daño ya se ve con los números flotantes.
+	HealthBars = "Bosses",
 	ContactCooldown = 1, -- segundos entre golpes del mismo enemigo
-	MinSpawnDistance = 30, -- no aparecen pegados a un jugador
+	MinSpawnDistance = 32, -- no aparecen pegados a un jugador
+	MaxSpawnDistance = 75, -- ni tan lejos que nunca lleguen (el mapa es grande)
 	SeparationPadding = 0.5, -- espacio extra para que no se apilen
 	DefaultTelegraph = 0.5, -- segundos de aviso si un ataque no indica otro
 	DefaultRest = 0.6, -- pausa entre ataques si el enemigo no indica otra
@@ -53,6 +86,7 @@ Config.Enemy = {
 
 -- Valores por defecto de los proyectiles enemigos (cada ataque puede cambiarlos)
 Config.EnemyProjectile = {
+	UseDangerColor = true, -- balas enemigas siempre rosa/rojo; false recupera colores por tipo
 	Speed = 30,
 	Damage = 10,
 	Radius = 0.7, -- radio de impacto
@@ -70,12 +104,38 @@ Config.Hazards = {
 }
 
 Config.Waves = {
-	HealthGrowth = 0.12, -- cada oleada los enemigos comunes tienen +12% de vida
-	EnemyCountMultiplier = 1.5, -- más o menos enemigos por oleada en todos los capítulos (1 = original)
-	-- Entre oleadas: con UseDoors el equipo camina hasta la puerta para pasar a la sala siguiente.
-	-- Sin puertas, la oleada siguiente arranca sola después de BreakTime segundos.
-	UseDoors = true,
+	HealthGrowth = 0.12, -- cada oleada los enemigos comunes tienen +20% de vida
+	EnemyCountMultiplier = 10, -- más o menos enemigos por oleada en todos los capítulos (1 = original)
+	-- Entre oleadas: con UseDoors el equipo camina hasta la puerta para pasar a la sala siguiente
+	-- (y el mapa se vuelve a generar). Sin puertas (mapa abierto), la oleada siguiente arranca sola
+	-- después de BreakTime segundos.
+	UseDoors = false,
 	BreakTime = 4,
+}
+
+-- Modo frenético: hordas, orbes de XP, cofres, enemigos dorados y "jugo" visual
+Config.Frenzy = {
+	-- Hordas
+	SpawnIntervalMult = 0.25, -- multiplica el intervalo entre apariciones de cada capítulo (menos = más seguido)
+	SpawnGroup = 5, -- enemigos que aparecen juntos en cada aparición
+	EnemyHealthMult = 0.6, -- vida de los enemigos comunes (son muchos más: mueren más rápido)
+	EnemyDamageMult = 0.5, -- daño de los enemigos comunes (son muchos más: cada uno pega menos)
+	Knockback = 1.2, -- studs que retrocede un enemigo al recibir un flechazo (los jefes no)
+	-- Enemigo dorado: raro, brilla, aguanta más y suelta muchísimo botín
+	GoldenChance = 0.008, -- probabilidad por cada enemigo común que aparece
+	GoldenHealthMult = 4,
+	GoldenLootMult = 6,
+	-- Orbes de XP: caen al morir y el imán los atrae (ver Orbs.lua)
+	MaxOrbs = 200, -- si hay más, los más viejos se cobran solos
+	-- Cofres: aparecen cada tantas muertes del equipo (ver Chests.lua)
+	ChestEveryKills = 45,
+	MaxChests = 2,
+	ChestOpenRadius = 5,
+	ChestGold = 40, -- por el multiplicador de botín del capítulo
+	ChestGemChance = 0.5,
+	ChestGivesSkill = false, -- abrirlo regala una habilidad a cada jugador
+	-- Combo (cliente): muertes del equipo seguidas sin pasar más de esto entre una y otra
+	ComboWindow = 2.5,
 }
 
 -- Salas: cada oleada se juega en una sala con otra decoración (ver Arena.lua)
@@ -114,13 +174,17 @@ Config.Coop = {
 	},
 }
 
+Config.Dash = { Cooldown = 3.5, Duration = 0.2, Speed = 70 }
+
 Config.Progression = {
+	PauseWhileChoosing = true,
+	ChoosingShield = true,
 	-- XP para pasar del nivel N al N+1 = BaseXP + (N - 1) * XPGrowth
-	BaseXP = 5,
-	XPGrowth = 3,
-	ChoiceTimeout = 12, -- segundos para elegir; después se elige una al azar
+	BaseXP = 12,
+	XPGrowth = 7,
+	ChoiceTimeout = 30, -- segundos para elegir; después se elige una al azar
 	ChoicesPerLevel = 3,
-	RarityWeights = { Common = 60, Rare = 30, Epic = 10 },
+	RarityWeights = { Common = 55, Rare = 32, Epic = 13 },
 }
 
 -- Lobby y ciclo de partida (MatchManager)
@@ -153,6 +217,20 @@ Config.Effects = {
 	BloodStartsAt = 0.8, -- la sangre en los bordes aparece con menos de este % de vida
 	BloodMax = 0.9, -- opacidad máxima de la sangre (con la vida casi en 0)
 	HeartbeatBelow = 0.3, -- con menos de este % de vida, la sangre late
+	-- Calidad de efectos: "Auto" (baja en celulares), "High" o "Low".
+	-- En baja: sin bloom ni rayos de sol, menos partículas y sin luces en los proyectiles.
+	Quality = "Auto",
+	ScreenShake = 1, -- intensidad del sacudón de cámara (0 = apagado)
+	-- Iluminación de la arena (en el lobby queda la normal)
+	ArenaClockTime = 13.5, -- hora del día (0 = medianoche, 12 = mediodía)
+	ArenaAmbient = Color3.fromRGB(125, 125, 120),
+	ArenaBrightness = 2.5,
+	Bloom = { Intensity = 0.35, Size = 24, Threshold = 0.95 }, -- brillo suave: solo lo muy luminoso
+	Saturation = 0.2,
+	Contrast = 0.06,
+	TintStrength = 0.06, -- cuánto se tiñe la luz con el color del capítulo (0 = nada)
+	NeonStrips = false, -- líneas neón en las paredes de la arena
+	Haze = 0.28, -- bruma a lo lejos (da profundidad al mapa grande; 0 = sin bruma)
 }
 
 Config.Camera = {
@@ -181,6 +259,24 @@ Config.Camera = {
 	FieldOfView = 45,
 }
 
+-- Botín al matar enemigos (Loot.lua). Lo cobran TODOS los participantes (botín compartido,
+-- así nadie le "roba" las muertes al compañero). Se suma al perfil en el momento.
+-- Se multiplica por Rewards.LootMult del capítulo. Los invocados por jefes no dan botín.
+Config.Loot = {
+	GoldPerCost = 0.5, -- oro por cada punto de Cost del enemigo (EnemyTypes)
+	GoldVariation = 0.5, -- ±50% al azar
+	GemChance = 0.03, -- probabilidad de 1 gema por enemigo
+	StoneChance = 0.02, -- probabilidad de 1 piedra de mejora por enemigo
+	Boss = { Gold = 25, Gems = 3, Stones = 2 }, -- botín extra de jefes y mini-jefes
+}
+
+-- Números flotantes (CombatFeed.lua y CombatText.client.lua)
+Config.CombatText = {
+	FlushInterval = 0.1, -- el servidor junta los golpes y los manda cada esto (menos tráfico)
+	Lifetime = 0.9, -- segundos que se ve cada número
+	ShowTeammateDamage = false, -- true: también ves el daño que hacen tus compañeros
+}
+
 -- Perfil guardado con DataStore (Profiles.lua)
 -- En Studio solo guarda si el juego está publicado y en Game Settings › Security está activado
 -- "Enable Studio Access to API Services". Si no, se juega igual pero sin guardar (aviso en el lobby).
@@ -198,6 +294,7 @@ Config.Profiles = {
 
 -- Para probar. Dejalo en false y 1 para jugar normal.
 Config.Debug = {
+	ShowPerformance = false, -- FPS, peor frame, enemigos y proyectiles; sólo diagnóstico
 	UnlockAllChapters = false, -- todos los capítulos elegibles desde el lobby
 	StartWave = 1, -- oleada con la que arranca cada partida
 }

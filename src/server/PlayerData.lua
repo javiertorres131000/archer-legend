@@ -11,6 +11,9 @@ local PlayerCfg = Config.Player
 local PlayerData = {}
 
 export type Stats = {
+	walkSpeed: number,
+	dashCooldown: number,
+	burnBonus: number,
 	damage: number,
 	attackInterval: number,
 	maxHealth: number,
@@ -19,6 +22,9 @@ export type Stats = {
 	pierce: number, -- enemigos que atraviesa
 	ricochet: number, -- rebotes
 	burn: boolean,
+	critChance: number,
+	critMultiplier: number,
+	pickupRadius: number, -- imán de orbes de XP
 	stacks: { [string]: number }, -- skillId -> veces elegida
 }
 
@@ -30,6 +36,12 @@ export type LifeState = "ALIVE" | "DOWNED" | "ELIMINATED"
 export type AimMode = "Auto" | "Manual"
 
 export type State = {
+	items: { [string]: number },
+	nextStorm: number,
+	dashReady: number,
+	dashUntil: number,
+	dashDirection: Vector3,
+	dashOwned: boolean,
 	stats: Stats,
 	lastShot: number,
 	aimMode: AimMode, -- lo elige el jugador; se mantiene entre partidas
@@ -43,14 +55,42 @@ export type State = {
 	damageDealt: number,
 	downs: number, -- veces que cayó
 	revives: number, -- compañeros que revivió
+	runLoot: { [string]: number }, -- botín juntado en esta partida (ya está en el perfil)
+	lastHurt: number, -- os.clock() del último golpe recibido (pausa entre golpes)
 }
 
 export type Target = { player: Player, root: BasePart, humanoid: Humanoid, state: State }
 
 local states: { [Player]: State } = {}
+local choosingPaused = false
+local pausedRoots: { [BasePart]: boolean } = {}
+function PlayerData.isPaused(): boolean return choosingPaused end
+function PlayerData.setPaused(on: boolean)
+	choosingPaused = on
+	if on then
+		for player, state in states do
+			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if state.inMatch and root and pausedRoots[root] == nil then
+				pausedRoots[root] = root.Anchored == true
+				root.AssemblyLinearVelocity = Vector3.zero
+				root.AssemblyAngularVelocity = Vector3.zero
+				root.Anchored = true
+				state.dashUntil = 0
+			end
+		end
+	else
+		for root, wasAnchored in pausedRoots do
+			if root.Parent then root.Anchored = wasAnchored end
+		end
+		table.clear(pausedRoots)
+	end
+end
 
 function PlayerData.newStats(): Stats
 	return {
+		walkSpeed = PlayerCfg.WalkSpeed,
+		dashCooldown = Config.Dash.Cooldown,
+		burnBonus = 0,
 		damage = Config.Projectile.Damage,
 		attackInterval = PlayerCfg.AttackInterval,
 		maxHealth = PlayerCfg.MaxHealth,
@@ -59,6 +99,9 @@ function PlayerData.newStats(): Stats
 		pierce = 0,
 		ricochet = 0,
 		burn = false,
+		critChance = PlayerCfg.CritChance,
+		critMultiplier = PlayerCfg.CritMultiplier,
+		pickupRadius = PlayerCfg.PickupRadius,
 		stacks = {},
 	}
 end
@@ -83,6 +126,7 @@ function PlayerData.applyToCharacter(player: Player, heal: number?)
 	if not state or not humanoid or humanoid.Health <= 0 then
 		return
 	end
+	if state.life == "ALIVE" then humanoid.WalkSpeed = state.stats.walkSpeed end
 	humanoid.MaxHealth = state.stats.maxHealth
 	-- Un derribado no se cura con habilidades: solo vuelve si lo reviven
 	if heal and heal > 0 and state.life == "ALIVE" then
@@ -98,6 +142,7 @@ function PlayerData.setChoosingShield(player: Player, on: boolean)
 		return
 	end
 	local existing = character:FindFirstChild("ChoiceShield")
+	if on and not Config.Progression.ChoosingShield then return end
 	if on and not existing then
 		local shield = Instance.new("ForceField")
 		shield.Name = "ChoiceShield"
@@ -109,7 +154,15 @@ end
 
 -- Nueva partida: stats y estadísticas a cero. (La aparición la hace PlayerLife.beginMatch.)
 function PlayerData.resetStats()
+	PlayerData.setPaused(false)
 	for _, state in states do
+		table.clear(state.items)
+		state.nextStorm = 0
+		state.dashReady = 0
+		state.dashUntil = 0
+		state.dashOwned = false
+		state.lastHurt = -math.huge
+		state.lastShot = 0
 		state.stats = PlayerData.newStats()
 		state.pendingOffers = 0
 		state.currentOffer = nil
@@ -117,6 +170,7 @@ function PlayerData.resetStats()
 		state.damageDealt = 0
 		state.downs = 0
 		state.revives = 0
+		table.clear(state.runLoot)
 	end
 end
 
@@ -124,6 +178,7 @@ end
 function PlayerData.init(onAdded: (Player) -> (), onRemoving: (Player) -> ())
 	local function added(player: Player)
 		states[player] = {
+			items = {}, nextStorm = 0, dashReady = 0, dashUntil = 0, dashDirection = Vector3.zero, dashOwned = false,
 			stats = PlayerData.newStats(),
 			lastShot = 0,
 			aimMode = if PlayerCfg.DefaultAimMode == "Manual" then "Manual" else "Auto",
@@ -137,6 +192,8 @@ function PlayerData.init(onAdded: (Player) -> (), onRemoving: (Player) -> ())
 			damageDealt = 0,
 			downs = 0,
 			revives = 0,
+			runLoot = {},
+			lastHurt = -math.huge,
 		}
 		player:SetAttribute("AimMode", states[player].aimMode)
 		onAdded(player)

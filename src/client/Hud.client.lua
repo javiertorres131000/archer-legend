@@ -13,6 +13,8 @@ local StarterGui = game:GetService("StarterGui")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Theme = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UITheme"))
+local RarityVisuals = require(script.Parent.RarityVisuals)
+local Rarities = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rarities"))
 local Skills = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Skills"))
 local Currencies = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Currencies"))
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
@@ -166,6 +168,49 @@ end)
 -- La alerta de amenazas, el destello al recibir daño y la sangre por vida baja
 -- están en ScreenEffects.client.lua.
 
+
+-- Botín juntado en esta partida (arriba a la derecha). Ya está sumado al perfil.
+local lootPanel = make("Frame", {
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -16, 0, 12),
+	Size = UDim2.new(0, 0, 0, 34),
+	AutomaticSize = Enum.AutomaticSize.X,
+	BackgroundColor3 = Theme.Colors.Panel,
+	BackgroundTransparency = 0.25,
+	Parent = gui,
+}, {
+	corner(10),
+	make("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }),
+	make("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Padding = UDim.new(0, 12),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}),
+})
+Theme.stroke(Theme.Colors.GoldDark, 1.5).Parent = lootPanel
+local lootLabels: { [string]: TextLabel } = {}
+for i, c in Currencies do
+	lootLabels[c.Id] = text({
+		Size = UDim2.new(0, 0, 1, 0),
+		AutomaticSize = Enum.AutomaticSize.X,
+		Text = c.Icon .. " 0",
+		TextSize = 18,
+		TextColor3 = c.Color,
+		TextStrokeTransparency = 0.5,
+		LayoutOrder = i,
+		Parent = lootPanel,
+	})
+end
+local function refreshLoot()
+	for _, c in Currencies do
+		lootLabels[c.Id].Text = c.Icon .. " " .. tostring(player:GetAttribute("Run" .. c.Id) or 0)
+	end
+end
+for _, c in Currencies do
+	player:GetAttributeChangedSignal("Run" .. c.Id):Connect(refreshLoot)
+end
+refreshLoot()
 
 -- Barra de vida propia (reemplaza la de Roblox, que LobbyUI desactiva)
 local healthBack = make("Frame", {
@@ -580,11 +625,12 @@ end)
 local owned: { [string]: number } = {}
 
 local function refreshOwned()
+	ownedLabel.RichText = true
 	local lines = {}
 	for _, def in Skills.List do
 		local n = owned[def.Id]
 		if n then
-			table.insert(lines, string.format("%s  ×%d", def.Name, n))
+			table.insert(lines, string.format('<font color="#%s">%s ×%d</font>', Rarities.Colors[def.Rarity]:ToHex(), def.Name, n))
 		end
 	end
 	ownedLabel.Text = table.concat(lines, "\n")
@@ -601,30 +647,30 @@ end)
 local overlay = make("Frame", {
 	Size = UDim2.fromScale(1, 1),
 	BackgroundColor3 = Color3.new(0, 0, 0),
-	BackgroundTransparency = 0.45,
+	BackgroundTransparency = 0.35,
 	Visible = false,
 	ZIndex = 10,
 	Parent = gui,
 })
 -- En primera persona Roblox traba el mouse en el centro. Un botón con Modal = true lo
 -- libera mientras el menú está visible, para poder hacer clic en las cartas.
-make("TextButton", { Size = UDim2.fromScale(0, 0), BackgroundTransparency = 1, Text = "", Modal = true, Parent = overlay })
+local pickerMouse = make("TextButton", { Size = UDim2.fromScale(0, 0), BackgroundTransparency = 1, Text = "", Modal = false, Parent = overlay })
 
 text({
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.fromScale(0.5, 0.14),
+	Position = UDim2.fromScale(0.5, 0.18),
 	Size = UDim2.new(1, 0, 0, 40),
-	Text = "¡Subiste de nivel! Elegí una habilidad",
-	TextSize = 30,
+	Text = "PARTIDA EN PAUSA · Elegí un poder",
+	TextSize = 22,
 	ZIndex = 11,
 	Parent = overlay,
 })
 
 local timerLabel = text({
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0.14, 44),
+	Position = UDim2.new(0.5, 0, 0.18, 44),
 	Size = UDim2.new(1, 0, 0, 24),
-	TextSize = 18,
+	TextSize = 15,
 	Font = Enum.Font.Gotham,
 	ZIndex = 11,
 	Parent = overlay,
@@ -638,7 +684,7 @@ local cardsRow = make("Frame", {
 	ZIndex = 11,
 	Parent = overlay,
 }, {
-	make("UISizeConstraint", { MaxSize = Vector2.new(780, 300) }),
+	make("UISizeConstraint", { MaxSize = Vector2.new(900, 320) }),
 	make("UIListLayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
 		HorizontalAlignment = Enum.HorizontalAlignment.Center,
@@ -655,8 +701,12 @@ type Card = {
 	rarity: TextLabel,
 	desc: TextLabel,
 	stacks: TextLabel,
+	scale: UIScale,
+	glow: number, -- cuánto late el borde según la rareza
+	spinUntil: number, -- hasta cuándo "gira" como tragamonedas
 }
 local cards: { Card } = {}
+local GLOW = { Common = 0.6, Rare = 1.6, Epic = 3 }
 
 local currentOfferId: number? = nil
 local currentChoices: { string } = {}
@@ -664,12 +714,17 @@ local deadline = 0
 
 local function closePicker()
 	currentOfferId = nil
+	pickerMouse.Modal = false
 	overlay.Visible = false
 end
 
 local function choose(index: number)
 	if not currentOfferId or not currentChoices[index] then
 		return
+	end
+	local card = cards[index]
+	if card and os.clock() < card.spinUntil then
+		return -- todavía está girando
 	end
 	chooseSkill:FireServer(currentOfferId, index)
 	closePicker()
@@ -726,10 +781,22 @@ for i = 1, 3 do
 		Parent = button,
 	})
 
+	local scale = make("UIScale", { Parent = button })
+
 	button.Activated:Connect(function()
 		choose(i)
 	end)
-	cards[i] = { button = button, stroke = stroke, name = name, rarity = rarity, desc = desc, stacks = stacks }
+	cards[i] = {
+		button = button,
+		stroke = stroke,
+		name = name,
+		rarity = rarity,
+		desc = desc,
+		stacks = stacks,
+		scale = scale,
+		glow = 0,
+		spinUntil = 0,
+	}
 end
 
 skillOffer.OnClientEvent:Connect(function(offerId: number, choices: { string }, timeout: number)
@@ -745,15 +812,25 @@ skillOffer.OnClientEvent:Connect(function(offerId: number, choices: { string }, 
 			card.stroke.Color = color
 			card.name.Text = def.Name
 			card.rarity.Text = Skills.RarityNames[def.Rarity]
-			card.rarity.TextColor3 = color
+			RarityVisuals.bind(card.rarity, def.Rarity)
 			card.desc.Text = def.Description
 			if def.Max == math.huge then
 				card.stacks.Text = string.format("[%d]", i)
 			else
 				card.stacks.Text = string.format("[%d]   %d / %d", i, owned[def.Id] or 0, def.Max)
 			end
+			card.glow = GLOW[def.Rarity] or 0.6
+			-- Entrada: aparecen de a una y "giran" como tragamonedas antes de mostrar la habilidad
+			card.scale.Scale = 0
+			card.button.Rotation = -8
+			card.spinUntil = os.clock() + 0.3 + i * 0.15
+			task.delay((i - 1) * 0.1, function()
+				TweenService:Create(card.scale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+				TweenService:Create(card.button, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Rotation = 0 }):Play()
+			end)
 		end
 	end
+	pickerMouse.Modal = true
 	overlay.Visible = true
 end)
 
@@ -776,12 +853,35 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
+local waitingForTeam = text({ AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.35), Size = UDim2.new(0.8, 0, 0, 70), Text = "Partida en pausa · Esperando que el equipo termine de elegir", TextSize = 24, TextWrapped = true, Visible = false, ZIndex = 11, Parent = gui })
+RunService.Heartbeat:Connect(function()
+	waitingForTeam.Visible = gameState:GetAttribute("ChoosingPaused") == true and not overlay.Visible
+end)
+
 -- Cuenta regresiva; si se acaba, el servidor elige al azar y cerramos el menú.
 RunService.Heartbeat:Connect(function()
 	if not overlay.Visible then
 		return
 	end
-	local left = deadline - os.clock()
+	local now = os.clock()
+	-- Tragamonedas: mientras gira, nombres al azar; después, la habilidad de verdad
+	for i, card in cards do
+		local def = Skills.ById[currentChoices[i]]
+		if def and card.button.Visible then
+			if now < card.spinUntil then
+				local random = Skills.List[math.random(1, #Skills.List)]
+				card.name.Text = random.Name
+				card.name.TextColor3 = Skills.RarityColors[random.Rarity]
+			elseif card.name.Text ~= def.Name or card.name.TextColor3 ~= Color3.new(1, 1, 1) then
+				card.name.Text = def.Name
+				card.name.TextColor3 = Color3.new(1, 1, 1)
+			end
+			-- El borde late más cuanto más rara es
+			card.stroke.Thickness = 2 + card.glow * (0.5 + math.sin(now * 6 + i) * 0.5)
+			card.stroke.Color = Rarities.color(def.Rarity, now)
+		end
+	end
+	local left = deadline - now
 	if left <= 0 then
 		closePicker()
 	else
@@ -927,7 +1027,7 @@ local rewardsRow = make("Frame", {
 	}),
 })
 
-local function showRewards(rewards: { [string]: number }?, firstClear: boolean)
+local function showRewards(rewards: { [string]: number }?, firstClear: boolean, loot: { [string]: number }?)
 	for _, child in rewardsRow:GetChildren() do
 		if child:IsA("GuiObject") then
 			child:Destroy()
@@ -970,7 +1070,19 @@ local function showRewards(rewards: { [string]: number }?, firstClear: boolean)
 			Parent = rewardsRow,
 		})
 	end
-	rewardsTitle.Text = if firstClear then "RECOMPENSAS  ·  ¡PRIMERA VICTORIA!" else "RECOMPENSAS"
+	local title = if firstClear then "RECOMPENSAS  ·  ¡PRIMERA VICTORIA!" else "RECOMPENSAS"
+	-- Botín juntado matando enemigos (ya cobrado durante la partida)
+	local lootParts = {}
+	for _, c in Currencies do
+		local n = loot and loot[c.Id] or 0
+		if n > 0 then
+			table.insert(lootParts, c.Icon .. " " .. n)
+		end
+	end
+	if #lootParts > 0 then
+		title ..= "   ·   Botín: " .. table.concat(lootParts, "  ")
+	end
+	rewardsTitle.Text = title
 end
 
 local againButton = Theme.button({
@@ -1025,7 +1137,7 @@ runEnded.OnClientEvent:Connect(function(summary)
 		tableRow(i, p.name, tostring(p.kills), tostring(p.revives or 0), tostring(p.damage), false)
 	end
 
-	showRewards(summary.rewards, summary.firstClear == true)
+	showRewards(summary.rewards, summary.firstClear == true, summary.loot)
 
 	againButton.Text = "Volver al lobby"
 	results.Visible = true

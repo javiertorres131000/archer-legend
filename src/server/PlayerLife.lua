@@ -20,6 +20,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local PlayerData = require(script.Parent.PlayerData)
+local CombatFeed = require(script.Parent.CombatFeed)
 
 local CoopCfg = Config.Coop
 local PlayerCfg = Config.Player
@@ -155,7 +156,7 @@ local function revive(player: Player, rescuer: Player?)
 		return
 	end
 	setLife(player, state, "ALIVE")
-	humanoid.WalkSpeed = PlayerCfg.WalkSpeed
+	humanoid.WalkSpeed = state.stats.walkSpeed
 	humanoid.JumpHeight = d.jumpHeight
 	humanoid.JumpPower = d.jumpPower
 	humanoid.Health = math.max(1, humanoid.MaxHealth * CoopCfg.ReviveHealthFraction)
@@ -242,6 +243,7 @@ end
 
 -- ¿Este jugador puede estar rescatando a `target` ahora mismo?
 local function validRescuer(rescuer: Player, target: Player): boolean
+	if PlayerData.isPaused() then return false end
 	if rescuer == target then
 		return false
 	end
@@ -337,6 +339,7 @@ end
 -- Única forma de dañar a un jugador. Respeta escudos (ForceField), el estado y el lobby.
 function PlayerLife.damage(target: PlayerData.Target, amount: number)
 	local state = target.state
+	if PlayerData.isPaused() then return end
 	if state.life ~= "ALIVE" or not state.inMatch or amount <= 0 then
 		return
 	end
@@ -344,7 +347,15 @@ function PlayerLife.damage(target: PlayerData.Target, amount: number)
 	if not character or character:FindFirstChildOfClass("ForceField") then
 		return
 	end
+	-- Pausa entre golpes: con hordas, que no te peguen todos en el mismo instante
+	local now = os.clock()
+	if now < state.dashUntil then return end
+	if now - state.lastHurt < PlayerCfg.HurtInvulnerability then
+		return
+	end
+	state.lastHurt = now
 	local humanoid = target.humanoid
+	CombatFeed.hurt(target.player, amount) -- número rojo en su pantalla
 	if humanoid.Health - amount <= 0 then
 		down(target.player, state, humanoid)
 	else
@@ -364,7 +375,7 @@ local function onCharacterAdded(player: Player, character: Model)
 		pendingSpawn[player] = nil
 		character:PivotTo(at)
 	end
-	humanoid.WalkSpeed = PlayerCfg.WalkSpeed
+	humanoid.WalkSpeed = state.stats.walkSpeed
 	humanoid.MaxHealth = state.stats.maxHealth
 	humanoid.Health = humanoid.MaxHealth
 	addShield(character, "SpawnShield", PlayerCfg.SpawnInvulnerability)
@@ -417,6 +428,12 @@ function PlayerLife.onPlayerRemoving(player: Player)
 end
 
 -- Por frame: relojes de derribo, validación de rescatadores y barras.
+function PlayerLife.pauseTime(dt: number)
+	for _, data in downed do
+		for player, started in data.holders do data.holders[player] = started + dt end
+	end
+end
+
 function PlayerLife.update(dt: number)
 	for player, d in downed do
 		-- Saca a los que dejaron de ser válidos (se alejaron, cayeron, se fueron)

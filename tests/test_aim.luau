@@ -82,10 +82,19 @@ test("cenital (TopDown): apunta al más cercano en cualquier dirección", functi
 	Config.Camera.Mode = "FirstPerson"
 end)
 
-test("sigue la regla de Archero: moviéndose no dispara", function()
+test("modo frenético: dispara caminando", function()
+	Config.Player.ShootWhileMoving = true
+	root.AssemblyLinearVelocity = V.new(10, 0, 0)
+	assert(fireOnce(), "debería disparar aunque se mueva")
+	root.AssemblyLinearVelocity = V.zero
+end)
+
+test("con ShootWhileMoving = false vuelve la regla de Archero: moviéndose no dispara", function()
+	Config.Player.ShootWhileMoving = false
 	root.AssemblyLinearVelocity = V.new(10, 0, 0)
 	eq(fireOnce(), nil, "disparo")
 	root.AssemblyLinearVelocity = V.zero
+	Config.Player.ShootWhileMoving = true
 end)
 
 print("Apuntado manual")

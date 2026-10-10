@@ -274,6 +274,7 @@ end)
 test("migraciones: se aplican en orden al subir de versión", function()
 	local p = newPlayer()
 	DS.data["Player_" .. p.UserId] = { Version = 1, Data = { Currencies = { Gold = 10 } } }
+	local previousVersion, previousMigration = Profiles.SCHEMA_VERSION, Profiles.Migrations[1]
 	-- Versión 2 de ejemplo: duplica el oro (solo para la prueba)
 	Profiles.SCHEMA_VERSION = 2
 	Profiles.Migrations[1] = function(data)
@@ -281,8 +282,8 @@ test("migraciones: se aplican en orden al subir de versión", function()
 		return data
 	end
 	local ok, err = pcall(Profiles.load, p)
-	Profiles.SCHEMA_VERSION = 1
-	Profiles.Migrations[1] = nil
+	Profiles.SCHEMA_VERSION = previousVersion
+	Profiles.Migrations[1] = previousMigration
 	assert(ok, err)
 	eq(Profiles.get(p).Currencies.Gold, 20, "migrado")
 	eq(record(p).Version, 2, "guardado como versión 2")

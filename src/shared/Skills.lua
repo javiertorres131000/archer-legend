@@ -5,18 +5,10 @@
 -- PlayerData.newStats() y su efecto en Combat.
 
 local Skills = {}
+local Rarities = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Rarities"))
 
-Skills.RarityColors = {
-	Common = Color3.fromRGB(170, 170, 180),
-	Rare = Color3.fromRGB(80, 150, 255),
-	Epic = Color3.fromRGB(190, 90, 255),
-}
-
-Skills.RarityNames = {
-	Common = "Común",
-	Rare = "Rara",
-	Epic = "Épica",
-}
+Skills.RarityColors = Rarities.Colors
+Skills.RarityNames = Rarities.Names
 
 Skills.List = {
 	{
@@ -48,6 +40,36 @@ Skills.List = {
 		Heal = 20,
 		Apply = function(s)
 			s.maxHealth += 20
+		end,
+	},
+	{
+		Id = "Magnet",
+		Name = "Imán",
+		Description = "Atraés los orbes de XP desde un 40% más lejos.",
+		Rarity = "Common",
+		Max = 3,
+		Apply = function(s)
+			s.pickupRadius *= 1.4
+		end,
+	},
+	{
+		Id = "Crit",
+		Name = "Ojo de halcón",
+		Description = "+8% de probabilidad de crítico.",
+		Rarity = "Rare",
+		Max = 4,
+		Apply = function(s)
+			s.critChance += 0.08
+		end,
+	},
+	{
+		Id = "CritDamage",
+		Name = "Golpe brutal",
+		Description = "Los críticos hacen +50% de daño.",
+		Rarity = "Epic",
+		Max = 2,
+		Apply = function(s)
+			s.critMultiplier += 0.5
 		end,
 	},
 	{

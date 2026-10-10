@@ -1,6 +1,7 @@
 -- Combat (ModuleScript)
 -- Ubicación: ServerScriptService > Server > Combat
--- Disparo automático (solo quieto) y proyectiles simulados como matemática pura.
+-- Disparo automático (caminando, o solo quieto si Config.Player.ShootWhileMoving = false)
+-- y proyectiles simulados como matemática pura. Críticos y retroceso de los enemigos.
 -- Apuntado por jugador: "Auto" elige al enemigo más cercano, "Manual" tira hacia donde mira.
 -- El cliente solo dibuja las flechas; el daño se decide acá.
 
@@ -22,6 +23,8 @@ type Projectile = {
 	dir: Vector3,
 	age: number,
 	damage: number,
+	critChance: number,
+	critMultiplier: number,
 	pierce: number,
 	bounces: number,
 	burn: boolean,
@@ -87,6 +90,8 @@ local function spawnProjectile(player: Player, stats: PlayerData.Stats, origin: 
 		dir = dir,
 		age = 0,
 		damage = stats.damage,
+		critChance = stats.critChance,
+		critMultiplier = stats.critMultiplier,
 		pierce = stats.pierce,
 		bounces = stats.ricochet,
 		burn = stats.burn,
@@ -161,11 +166,14 @@ local function updateAttacks(targets: { PlayerData.Target }, now: number)
 	for _, t in targets do
 		local state = t.state
 		-- No dispara mientras elige habilidad.
-		if state.currentOffer then
+		if state.currentOffer and Config.Progression.PauseWhileChoosing then
 			continue
 		end
-		-- Regla de Archero: solo dispara si está quieto.
-		if flat(t.root.AssemblyLinearVelocity).Magnitude > PlayerCfg.StillThreshold then
+		-- Regla de Archero (opcional): solo dispara si está quieto.
+		if
+			not PlayerCfg.ShootWhileMoving
+			and flat(t.root.AssemblyLinearVelocity).Magnitude > PlayerCfg.StillThreshold
+		then
 			continue
 		end
 		if now - state.lastShot < state.stats.attackInterval then
@@ -185,7 +193,7 @@ local function updateAttacks(targets: { PlayerData.Target }, now: number)
 	end
 end
 
-local function updateProjectiles(dt: number)
+local function updateProjectiles(dt: number, allowDamage: boolean)
 	for i = #projectiles, 1, -1 do
 		local p = projectiles[i]
 		p.pos += p.dir * ProjCfg.Speed * dt
@@ -193,6 +201,7 @@ local function updateProjectiles(dt: number)
 
 		local ended = false
 		for _, e in Enemies.list do
+			if not allowDamage then break end
 			if not e.alive or e.hidden or p.hit[e] then
 				continue
 			end
@@ -203,9 +212,16 @@ local function updateProjectiles(dt: number)
 			p.hit[e] = true
 			-- El fuego se aplica antes del golpe, por si el golpe lo mata.
 			if p.burn then
-				Enemies.applyBurn(e, p.damage * ProjCfg.BurnFraction, ProjCfg.BurnDuration, p.owner)
+				Enemies.applyBurn(e, p.damage * ProjCfg.BurnFraction * (1 + ((PlayerData.get(p.owner) and PlayerData.get(p.owner).stats.burnBonus) or 0)), ProjCfg.BurnDuration, p.owner)
 			end
-			Enemies.damage(e, p.damage, p.owner)
+			-- Crítico: se sortea en cada impacto
+			local crit = math.random() < p.critChance
+			local damage = if crit then p.damage * p.critMultiplier else p.damage
+			Enemies.damage(e, damage, p.owner, if crit then "crit" else "hit")
+			-- Retroceso (los jefes no se mueven)
+			if e.alive and not e.isBoss then
+				Enemies.knockback(e, p.dir, Config.Frenzy.Knockback * (if crit then 2 else 1))
+			end
 
 			-- Rebote: busca otro enemigo cercano que no haya golpeado
 			local redirected = false
@@ -266,7 +282,7 @@ function Combat.fireEnemyProjectile(origin: Vector3, dir: Vector3, opts: EnemyPr
 	-- ownerUserId = 0 le indica al cliente que es enemigo. El estilo le dice cómo dibujarlo.
 	remotes.ProjectileFired:FireAllClients(p.id, start, dir, p.speed, p.lifetime, 0, {
 		size = size,
-		color = o.color or EnemyProjCfg.Color,
+		color = if EnemyProjCfg.UseDangerColor then EnemyProjCfg.Color else (o.color or EnemyProjCfg.Color),
 		zigAmp = p.zigAmp,
 		zigFreq = p.zigFreq,
 	})
@@ -344,8 +360,12 @@ function Combat.update(dt: number, targets: { PlayerData.Target }, now: number, 
 		updateAttacks(targets, now)
 	end
 	-- Los proyectiles en vuelo terminan su recorrido aunque el juego esté en pausa.
-	updateProjectiles(dt)
-	updateEnemyProjectiles(dt, targets)
+	updateProjectiles(dt, not frozen)
+	updateEnemyProjectiles(dt, if frozen then {} else targets)
+end
+
+function Combat.count(): number
+	return #projectiles + #enemyProjectiles
 end
 
 function Combat.clear()

@@ -7,6 +7,7 @@
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local EnemyTypes = require(script.Parent.Data.EnemyTypes)
 local PlayerData = require(script.Parent.PlayerData)
+local Ground = require(script.Parent.Ground)
 local PlayerLife = require(script.Parent.PlayerLife)
 local EnemyAI = require(script.Parent.EnemyAI)
 
@@ -39,13 +40,15 @@ export type Enemy = {
 	burnOwner: Player?,
 	summoner: any?, -- enemigo que lo invocó
 	isBoss: boolean,
+	golden: boolean, -- enemigo dorado: brilla y suelta mucho botín
+	showBar: boolean,
 	ai: any, -- estado de EnemyAI
 }
 
-export type SpawnOptions = { healthMult: number?, dmgMult: number?, summoner: Enemy? }
+export type SpawnOptions = { healthMult: number?, dmgMult: number?, summoner: Enemy?, golden: boolean? }
 
--- (enemigo, quién pegó, daño real hecho, si murió)
-type DamageCallback = (Enemy, Player?, number, boolean) -> ()
+-- (enemigo, quién pegó, daño real hecho, si murió, tipo de daño: "hit" | "burn")
+type DamageCallback = (Enemy, Player?, number, boolean, string) -> ()
 
 local Enemies = {}
 Enemies.list = {} :: { Enemy }
@@ -124,12 +127,23 @@ local function createHealthBar(parent: BasePart, width: number, height: number):
 	return gui, fill
 end
 
+-- Un punto a una distancia razonable de algún jugador (ni encima ni del otro lado del mapa),
+-- dentro del mapa y lejos de todos los demás jugadores.
 function Enemies.findSpawnPosition(targets: { PlayerData.Target }): Vector3?
 	local margin = Config.Arena.SpawnMargin
 	local maxX = half.X - margin
 	local maxZ = half.Z - margin
-	for _ = 1, 12 do
-		local pos = Vector3.new(math.random() * 2 * maxX - maxX, 0, math.random() * 2 * maxZ - maxZ)
+	for _ = 1, 16 do
+		local pos
+		if #targets > 0 then
+			local around = flat(targets[math.random(1, #targets)].root.Position)
+			local angle = math.random() * math.pi * 2
+			local dist = EnemyCfg.MinSpawnDistance + math.random() * (EnemyCfg.MaxSpawnDistance - EnemyCfg.MinSpawnDistance)
+			pos = around + Vector3.new(math.cos(angle), 0, math.sin(angle)) * dist
+			pos = Vector3.new(math.clamp(pos.X, -maxX, maxX), 0, math.clamp(pos.Z, -maxZ, maxZ))
+		else
+			pos = Vector3.new(math.random() * 2 * maxX - maxX, 0, math.random() * 2 * maxZ - maxZ)
+		end
 		local ok = true
 		for _, t in targets do
 			if (flat(t.root.Position) - pos).Magnitude < EnemyCfg.MinSpawnDistance then
@@ -149,7 +163,8 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 	local def = EnemyTypes[typeId]
 	assert(def, "Tipo de enemigo desconocido: " .. tostring(typeId))
 	local o = opts or {}
-	local healthMult = o.healthMult or 1
+	local golden = o.golden == true and not def.Boss
+	local healthMult = (o.healthMult or 1) * (if golden then Config.Frenzy.GoldenHealthMult else 1)
 	local dmgMult = o.dmgMult or 1
 
 	local size = def.Size or 3
@@ -159,6 +174,8 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 
 	local part = Instance.new("Part")
 	part.Name = typeId
+	part:SetAttribute("ThreatRole", def.Role or (if def.Boss then "Boss" else "Horde"))
+	if def.Role == "Elite" then part:SetAttribute("Elite", true) end
 	if def.Shape == "Ball" then
 		part.Shape = Enum.PartType.Ball
 		part.Size = Vector3.one * size
@@ -168,10 +185,33 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 	part.Anchored = true
 	part.CanCollide = false
 	part.CanTouch = false
-	part.Color = def.Color
-	part.Material = if def.Boss then Enum.Material.Neon else Enum.Material.SmoothPlastic
-	part.CFrame = CFrame.new(start.X, baseY, start.Z)
+	local color = if golden then Color3.fromRGB(255, 200, 40) else def.Color
+	part.Color = color
+	part.Material = if def.Boss or golden then Enum.Material.Neon else Enum.Material.SmoothPlastic
+	part.CFrame = CFrame.new(start.X, Ground.y(start.X, start.Z) + baseY, start.Z)
 	local barGui, bar = createHealthBar(part, size, height)
+	local showBar = def.Boss == true or golden or def.Role == "Elite" or EnemyCfg.HealthBars == "All"
+	barGui.Enabled = showBar
+	if def.Role == "Elite" then
+		local label = Instance.new("TextLabel")
+		label.BackgroundTransparency = 1
+		label.Position = UDim2.fromOffset(0, -18)
+		label.Size = UDim2.new(1, 0, 0, 18)
+		label.Text = "ÉLITE"
+		label.Font = Enum.Font.GothamBold
+		label.TextSize = 12
+		label.TextColor3 = color
+		label.TextStrokeTransparency = 0
+		label.Parent = barGui
+	end
+	if golden then
+		part.Name = "Golden" .. typeId
+		local light = Instance.new("PointLight")
+		light.Color = color
+		light.Range = 14
+		light.Brightness = 3
+		light.Parent = part
+	end
 	part.Parent = folder
 
 	local maxHealth = def.Health * healthMult
@@ -182,7 +222,7 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 		radius = size / 2,
 		height = height,
 		baseY = baseY,
-		color = def.Color,
+		color = color,
 		maxHealth = maxHealth,
 		health = maxHealth,
 		healthMult = healthMult,
@@ -199,6 +239,8 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 		burnOwner = nil,
 		summoner = o.summoner,
 		isBoss = def.Boss == true,
+		golden = golden,
+		showBar = showBar,
 		ai = nil,
 	}
 	EnemyAI.setup(enemy)
@@ -208,18 +250,31 @@ end
 
 -- Crea un enemigo al principio del próximo frame (seguro de usar mientras se recorre la lista).
 function Enemies.queueSpawn(typeId: string, pos: Vector3, opts: SpawnOptions?)
+	if Enemies.aliveCount() >= EnemyCfg.MaxAlive then return end
 	table.insert(pending, { typeId = typeId, pos = pos, opts = opts or {} })
+end
+
+-- Empuja al enemigo en esa dirección (retroceso al recibir un flechazo).
+function Enemies.knockback(enemy: Enemy, dir: Vector3, distance: number)
+	if not enemy.alive or enemy.hidden or distance <= 0 or dir.Magnitude < 0.01 then
+		return
+	end
+	local push = Vector3.new(dir.X, 0, dir.Z).Unit * distance
+	local pos = Enemies.clampFlat(enemy.part.Position + push, enemy.radius)
+	-- La orientación la vuelve a fijar Enemies.update en el próximo frame
+	enemy.part.CFrame = CFrame.new(Vector3.new(pos.X, Ground.y(pos.X, pos.Z) + enemy.baseY, pos.Z))
 end
 
 -- Enterrado: invisible, no recibe golpes y no lo apunta nadie.
 function Enemies.setHidden(enemy: Enemy, hidden: boolean)
 	enemy.hidden = hidden
 	enemy.part.Transparency = if hidden then 1 else 0
-	enemy.barGui.Enabled = not hidden
+	enemy.barGui.Enabled = enemy.showBar and not hidden
 end
 
 -- attacker: el jugador que hizo el daño (para estadísticas). Puede ser nil.
-function Enemies.damage(enemy: Enemy, amount: number, attacker: Player?)
+-- kind: "hit" (flecha) o "burn" (quemadura); solo cambia cómo se muestra el número.
+function Enemies.damage(enemy: Enemy, amount: number, attacker: Player?, kind: string?)
 	if not enemy.alive or enemy.hidden or amount <= 0 then
 		return
 	end
@@ -247,7 +302,7 @@ function Enemies.damage(enemy: Enemy, amount: number, attacker: Player?)
 		end
 	end
 	if damagedCallback then
-		damagedCallback(enemy, attacker, dealt, killed)
+		damagedCallback(enemy, attacker, dealt, killed, kind or "hit")
 	end
 end
 
@@ -332,11 +387,23 @@ function Enemies.update(dt: number, targets: { PlayerData.Target }, now: number,
 				e.burnDps = 0
 				e.part.Color = e.color
 			else
-				Enemies.damage(e, e.burnDps * dt, e.burnOwner)
+				Enemies.damage(e, e.burnDps * dt, e.burnOwner, "burn")
 			end
 		end
 	end
 
+	-- Grilla espacial: la separación sólo compara celdas vecinas.
+	local cellSize, maxRadius = 12, 0
+	local grid = {}
+	for _, e in Enemies.list do
+		if e.alive and not e.hidden then
+			maxRadius = math.max(maxRadius, e.radius)
+			local x, z = math.floor(e.part.Position.X / cellSize), math.floor(e.part.Position.Z / cellSize)
+			local key = x .. ":" .. z
+			grid[key] = grid[key] or {}
+			table.insert(grid[key], e)
+		end
+	end
 	local parts: { BasePart } = {}
 	local cframes: { CFrame } = {}
 
@@ -351,7 +418,11 @@ function Enemies.update(dt: number, targets: { PlayerData.Target }, now: number,
 
 		if separate then
 			local push = Vector3.zero
-			for _, other in Enemies.list do
+			local cx, cz = math.floor(pos.X / cellSize), math.floor(pos.Z / cellSize)
+			local cells = math.ceil((e.radius + maxRadius + EnemyCfg.SeparationPadding) / cellSize)
+			for x = cx - cells, cx + cells do
+			for z = cz - cells, cz + cells do
+			for _, other in grid[x .. ":" .. z] or {} do
 				if other ~= e and other.alive and not other.hidden then
 					local away = pos - flat(other.part.Position)
 					local d = away.Magnitude
@@ -361,11 +432,14 @@ function Enemies.update(dt: number, targets: { PlayerData.Target }, now: number,
 					end
 				end
 			end
+			end
+			end
 			desired += push * dt
 		end
 
 		local newPos = Enemies.clampFlat(desired, e.radius)
-		local y = e.baseY + (e.ai.yOffset or 0)
+		-- Caminan sobre el relieve: la altura sale del piso en ese punto
+		local y = Ground.y(newPos.X, newPos.Z) + e.baseY + (e.ai.yOffset or 0)
 		local look = if facing and facing.Magnitude > 0.01 then facing.Unit else e.part.CFrame.LookVector
 		local center = Vector3.new(newPos.X, y, newPos.Z)
 		table.insert(parts, e.part)
@@ -374,7 +448,9 @@ function Enemies.update(dt: number, targets: { PlayerData.Target }, now: number,
 		-- Daño por contacto
 		if not e.hidden and e.contactDamage > 0 then
 			local target, dist = nearestTarget(newPos, targets)
-			if target and dist <= e.radius + 1.5 and now - e.lastContact >= EnemyCfg.ContactCooldown then
+			-- Con relieve: no pega a alguien que está arriba de una meseta (o abajo)
+			local sameLevel = target ~= nil and math.abs(target.root.Position.Y - y) <= e.height / 2 + 4
+			if target and sameLevel and dist <= e.radius + 1.5 and now - e.lastContact >= EnemyCfg.ContactCooldown then
 				e.lastContact = now
 				PlayerLife.damage(target, e.contactDamage)
 			end

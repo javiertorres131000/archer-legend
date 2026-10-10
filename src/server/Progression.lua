@@ -70,6 +70,7 @@ local function openNextOffer(player: Player)
 	state.currentOffer = rollChoices(state.stats.stacks)
 	state.offerDeadline = os.clock() + ProgCfg.ChoiceTimeout
 	PlayerData.setChoosingShield(player, true)
+	Progression.syncPause()
 	remotes.SkillOffer:FireClient(player, state.offerId, state.currentOffer, ProgCfg.ChoiceTimeout)
 end
 
@@ -103,6 +104,7 @@ local function resolveOffer(player: Player, index: number)
 		grant(player, skillId)
 	end
 	openNextOffer(player) -- si subió varios niveles juntos, sigue la próxima
+	Progression.syncPause()
 end
 
 function Progression.init(r, state: Folder)
@@ -113,7 +115,7 @@ function Progression.init(r, state: Folder)
 	-- El cliente manda (offerId, índice). Nunca confiamos en lo que manda: validamos todo.
 	remotes.ChooseSkill.OnServerEvent:Connect(function(player: Player, offerId: any, index: any)
 		local s = PlayerData.get(player)
-		if not s or not s.currentOffer then
+		if not s or not s.inMatch or not s.currentOffer or s.life ~= "ALIVE" then
 			return
 		end
 		if typeof(offerId) ~= "number" or offerId ~= s.offerId then
@@ -143,6 +145,16 @@ function Progression.addXP(amount: number)
 end
 
 -- Cierra ofertas vencidas eligiendo una al azar.
+-- Una habilidad gratis para este jugador (cofres). Se suma a las que tenga pendientes.
+function Progression.giveChoice(player: Player)
+	local state = PlayerData.get(player)
+	if not state or not state.inMatch then
+		return
+	end
+	state.pendingOffers += 1
+	openNextOffer(player)
+end
+
 function Progression.update(now: number)
 	for player, state in PlayerData.all() do
 		if state.currentOffer and now >= state.offerDeadline then
@@ -151,18 +163,19 @@ function Progression.update(now: number)
 	end
 end
 
--- true si hay jugadores vivos y TODOS están eligiendo: el juego se pausa.
--- Jugando solo, esto equivale a la pausa de Archero.
+-- Pausa global mientras cualquier jugador vivo tiene una oferta abierta.
 function Progression.allChoosing(targets: { PlayerData.Target }): boolean
-	if #targets == 0 then
-		return false
+	if not ProgCfg.PauseWhileChoosing then return false end
+	for _, target in targets do
+		if target.state.currentOffer then return true end
 	end
-	for _, t in targets do
-		if not t.state.currentOffer then
-			return false
-		end
-	end
-	return true
+	return false
+end
+function Progression.syncPause(): boolean
+	local paused = Progression.allChoosing(PlayerData.getAliveTargets())
+	PlayerData.setPaused(paused)
+	gameState:SetAttribute("ChoosingPaused", paused)
+	return paused
 end
 
 -- Lo fija Waves al empezar cada oleada según la cantidad de jugadores.
@@ -176,6 +189,8 @@ function Progression.level(): number
 end
 
 function Progression.reset()
+	PlayerData.setPaused(false)
+	gameState:SetAttribute("ChoosingPaused", false)
 	level = 1
 	xp = 0
 	xpScale = 1
