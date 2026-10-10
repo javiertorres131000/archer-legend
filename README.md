@@ -24,7 +24,7 @@ Roguelite de acción cooperativo para Roblox (1 a 4 jugadores), inspirado en las
 2. En **Game Settings › Places › Max Players** poné **4** (el juego arma equipos de hasta 4).
 3. **Play** (F5) para uno solo, o **Test › Clients and Servers › 2 Players › Start** para cooperativo.
 
-**Cámara:** la arena se juega en primera persona. Para volver a la vista desde arriba: `Config.Camera.Mode = "TopDown"`. En primera persona el disparo automático apunta a lo que tenés delante (ancho del cono en `Config.Player.AimConeFirstPerson`).
+**Cámara:** la arena se juega en primera persona; cada jugador puede pasar a tercera persona (detrás del hombro) y volver con la tecla **V** (o R3 en el joystick). Teclas, distancia y hombro en `Config.Camera`. Para volver a la vista desde arriba: `Config.Camera.Mode = "TopDown"`. En primera persona el disparo automático apunta a lo que tenés delante (ancho del cono en `Config.Player.AimConeFirstPerson`). Con **Q** (o la cruceta arriba en el joystick) pasás a **apuntado manual**: al quedarte quieto tira hacia la mira, haya o no un enemigo ahí (solo mientras queden enemigos). Debajo de la mira se ve el modo actual; el inicial está en `Config.Player.DefaultAimMode`.
 
 Para probar rápido: `Config.Debug.UnlockAllChapters = true` deja elegir cualquier capítulo y `Config.Debug.StartWave` arranca en otra oleada (por ejemplo 10 para ir directo al jefe). Volvé a `false` y `1` para jugar normal.
 
@@ -148,7 +148,7 @@ En `tests/` (fuera de lo que sincroniza Rojo). Corren los módulos reales del se
 | `test_match.luau` | Ciclo de partida: solo, dos jugadores, cancelar listo, desconexión en la cuenta, victoria y vuelta, derrota y vuelta, segunda partida, partidas duplicadas, líder, equipo lleno, permisos y peticiones inválidas; recompensas entregadas y guardadas, volver a entrar con todo, no poder ponerse listo mientras carga el perfil |
 | `test_playerlife.luau` | Derribo, rescate, eliminación, descanso, lobby a salvo, entradas y salidas |
 | `test_catalog.luau` | Catálogo de enemigos y capítulos, escalado coop de oleadas, variedad |
-| `test_aim.luau` | Puntería: en primera persona solo apunta adelante; en cenital, a todo alrededor |
+| `test_aim.luau` | Puntería: en primera persona solo apunta adelante; en cenital, a todo alrededor; apuntado manual hacia la mira |
 | `test_ai.luau` | 60 s de cada enemigo y jefe: sin errores, todos atacan, los jefes cambian de fase |
 | `test_profiles.luau` | Perfil: nuevo, guardar y volver, monedas, reintentos, DataStore caído, Studio sin acceso, bloqueo de sesión (esperar, tomar, abandonado, perdido, mismo servidor), migraciones, datos rotos, versión nueva, irse mientras carga, guardado automático y cierre del servidor |
 | `test_rewards.luau` | Cálculo de recompensas: derrota, jefes, primera victoria, valores fuera de rango, los tres capítulos |

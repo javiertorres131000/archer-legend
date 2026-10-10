@@ -32,6 +32,9 @@ export type Stats = {
 -- ELIMINATED: se le acabó el tiempo de derribo; mira a un compañero hasta el descanso.
 export type LifeState = "ALIVE" | "DOWNED" | "ELIMINATED"
 
+-- Auto: elige al enemigo más cercano · Manual: dispara hacia donde mira el personaje
+export type AimMode = "Auto" | "Manual"
+
 export type State = {
 	items: { [string]: number },
 	nextStorm: number,
@@ -41,6 +44,7 @@ export type State = {
 	dashOwned: boolean,
 	stats: Stats,
 	lastShot: number,
+	aimMode: AimMode, -- lo elige el jugador; se mantiene entre partidas
 	pendingOffers: number, -- niveles ganados todavía sin elegir
 	currentOffer: { string }?, -- ids ofrecidos ahora mismo
 	offerId: number,
@@ -177,6 +181,7 @@ function PlayerData.init(onAdded: (Player) -> (), onRemoving: (Player) -> ())
 			items = {}, nextStorm = 0, dashReady = 0, dashUntil = 0, dashDirection = Vector3.zero, dashOwned = false,
 			stats = PlayerData.newStats(),
 			lastShot = 0,
+			aimMode = if PlayerCfg.DefaultAimMode == "Manual" then "Manual" else "Auto",
 			pendingOffers = 0,
 			currentOffer = nil,
 			offerId = 0,
@@ -190,6 +195,7 @@ function PlayerData.init(onAdded: (Player) -> (), onRemoving: (Player) -> ())
 			runLoot = {},
 			lastHurt = -math.huge,
 		}
+		player:SetAttribute("AimMode", states[player].aimMode)
 		onAdded(player)
 	end
 
@@ -201,6 +207,16 @@ function PlayerData.init(onAdded: (Player) -> (), onRemoving: (Player) -> ())
 		onRemoving(player)
 		states[player] = nil
 	end)
+end
+
+-- Cambia el modo de apuntado (pedido por el cliente: se valida acá).
+function PlayerData.setAimMode(player: Player, mode: any)
+	local state = states[player]
+	if not state or (mode ~= "Auto" and mode ~= "Manual") then
+		return
+	end
+	state.aimMode = mode
+	player:SetAttribute("AimMode", mode)
 end
 
 -- Jugadores que se pueden atacar y que atacan: participantes ALIVE con personaje.

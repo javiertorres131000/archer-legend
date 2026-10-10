@@ -39,6 +39,12 @@ Config.Player = {
 	-- En primera persona solo se apunta a enemigos delante tuyo: ancho del cono en grados.
 	-- (En modo TopDown se apunta a todo alrededor.)
 	AimConeFirstPerson = 110,
+	-- Modo de apuntado (cada jugador lo cambia con AimToggleKeys):
+	--   "Auto"   → elige solo al enemigo más cercano a tiro (en primera persona, dentro del cono)
+	--   "Manual" → dispara hacia donde mirás (la mira), haya o no un enemigo ahí
+	-- En los dos, solo dispara quieto y mientras queden enemigos.
+	DefaultAimMode = "Auto",
+	AimToggleKeys = { Enum.KeyCode.Q, Enum.KeyCode.DPadUp }, -- teclado / joystick
 	AttackInterval = 0.6, -- segundos entre disparos
 	-- true: disparás mientras caminás (modo frenético). false: regla de Archero, solo quieto.
 	ShootWhileMoving = true,
@@ -231,6 +237,16 @@ Config.Camera = {
 	-- "FirstPerson": en la arena ves por los ojos de tu personaje (el lobby sigue en tercera persona).
 	-- "TopDown": la cámara cenital original, desde arriba.
 	Mode = "FirstPerson",
+	-- En modo "FirstPerson" cada jugador puede alternar la vista de la arena con la tecla:
+	--   "FirstPerson" → por los ojos del personaje
+	--   "ThirdPerson" → detrás del hombro; el personaje sigue girando hacia donde mirás
+	DefaultView = "FirstPerson", -- con cuál arranca
+	ToggleKeys = { Enum.KeyCode.V, Enum.KeyCode.ButtonR3 }, -- teclado / joystick
+	ThirdPersonDistance = 12, -- distancia inicial de la cámara (se puede acercar/alejar con la rueda)
+	ThirdPersonMinZoom = 6,
+	ThirdPersonMaxZoom = 22,
+	ThirdPersonShoulder = Vector3.new(1.75, 0.5, 0), -- corrimiento al costado para no tapar la mira
+	ThirdPersonFieldOfView = 75,
 	FirstPersonFieldOfView = 80,
 	LobbyFieldOfView = 70,
 	-- Alerta de amenazas fuera de la vista (primera persona): flechitas rojas alrededor de la mira

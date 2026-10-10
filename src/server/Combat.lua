@@ -2,6 +2,7 @@
 -- Ubicación: ServerScriptService > Server > Combat
 -- Disparo automático (caminando, o solo quieto si Config.Player.ShootWhileMoving = false)
 -- y proyectiles simulados como matemática pura. Críticos y retroceso de los enemigos.
+-- Apuntado por jugador: "Auto" elige al enemigo más cercano, "Manual" tira hacia donde mira.
 -- El cliente solo dibuja las flechas; el daño se decide acá.
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
@@ -73,6 +74,7 @@ local nextId = 0
 function Combat.init(r, arenaHalf: Vector3)
 	remotes = r
 	half = arenaHalf
+	r.SetAimMode.OnServerEvent:Connect(PlayerData.setAimMode)
 end
 
 local function rotateFlat(dir: Vector3, degrees: number): Vector3
@@ -143,6 +145,23 @@ local function pickTarget(t: PlayerData.Target)
 	return best
 end
 
+-- Apuntado manual: hacia donde mira el personaje (gira con la cámara en primera y tercera persona).
+-- Solo si queda algún enemigo, para no tirar flechas al aire en los descansos.
+local function manualDirection(t: PlayerData.Target): Vector3?
+	local anyEnemy = false
+	for _, e in Enemies.list do
+		if e.alive and not e.hidden then
+			anyEnemy = true
+			break
+		end
+	end
+	local look = flat(t.root.CFrame.LookVector)
+	if not anyEnemy or look.Magnitude < 0.01 then
+		return nil
+	end
+	return look.Unit
+end
+
 local function updateAttacks(targets: { PlayerData.Target }, now: number)
 	for _, t in targets do
 		local state = t.state
@@ -160,10 +179,16 @@ local function updateAttacks(targets: { PlayerData.Target }, now: number)
 		if now - state.lastShot < state.stats.attackInterval then
 			continue
 		end
-		local enemy = pickTarget(t)
-		if enemy then
+		local dir: Vector3? = nil
+		if state.aimMode == "Manual" then
+			dir = manualDirection(t)
+		else
+			local enemy = pickTarget(t)
+			dir = enemy and flat(enemy.part.Position - t.root.Position).Unit
+		end
+		if dir then
 			state.lastShot = now
-			fireVolley(t, flat(enemy.part.Position - t.root.Position).Unit)
+			fireVolley(t, dir)
 		end
 	end
 end
