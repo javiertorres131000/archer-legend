@@ -71,7 +71,7 @@ local function openNextOffer(player: Player)
 	state.offerDeadline = os.clock() + ProgCfg.ChoiceTimeout
 	PlayerData.setChoosingShield(player, true)
 	Progression.syncPause()
-	remotes.SkillOffer:FireClient(player, state.offerId, state.currentOffer, ProgCfg.ChoiceTimeout)
+	remotes.SkillOffer:FireClient(player, state.offerId, state.currentOffer, ProgCfg.ChoiceTimeout, state.stats.rerolls)
 end
 
 local function grant(player: Player, skillId: string)
@@ -125,6 +125,22 @@ function Progression.init(r, state: Folder)
 			return
 		end
 		resolveOffer(player, index)
+	end)
+
+	-- Talento Otra mano: cambia las 3 cartas por otras (gasta un cambio de esta partida)
+	remotes.RerollSkills.OnServerEvent:Connect(function(player: Player, offerId: any)
+		local s = PlayerData.get(player)
+		if not s or not s.inMatch or not s.currentOffer or s.life ~= "ALIVE" then
+			return
+		end
+		if typeof(offerId) ~= "number" or offerId ~= s.offerId or s.stats.rerolls <= 0 then
+			return
+		end
+		s.stats.rerolls -= 1
+		s.offerId += 1
+		s.currentOffer = rollChoices(s.stats.stacks)
+		s.offerDeadline = os.clock() + ProgCfg.ChoiceTimeout
+		remotes.SkillOffer:FireClient(player, s.offerId, s.currentOffer, ProgCfg.ChoiceTimeout, s.stats.rerolls)
 	end)
 end
 

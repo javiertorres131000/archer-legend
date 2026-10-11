@@ -2,7 +2,8 @@
 -- Ubicación: StarterPlayer > StarterPlayerScripts > Client > EquipmentUI
 -- Pantalla de equipo estilo Archero: tu personaje con los 6 espacios alrededor, ataque y vida
 -- arriba, y abajo la grilla del inventario. Tocás un objeto y aparece el detalle con
--- Equipar / Quitar, Mejorar y Fusionar. Todo lo valida el servidor (Equipment.lua): esta
+-- Equipar / Quitar, Reciclar, Mejorar y Fusionar (y arriba de la grilla, reciclar en lote las
+-- rarezas bajas). Todo lo valida el servidor (Equipment.lua): esta
 -- pantalla solo pide cosas por EquipmentRequest y se redibuja con lo que vuelve en EquipmentState.
 
 local Players = game:GetService("Players")
@@ -29,6 +30,7 @@ local inventory, equipped = {}, {}
 local selectedUid: string? = nil
 local sortBy = "Rarity" -- "Rarity" | "Slot"
 local confirmFuse = false
+local confirmRecycle = false
 
 local function send(action: string, arg: any)
 	request:FireServer(action, arg)
@@ -183,9 +185,28 @@ end
 ---------------------------------------------------------------------
 local bagTitle = text({ Position = UDim2.fromOffset(14, 6), Size = UDim2.new(0.5, 0, 0, 32), Font = Fonts.Heading, TextSize = 20, TextColor3 = Colors.GoldBright, TextXAlignment = Enum.TextXAlignment.Left, Parent = bag })
 local sortButton = Theme.button({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 6), Size = UDim2.fromOffset(150, 32), TextSize = 15, Parent = bag })
+-- Reciclar en lote (solo comunes y poco comunes, nunca lo equipado). Doble toque para confirmar.
+local bulkButtons = {}
+for i, rarity in Defs.BulkRecycle do
+	local button = Theme.button({ Position = UDim2.new((i - 1) / #Defs.BulkRecycle, 10, 0, 44), Size = UDim2.new(1 / #Defs.BulkRecycle, -16, 0, 32), TextSize = 14, Parent = bag })
+	local confirmUntil = 0
+	button.Activated:Connect(function()
+		if not button.Active then
+			return
+		end
+		if os.clock() < confirmUntil then
+			confirmUntil = 0
+			send("RecycleRarity", rarity)
+		else
+			confirmUntil = os.clock() + 3
+			button.Text = "¿Seguro? Tocá de nuevo"
+		end
+	end)
+	bulkButtons[rarity] = button
+end
 local grid = make("ScrollingFrame", {
-	Position = UDim2.fromOffset(8, 46),
-	Size = UDim2.new(1, -16, 1, -54),
+	Position = UDim2.fromOffset(8, 84),
+	Size = UDim2.new(1, -16, 1, -92),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
 	ScrollBarThickness = 6,
@@ -195,7 +216,7 @@ local grid = make("ScrollingFrame", {
 })
 make("UIGridLayout", { CellSize = UDim2.fromOffset(84, 84), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = grid })
 make("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), Parent = grid })
-local emptyLabel = text({ Size = UDim2.new(1, 0, 0, 60), Position = UDim2.fromOffset(0, 60), Text = "No tenés objetos sin equipar. Conseguí más jugando partidas.", TextSize = 15, TextColor3 = Colors.TextMuted, TextWrapped = true, Visible = false, Parent = bag })
+local emptyLabel = text({ Size = UDim2.new(1, 0, 0, 60), Position = UDim2.fromOffset(0, 100), Text = "No tenés objetos sin equipar. Conseguí más jugando partidas.", TextSize = 15, TextColor3 = Colors.TextMuted, TextWrapped = true, Visible = false, Parent = bag })
 
 -- Tarjeta de un objeto: fondo del color de la rareza, ícono del espacio y nivel
 local function itemCard(item, parent: Instance, order: number)
@@ -239,11 +260,12 @@ make("UIPadding", { PaddingTop = UDim.new(0.12, 0), PaddingBottom = UDim.new(0.1
 local detailName = z(text({ Position = UDim2.fromOffset(100, 14), Size = UDim2.new(1, -116, 0, 28), Font = Fonts.Bold, TextSize = 20, TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, Parent = detail }))
 local detailSub = z(text({ Position = UDim2.fromOffset(100, 44), Size = UDim2.new(1, -116, 0, 44), TextSize = 14, TextWrapped = true, TextColor3 = Colors.TextMuted, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Parent = detail }))
 local detailBody = z(text({ Position = UDim2.fromOffset(16, 98), Size = UDim2.new(1, -32, 0, 104), TextSize = 15, TextWrapped = true, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Parent = detail }))
-local equipButton = z(Theme.button({ Position = UDim2.new(0, 16, 1, -116), Size = UDim2.new(1, -32, 0, 40), Text = "Equipar", TextSize = 18, Parent = detail }))
+local equipButton = z(Theme.button({ Position = UDim2.new(0, 16, 1, -116), Size = UDim2.new(0.5, -20, 0, 40), Text = "Equipar", TextSize = 18, Parent = detail }))
+local recycleButton = z(Theme.button({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 1, -116), Size = UDim2.new(0.5, -20, 0, 40), TextSize = 14, TextWrapped = true, Parent = detail }))
 local upgradeButton = z(Theme.button({ Position = UDim2.new(0, 16, 1, -66), Size = UDim2.new(0.5, -20, 0, 50), TextSize = 14, TextWrapped = true, Parent = detail }))
 local fuseButton = z(Theme.button({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 1, -66), Size = UDim2.new(0.5, -20, 0, 50), TextSize = 14, TextWrapped = true, Parent = detail }))
 local detailClose = z(Theme.button({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 10), Size = UDim2.fromOffset(32, 28), Text = "×", TextSize = 20, Parent = detail }))
-for _, b in { equipButton, upgradeButton, fuseButton, detailClose } do
+for _, b in { equipButton, recycleButton, upgradeButton, fuseButton, detailClose } do
 	for _, d in b:GetChildren() do
 		if d:IsA("GuiObject") then
 			d.ZIndex = 12
@@ -271,6 +293,7 @@ end
 local function closeDetail()
 	selectedUid = nil
 	confirmFuse = false
+	confirmRecycle = false
 	detailShade.Visible = false
 end
 
@@ -307,6 +330,18 @@ local function refreshDetail()
 	equipButton.Text = if isEquipped then "Quitar" else "Equipar"
 	setEnabled(equipButton, true)
 
+	if isEquipped then
+		recycleButton.Text = "Equipado"
+		setEnabled(recycleButton, false)
+	elseif confirmRecycle then
+		recycleButton.Text = "¿Reciclar? Tocá de nuevo"
+		setEnabled(recycleButton, true)
+	else
+		local recycleGold, recycleStones = Defs.recycleValue(item, rank(item))
+		recycleButton.Text = "♻ +" .. recycleGold .. " 💰" .. (if recycleStones > 0 then " +" .. recycleStones .. " 🔷" else "")
+		setEnabled(recycleButton, true)
+	end
+
 	local gold, stones = Defs.cost(item)
 	if item.Level >= Defs.MaxLevel then
 		upgradeButton.Text = "Nivel máximo"
@@ -332,6 +367,7 @@ end
 local function openDetail(uid: string)
 	selectedUid = uid
 	confirmFuse = false
+	confirmRecycle = false
 	detailShade.Visible = true
 	Theme.popIn(detail)
 	refreshDetail()
@@ -366,6 +402,18 @@ fuseButton.Activated:Connect(function()
 	else
 		confirmFuse = false
 		send("Fuse", fuseCandidates(item))
+	end
+end)
+recycleButton.Activated:Connect(function()
+	if not recycleButton.Active or not selectedUid then
+		return
+	end
+	if not confirmRecycle then
+		confirmRecycle = true
+		refreshDetail()
+	else
+		send("Recycle", selectedUid)
+		closeDetail()
 	end
 end)
 detailClose.Activated:Connect(closeDetail)
@@ -452,6 +500,16 @@ local function refresh()
 		end)
 	end
 	emptyLabel.Visible = #bagItems == 0
+	for rarity, button in bulkButtons do
+		local count = 0
+		for _, item in bagItems do
+			if item.Rarity == rarity then
+				count += 1
+			end
+		end
+		button.Text = "♻ " .. Rarities.Names[rarity] .. " (" .. count .. ")"
+		setEnabled(button, count > 0)
+	end
 	bagTitle.Text = string.format("Inventario %d/%d", #inventory, Defs.MaxInventory)
 	sortButton.Text = if sortBy == "Rarity" then "Orden: rareza" else "Orden: tipo"
 

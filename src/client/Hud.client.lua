@@ -20,11 +20,11 @@ local Currencies = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local skillOffer = remotes:WaitForChild("SkillOffer") :: RemoteEvent
 local chooseSkill = remotes:WaitForChild("ChooseSkill") :: RemoteEvent
+local rerollSkills = remotes:WaitForChild("RerollSkills") :: RemoteEvent
 local skillGranted = remotes:WaitForChild("SkillGranted") :: RemoteEvent
 local runReset = remotes:WaitForChild("RunReset") :: RemoteEvent
 local runEnded = remotes:WaitForChild("RunEnded") :: RemoteEvent
 local lobbyRequest = remotes:WaitForChild("LobbyRequest") :: RemoteEvent
-local setAimMode = remotes:WaitForChild("SetAimMode") :: RemoteEvent
 local gameState = ReplicatedStorage:WaitForChild("GameState")
 
 local player = Players.LocalPlayer
@@ -94,42 +94,6 @@ if Config.Camera.Mode == "FirstPerson" then
 	player:GetAttributeChangedSignal("LifeState"):Connect(refreshCross)
 	refreshCross()
 end
-
----------------------------------------------------------------------
--- Modo de apuntado: automático o manual (hacia la mira). Se cambia con Config.Player.AimToggleKeys.
----------------------------------------------------------------------
-local aimKeys = {}
-for _, key in Config.Player.AimToggleKeys or {} do
-	aimKeys[key] = true
-end
-local aimKeyName = Config.Player.AimToggleKeys and Config.Player.AimToggleKeys[1] and Config.Player.AimToggleKeys[1].Name or ""
-
-local aimLabel = Theme.text({
-	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0.5, 18),
-	Size = UDim2.fromOffset(220, 20),
-	Font = Theme.Fonts.Title,
-	TextSize = 14,
-	TextStrokeTransparency = 0.5,
-	Parent = gui,
-})
-local function refreshAim()
-	local manual = player:GetAttribute("AimMode") == "Manual"
-	aimLabel.Text = string.format("%s  [%s]", if manual then "APUNTADO MANUAL" else "AUTO-APUNTADO", aimKeyName)
-	aimLabel.TextColor3 = if manual then Theme.Colors.GoldBright else Theme.Colors.Text
-	aimLabel.Visible = player:GetAttribute("LifeState") ~= "ELIMINATED"
-end
-player:GetAttributeChangedSignal("AimMode"):Connect(refreshAim)
-player:GetAttributeChangedSignal("LifeState"):Connect(refreshAim)
-refreshAim()
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed or not aimKeys[input.KeyCode] then
-		return
-	end
-	-- El servidor decide y lo devuelve en el atributo AimMode
-	setAimMode:FireServer(if player:GetAttribute("AimMode") == "Manual" then "Auto" else "Manual")
-end)
 
 ---------------------------------------------------------------------
 -- Cambio de sala: fundido a negro corto al cruzar la puerta
@@ -712,6 +676,24 @@ local currentOfferId: number? = nil
 local currentChoices: { string } = {}
 local deadline = 0
 
+-- Talento "Otra mano": cambiar las cartas (el servidor valida que te queden cambios)
+local rerollButton = Theme.button({
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0.82, 0),
+	Size = UDim2.fromOffset(260, 44),
+	Text = "🎲  Cambiar cartas",
+	TextSize = 18,
+	Visible = false,
+	ZIndex = 12,
+	Parent = overlay,
+})
+rerollButton.Activated:Connect(function()
+	if currentOfferId then
+		rerollSkills:FireServer(currentOfferId)
+		rerollButton.Visible = false -- vuelve con la oferta nueva si quedan cambios
+	end
+end)
+
 local function closePicker()
 	currentOfferId = nil
 	pickerMouse.Modal = false
@@ -799,10 +781,13 @@ for i = 1, 3 do
 	}
 end
 
-skillOffer.OnClientEvent:Connect(function(offerId: number, choices: { string }, timeout: number)
+skillOffer.OnClientEvent:Connect(function(offerId: number, choices: { string }, timeout: number, rerolls: number?)
 	currentOfferId = offerId
 	currentChoices = choices
 	deadline = os.clock() + timeout
+	local left = if typeof(rerolls) == "number" then rerolls else 0
+	rerollButton.Visible = left > 0
+	rerollButton.Text = string.format("🎲  Cambiar cartas (%d)", left)
 
 	for i, card in cards do
 		local def = Skills.ById[choices[i]]
@@ -1027,7 +1012,7 @@ local rewardsRow = make("Frame", {
 	}),
 })
 
-local function showRewards(rewards: { [string]: number }?, firstClear: boolean, loot: { [string]: number }?)
+local function showRewards(rewards: { [string]: number }?, firstClear: boolean, loot: { [string]: number }?, accountXP: number?, levelsGained: number?)
 	for _, child in rewardsRow:GetChildren() do
 		if child:IsA("GuiObject") then
 			child:Destroy()
@@ -1058,6 +1043,32 @@ local function showRewards(rewards: { [string]: number }?, firstClear: boolean, 
 				Parent = chip,
 			})
 		end
+	end
+	-- XP de cuenta (da puntos para el árbol de talentos)
+	if (accountXP or 0) > 0 then
+		any = true
+		local xpColor = Color3.fromRGB(190, 140, 255)
+		local chip = make("Frame", {
+			Size = UDim2.new(0, 0, 1, 0),
+			AutomaticSize = Enum.AutomaticSize.X,
+			BackgroundColor3 = Color3.fromRGB(45, 40, 58),
+			LayoutOrder = 100,
+			ZIndex = 22,
+			Parent = rewardsRow,
+		}, { corner(19), make("UIPadding", { PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }) })
+		Theme.stroke(xpColor, 1.5, 0.3).Parent = chip
+		local gained = levelsGained or 0
+		text({
+			Size = UDim2.new(0, 0, 1, 0),
+			AutomaticSize = Enum.AutomaticSize.X,
+			Text = string.format("✦ +%d XP de cuenta", accountXP or 0)
+				.. (if gained > 0 then string.format("  ·  ¡Nivel %d! +%d punto%s de talento", player:GetAttribute("AccountLevel") or 1, gained, if gained == 1 then "" else "s") else ""),
+			TextSize = 17,
+			Font = Theme.Fonts.Bold,
+			TextColor3 = xpColor,
+			ZIndex = 23,
+			Parent = chip,
+		})
 	end
 	if not any then
 		text({
@@ -1137,7 +1148,7 @@ runEnded.OnClientEvent:Connect(function(summary)
 		tableRow(i, p.name, tostring(p.kills), tostring(p.revives or 0), tostring(p.damage), false)
 	end
 
-	showRewards(summary.rewards, summary.firstClear == true, summary.loot)
+	showRewards(summary.rewards, summary.firstClear == true, summary.loot, summary.accountXP, summary.levelsGained)
 
 	againButton.Text = "Volver al lobby"
 	results.Visible = true
@@ -1164,4 +1175,17 @@ runReset.OnClientEvent:Connect(function()
 	closePicker()
 	results.Visible = false
 	deadLabel.Visible = false
+end)
+
+---------------------------------------------------------------------
+-- Cursor: con un menú abierto (cartas o resultados) el mouse tiene que verse.
+-- CameraController lo esconde en la arena salvo que CursorFree sea true.
+---------------------------------------------------------------------
+local cursorFree = false
+RunService.Heartbeat:Connect(function()
+	local free = overlay.Visible or results.Visible
+	if free ~= cursorFree then
+		cursorFree = free
+		player:SetAttribute("CursorFree", free)
+	end
 end)

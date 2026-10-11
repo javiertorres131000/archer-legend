@@ -21,6 +21,12 @@ local Remotes = {
 	RewardNotice = event("RewardNotice"),
 	EquipmentState = event("EquipmentState"),
 	EquipmentRequest = event("EquipmentRequest"),
+	-- jugador -> servidor: ("Get") o ("Buy", Id del talento). Lo valida TalentService.
+	TalentRequest = event("TalentRequest"),
+	-- servidor -> jugador: ({ Id = nivel }, mensaje?) talentos del perfil
+	TalentState = event("TalentState"),
+	-- jugador -> servidor: (offerId) cambiar las cartas de habilidad (talento Otra mano)
+	RerollSkills = event("RerollSkills"),
 	-- servidor -> jugador: (runas {Id = nivel}, activas {Id | ""}, espacios abiertos, aviso?, Id recién conseguida?)
 	RuneState = event("RuneState"),
 	-- jugador -> servidor: ("Get") · ("Equip", espacio, Id) · ("Unequip", espacio) · ("OpenChest")
@@ -36,9 +42,6 @@ local Remotes = {
 	SkillOffer = event("SkillOffer"),
 	-- jugador -> servidor: (offerId, índice elegido 1..3)
 	ChooseSkill = event("ChooseSkill"),
-	-- jugador -> servidor: ("Auto" | "Manual") modo de apuntado. El servidor lo deja en el
-	-- atributo AimMode del jugador (lo lee el HUD).
-	SetAimMode = event("SetAimMode"),
 	-- servidor -> jugador: (skillId, stacks actuales)
 	SkillGranted = event("SkillGranted"),
 	-- servidor -> todos: la partida se reinició

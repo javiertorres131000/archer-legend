@@ -67,4 +67,42 @@ test("reconciliación repara equipo roto sin perder monedas anteriores", functio
 	assert(clean.Currencies.Gold == 777 and #clean.Inventory == 1 and clean.Inventory[1].Level == 10)
 	assert(clean.Equipment.Weapon == "a" and not clean.Equipment.Boots and not clean.Equipment.Helmet)
 end)
+test("reciclar: devuelve oro y piedras, nunca lo equipado ni lo ajeno", function()
+	local r = M.addPlayer("Reciclador")
+	local d = Profiles.get(r)
+	local function req(action, arg) M.advance(1); return Equipment.request(r, action, arg) end
+	local equippedUid = d.Equipment.Weapon
+	assert(not req("Recycle", equippedUid)); assert(#d.Inventory == 6)
+	assert(not req("Recycle", "ajeno")); assert(not req("Recycle", {}))
+	local spare = Equipment.grant(r, "EmberRing", "Epic"); spare.Level = 3
+	local gold0, stones0 = d.Currencies.Gold, d.Currencies.Stones
+	local g, st = Defs.recycleValue(spare, 4)
+	assert(g == 20 * 4 + math.floor(180 * 0.4) and st == 3 + 1)
+	assert(req("Recycle", spare.Uid))
+	assert(#d.Inventory == 6 and d.Currencies.Gold == gold0 + g and d.Currencies.Stones == stones0 + st)
+	assert(not req("Recycle", spare.Uid)) -- no se cobra dos veces
+	-- En partida o listo: rechaza
+	local other = Equipment.grant(r, "EmberRing", "Common")
+	r:SetAttribute("Ready", true); assert(not req("Recycle", other.Uid)); r:SetAttribute("Ready", false)
+end)
+test("reciclar en lote: solo comunes/poco comunes sin equipar", function()
+	local r = M.addPlayer("Lote")
+	local d = Profiles.get(r)
+	local function req(action, arg) M.advance(1); return Equipment.request(r, action, arg) end
+	for _ = 1, 4 do Equipment.grant(r, "HunterRing", "Common", false) end
+	local epic = Equipment.grant(r, "HunterRing", "Epic", false)
+	assert(not req("RecycleRarity", "Epic")) -- las altas, de a una
+	assert(not req("RecycleRarity", "Mythic")); assert(not req("RecycleRarity", 5))
+	local gold0 = d.Currencies.Gold
+	assert(req("RecycleRarity", "Common"))
+	-- Quedan las 6 iniciales (equipadas, comunes) + la épica
+	assert(#d.Inventory == 7 and d.Currencies.Gold == gold0 + 4 * 20)
+	for _, slot in Defs.Slots do
+		local found = false
+		for _, item in d.Inventory do if item.Uid == d.Equipment[slot] then found = true end end
+		assert(found, "se recicló una pieza equipada")
+	end
+	assert(epic and d.Inventory[7].Uid == epic.Uid)
+	assert(not req("RecycleRarity", "Common")) -- ya no queda nada sin equipar
+end)
 print(passed .. " pruebas, 0 fallas")

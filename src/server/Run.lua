@@ -21,6 +21,7 @@ local Ground = require(script.Parent.Ground)
 local Chests = require(script.Parent.Chests)
 local ItemService = require(script.Parent.ItemService)
 local Equipment = require(script.Parent.Equipment)
+local TalentService = require(script.Parent.TalentService)
 local Runes = require(script.Parent.Runes)
 local Dash = require(script.Parent.Dash)
 local Rarities = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Rarities"))
@@ -66,6 +67,7 @@ function Run.init()
 	ItemService.init(Remotes)
 	Dash.init(Remotes)
 	Equipment.init(Remotes)
+	TalentService.init(Remotes)
 	Runes.init(Remotes)
 	Arena.build()
 	Hazards.init()
@@ -198,12 +200,20 @@ function Run.start(index: number, participants: { Player })
 		local s = PlayerData.get(p)
 		if s then
 			Equipment.apply(p, s.stats)
+			TalentService.apply(p, s.stats)
 			Runes.apply(p, s.stats)
 		end
 		p:SetAttribute("DashReadyAt", 0)
 	end
 	PlayerLife.beginMatch(participants, Arena.spawnPoints(#participants))
 	Loot.resetRun(participants)
+	-- Talento Ventaja: habilidades para elegir apenas empieza
+	for _, p in participants do
+		local s = PlayerData.get(p)
+		for _ = 1, if s then s.stats.startChoices else 0 do
+			Progression.giveChoice(p)
+		end
+	end
 end
 
 function Run.isActive(): boolean

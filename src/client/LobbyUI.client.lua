@@ -378,7 +378,7 @@ local countdownScale = make("UIScale", { Parent = countdownLabel })
 local soonRow = make("Frame", {
 	AnchorPoint = Vector2.new(0, 1),
 	Position = UDim2.new(0, 40, 1, -48),
-	Size = UDim2.new(0, 2 * 84 + 12, 0, 84),
+	Size = UDim2.new(0, 3 * 84 + 2 * 12, 0, 84),
 	BackgroundTransparency = 1,
 	Parent = content,
 }, {
@@ -399,8 +399,15 @@ local soonTip = text({
 	TextXAlignment = Enum.TextXAlignment.Left,
 	Parent = content,
 })
--- (El inventario está dentro de Equipo; item[3] = ya se puede abrir)
-for i, item in { { Icons.Equipment, "Equipo", true }, { Icons.Shop, "Tienda", false } } do
+-- Acción de cada botón: abrir equipo (el inventario y las runas son pestañas de Equipo),
+-- abrir talentos o (tienda) próximamente
+local lobbyButtons = {
+	{ Icons.Equipment, "Equipo", "Equipment" },
+	{ "⭐", "Talentos", "Talents" },
+	{ Icons.Shop, "Tienda", nil },
+}
+for i, item in lobbyButtons do
+	local action = item[3]
 	local b = make("TextButton", {
 		Size = UDim2.new(0, 84, 0, 84),
 		BackgroundColor3 = Colors.Panel,
@@ -410,22 +417,29 @@ for i, item in { { Icons.Equipment, "Equipo", true }, { Icons.Shop, "Tienda", fa
 		LayoutOrder = i,
 		Parent = soonRow,
 	}, { Theme.corner(12), Theme.stroke(Colors.Locked, 1.5) })
-	text({ Size = UDim2.new(1, 0, 0, 50), Position = UDim2.new(0, 0, 0, 6), Text = item[1], TextSize = 30, TextTransparency = 0.45, Parent = b })
+	text({ Size = UDim2.new(1, 0, 0, 50), Position = UDim2.new(0, 0, 0, 6), Text = item[1], TextSize = 30, TextTransparency = if action then 0 else 0.45, Parent = b })
 	text({
 		Position = UDim2.new(0, 0, 1, -28),
 		Size = UDim2.new(1, 0, 0, 22),
 		Text = item[2],
 		Font = Fonts.Bold,
 		TextSize = 13,
-		TextColor3 = if item[3] then Colors.GoldBright else Colors.Locked,
+		TextColor3 = if action then Colors.GoldBright else Colors.Locked,
 		Parent = b,
 	})
 	local function showTip()
-		soonTip.Text = if item[3] then "Abrir " .. item[2] else Icons.Locked .. "  " .. item[2] .. ": próximamente"
+		soonTip.Text = if action then "Abrir " .. item[2] else Icons.Locked .. "  " .. item[2] .. ": próximamente"
 	end
 	b.MouseEnter:Connect(showTip)
 	b.Activated:Connect(function()
-		if item[3] then player:WaitForChild("PlayerGui"):SetAttribute("EquipmentTab", item[2]) else showTip() end
+		local playerGui = player:WaitForChild("PlayerGui")
+		if action == "Equipment" then
+			playerGui:SetAttribute("EquipmentTab", "Equipo")
+		elseif action == "Talents" then
+			playerGui:SetAttribute("TalentsOpen", true)
+		else
+			showTip()
+		end
 	end)
 	b.MouseLeave:Connect(function()
 		soonTip.Text = ""
