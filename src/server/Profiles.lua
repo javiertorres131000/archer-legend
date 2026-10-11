@@ -36,6 +36,7 @@ local Currencies = require(Shared:WaitForChild("Currencies"))
 
 local EquipmentDefs = require(Shared:WaitForChild("EquipmentDefs"))
 local Talents = require(Shared:WaitForChild("Talents"))
+local RuneDefs = require(Shared:WaitForChild("RuneDefs"))
 local Rarities = require(Shared:WaitForChild("Rarities"))
 local Cfg = Config.Profiles
 
@@ -47,6 +48,8 @@ export type Data = {
 	EquipmentInitialized: boolean,
 	Talents: { [string]: number }, -- árbol de talentos: Id del nodo -> rango (Shared/Talents.lua)
 	Account: { Level: number, XP: number }, -- nivel de cuenta: da los puntos del árbol
+	-- Runas: nivel de cada una que tenés y las especiales puestas ("" = espacio vacío)
+	Runes: { Owned: { [string]: number }, Active: { string } },
 	Currencies: { [string]: number },
 	Chapters: { [string]: ChapterRecord },
 	Stats: Stats,
@@ -69,7 +72,7 @@ type Session = {
 
 local Profiles = {}
 
-Profiles.SCHEMA_VERSION = 4
+Profiles.SCHEMA_VERSION = 5
 
 -- Migraciones: Migrations[n] recibe los datos guardados con la versión n y devuelve los de n + 1.
 -- Para cambiar el formato: subí SCHEMA_VERSION y agregá la migración de la versión anterior.
@@ -87,6 +90,8 @@ Profiles.Migrations = {
 		end
 		return data
 	end,
+	-- 4 → 5: runas. reconcile crea Runes vacío; se sube la versión por lo mismo que en 2 → 3.
+	[4] = function(data: any): any return data end,
 	-- 0 = guardado sin versión: lo que haya se aprovecha y se completa
 	[0] = function(data: any): any
 		return if type(data) == "table" then data else {}
@@ -131,6 +136,7 @@ function Profiles.defaultData(): Data
 		Inventory = {}, Equipment = {}, EquipmentInitialized = false,
 		Talents = {},
 		Account = { Level = 1, XP = 0 },
+		Runes = { Owned = {}, Active = table.create(RuneDefs.ActiveSlots, "") },
 		Currencies = currencies,
 		Chapters = {},
 		Stats = { Runs = 0, Victories = 0, Kills = 0, BossKills = 0 },
@@ -211,6 +217,28 @@ function Profiles.reconcile(raw: any): Data
 	-- árbol se vacía: los puntos se recuperan enteros para volver a repartirlos.
 	if Talents.spent(data.Talents) > Talents.pointsForLevel(data.Account.Level) then
 		data.Talents = {}
+	end
+	if type(raw.Runes) == "table" then
+		if type(raw.Runes.Owned) == "table" then
+			for id, level in raw.Runes.Owned do
+				local def = type(id) == "string" and RuneDefs.ById[id]
+				local n = count(level)
+				if def and n and n > 0 then
+					data.Runes.Owned[id] = if def.Kind == "Special" then 1 else math.min(n, RuneDefs.MaxLevel)
+				end
+			end
+		end
+		if type(raw.Runes.Active) == "table" then
+			local used = {}
+			for i = 1, RuneDefs.ActiveSlots do
+				local id = raw.Runes.Active[i]
+				local def = type(id) == "string" and RuneDefs.ById[id]
+				if def and def.Kind == "Special" and data.Runes.Owned[id] and not used[id] then
+					used[id] = true
+					data.Runes.Active[i] = id
+				end
+			end
+		end
 	end
 	data.CreatedAt = count(raw.CreatedAt) or data.CreatedAt
 	return data

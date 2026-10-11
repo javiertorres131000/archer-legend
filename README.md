@@ -173,6 +173,7 @@ En `tests/` (fuera de lo que sincroniza Rojo). Corren los módulos reales del se
 | `test_ai.luau` | 60 s de cada enemigo y jefe: sin errores, todos atacan, los jefes cambian de fase |
 | `test_profiles.luau` | Perfil: nuevo, guardar y volver, monedas, reintentos, DataStore caído, Studio sin acceso, bloqueo de sesión (esperar, tomar, abandonado, perdido, mismo servidor), migraciones, datos rotos, versión nueva, irse mientras carga, guardado automático y cierre del servidor |
 | `test_rewards.luau` | Cálculo de recompensas: derrota, jefes, primera victoria, valores fuera de rango, los tres capítulos |
+| `test_runes.luau` | Runas: niveles por duplicados, piedras por repetidas, espacios activos según capítulos ganados, cofre con gemas, bonus, guardado y datos rotos |
 | `test_loot.luau` | Botín por enemigo y jefe, multiplicador del capítulo, variación; números flotantes agrupados, quemadura, daño recibido, XP y frecuencia de envío |
 | `test_orbs.luau` | Orbes de XP (imán, aspiradora, tope, envío a los clientes) y cofres (cuándo aparecen, tope, abrir, abrir al final) |
 | `test_selection_pause.luau` | Pausa global, inmovilidad, inmunidad, proyectiles, quemaduras, espera cooperativa y limpieza |

@@ -25,7 +25,7 @@
 
 ### Etapa 8 · Talentos, runas y economía
 - [x] Árbol de talentos con nivel de cuenta (3 ramas, 25 nodos) — 8a
-- [ ] Runas
+- [x] Runas: 12 de colección (suben con duplicados), 3 espacios de especiales, cofre con gemas y botín de jefes
 - [ ] Cofres gratuitos y especiales
 - [x] Reciclaje de equipo (por pieza y en lote) — 8a
 - [ ] Balance de costos/botín con datos de partidas reales

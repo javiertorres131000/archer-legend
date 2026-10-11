@@ -27,6 +27,10 @@ local Remotes = {
 	TalentState = event("TalentState"),
 	-- jugador -> servidor: (offerId) cambiar las cartas de habilidad (talento Otra mano)
 	RerollSkills = event("RerollSkills"),
+	-- servidor -> jugador: (runas {Id = nivel}, activas {Id | ""}, espacios abiertos, aviso?, Id recién conseguida?)
+	RuneState = event("RuneState"),
+	-- jugador -> servidor: ("Get") · ("Equip", espacio, Id) · ("Unequip", espacio) · ("OpenChest")
+	RuneRequest = event("RuneRequest"),
 	DashRequest = event("DashRequest"),
 	-- servidor -> todos: (id, origen, dirección, velocidad, duración, userId del dueño)
 	ProjectileFired = event("ProjectileFired"),
