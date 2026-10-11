@@ -9,6 +9,9 @@
 --   Arena, "TopDown"      → cenital fija desde arriba (mira hacia -Z)
 --   Eliminado             → desde arriba, siguiendo a un compañero en pie
 -- Derribado: la cámara sigue en tu personaje (para ver si viene alguien a revivirte).
+-- Mouse: en la arena (primera o tercera persona) no se ve el cursor, como en Megabonk: el mouse
+-- mueve la cámara y queda la mira. Vuelve a aparecer en el lobby y cuando hay un menú abierto
+-- (cartas de habilidad, resultados): el HUD lo avisa con el atributo CursorFree del jugador.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -155,9 +158,23 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	view = if view == "FirstPerson" then "ThirdPerson" else "FirstPerson"
 end)
 
+-- Cursor visible solo donde hace falta (ver arriba)
+local cursorShown = true
+local function syncCursor(inMatch: boolean, eliminated: boolean)
+	local hide = inMatch
+		and CamCfg.Mode == "FirstPerson"
+		and not eliminated
+		and player:GetAttribute("CursorFree") ~= true
+	if cursorShown == hide then
+		cursorShown = not hide
+		UserInputService.MouseIconEnabled = cursorShown
+	end
+end
+
 RunService:BindToRenderStep("ArqueroCamera", Enum.RenderPriority.Camera.Value + 1, function(dt)
 	local inMatch = player:GetAttribute("InMatch") == true
 	local eliminated = player:GetAttribute("LifeState") == "ELIMINATED"
+	syncCursor(inMatch, eliminated)
 
 	if not inMatch then
 		useRobloxCamera("Lobby")

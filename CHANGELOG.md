@@ -1,5 +1,25 @@
 # Cambios
 
+## 2026-10-10 · Árbol de talentos y nivel de cuenta
+
+- La lista de 8 talentos pasa a ser un **árbol radial**: núcleo y tres ramas (Ataque, Defensa, Utilidad), 25 nodos, 8 nodos clave. Solo se desbloquea lo conectado.
+- **Nivel de cuenta:** XP al terminar cada partida (oleadas, bajas con tope, jefes, victoria, × capítulo). Cada nivel da 1 punto y pide más XP que el anterior. Se muestra en los resultados.
+- **Costo progresivo:** puntos por nivel + oro que sube 6 % por cada punto gastado; gemas en dos nodos clave. Árbol completo: 103 puntos y ~1.000.000 de oro.
+- **Reiniciar árbol:** devuelve puntos, no oro.
+- Interfaz nueva con líneas, nodos que brillan por rama, disponibles que laten, detalle del nodo y diseño para pantallas angostas.
+- Perfil v4 (`Account`); los talentos de la v3 se borran. La reconciliación vacía el árbol si hay más puntos gastados que los del nivel.
+
+## 2026-10-10 · Etapa 8a: talentos y reciclaje + arreglos
+
+- **Disparo:** siempre automático y caminando. Se quitó el apuntado manual con **Q** (`SetAimMode`, `Config.Player.DefaultAimMode`, `AimToggleKeys`, `ShootWhileMoving`, `StillThreshold`); chocaba con el modo frenético y rompía `test_aim`.
+- **Combat:** la quemadura valida que el estado del dueño exista antes de leer `burnBonus` (aviso de tipos de la línea 215; un jugador que se va con flechas en el aire ya no rompe nada).
+- **Cursor:** en primera persona dentro de la arena el mouse se oculta, como en Megabonk. Reaparece al elegir habilidad, en resultados o al quedar eliminado.
+- **Talentos permanentes** (botón ⭐ Talentos del lobby): Fuerza, Vitalidad, Precisión, Agilidad, Magnetismo y Codicia (oro); Ventaja y Otra mano (gemas). Se compran en el lobby, se validan en el servidor y se aplican al empezar cada partida.
+- **Ventaja:** empezás con 1–2 elecciones de habilidad gratis. **Otra mano:** botón 🎲 para cambiar las cartas, con cambios limitados por partida. **Codicia:** más oro solo para quien la tiene.
+- **Reciclaje de equipo:** por pieza (doble toque) o en lote para comunes y poco comunes. Nunca toca lo equipado. Devuelve oro por rareza + 40 % del oro y 50 % de las piedras invertidas en mejoras.
+- **Perfil v3** (`Talents`); migración sin pérdida desde v2. La reconciliación borra talentos inexistentes y recorta niveles al máximo.
+- Pruebas nuevas: `test_talents.luau` y casos de reciclaje en `test_equipment.luau` (16/16 archivos OK).
+
 ## 2026-10-09 · Corrección de selección de poderes
 
 - Cartas grandes centradas, fondo oscuro y cursor libre automáticamente.

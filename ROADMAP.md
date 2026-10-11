@@ -24,9 +24,11 @@
 - [x] Activar los botones de Inventario y Equipamiento del lobby
 
 ### Etapa 8 · Talentos, runas y economía
-- [ ] Talentos y runas
+- [x] Árbol de talentos con nivel de cuenta (3 ramas, 25 nodos) — 8a
+- [ ] Runas
 - [ ] Cofres gratuitos y especiales
-- [ ] Reciclaje de equipo y balance de costos/botín
+- [x] Reciclaje de equipo (por pieza y en lote) — 8a
+- [ ] Balance de costos/botín con datos de partidas reales
 - [ ] Misiones diarias y semanales
 - [ ] Activar el botón de Tienda (sin monetización)
 

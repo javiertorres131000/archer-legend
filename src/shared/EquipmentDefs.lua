@@ -21,5 +21,14 @@ for _, def in Defs.List do Defs.ById[def.Id] = def end
 Defs.MaxLevel = 10
 Defs.MaxInventory = 150
 function Defs.cost(item) return 60 * item.Level, item.Level end
+-- Reciclar: devuelve parte de lo invertido. Base por rareza + 40% del oro y 50% de las piedras
+-- gastados en mejoras. Común nivel 1 = 20 oro; mítica nivel 10 ≈ 1200 oro y 27 piedras.
+function Defs.recycleValue(item, rank)
+	local spentGold = 30 * item.Level * (item.Level - 1)
+	local spentStones = item.Level * (item.Level - 1) // 2
+	return 20 * rank + math.floor(spentGold * 0.4), (rank - 1) + spentStones // 2
+end
+-- Rarezas que se pueden reciclar todas juntas (las altas solo de a una, con confirmación).
+Defs.BulkRecycle = { "Common", "Uncommon" }
 function Defs.power(item, rank) return rank * (1 + (item.Level - 1) * 0.08) end
 return Defs

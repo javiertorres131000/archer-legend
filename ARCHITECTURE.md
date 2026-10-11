@@ -22,7 +22,8 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `Skills` | Once habilidades de partida |
 | `Rarities` | Rarezas y colores comunes; mítico arcoíris |
 | `RunItems` | Diez objetos temporales, límites y efectos sobre stats |
-| `EquipmentDefs` | Seis espacios, dos conjuntos, costos y topes de equipo |
+| `EquipmentDefs` | Seis espacios, dos conjuntos, costos, valor de reciclaje y topes de equipo |
+| `Talents` | Árbol de talentos: nodos, conexiones, posición, costos (puntos/oro/gemas), `check` compartido y XP de cuenta |
 | `UITheme` | Colores, tipografías, íconos y constructores de UI (fantasía oscura y dorado) |
 
 ### Servidor (`src/server`)
@@ -41,7 +42,8 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `Chests` ★ | Cofres con rareza: aparecen cada tantas muertes, se abren por cercanía |
 | `CombatFeed` ★ | Junta los números flotantes de cada jugador y los manda agrupados cada 0,1 s |
 | `ItemService` | Entrega de objetos temporales; aura, rayos y explosiones calculados en servidor |
-| `Equipment` | Inventario permanente, equipar, mejorar, fusionar, botín y base de stats |
+| `Equipment` | Inventario permanente, equipar, mejorar, fusionar, reciclar, botín y base de stats |
+| `TalentService` | Compra y reinicio validados del árbol (`TalentRequest`/`TalentState`) y aplicación al empezar |
 | `Dash` | Validación, recarga, protección e impulso con propiedad física del servidor |
 | `PlayerData` | Stats, habilidades y estadísticas por jugador; `inMatch` |
 | `PlayerLife` ★ | Ciclo de vida: aparición (lobby o arena), daño, derribo, rescate, eliminación |
@@ -73,7 +75,8 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `Atmosphere` | Luz de día, bloom suave, bruma y tinte del capítulo |
 | `Sfx` | Sonidos (definidos en `Shared/Sounds.lua`), con mínimo de tiempo entre repeticiones |
 | `ProjectileVisuals` | Dibuja los proyectiles; pools separados de flechas y balas enemigas |
-| `EquipmentUI` | Inventario, espacios, mejoras y confirmación de fusión |
+| `EquipmentUI` | Inventario, espacios, mejoras, confirmación de fusión y reciclaje |
+| `TalentsUI` | Árbol de talentos del lobby: nodos, líneas, detalle (solo muestra y pide) |
 | `RewardsUI` / `RarityVisuals` | Avisos por rareza, arcoíris y lista de pasivos |
 | `Dash` (cliente) | Teclado, mando, botón táctil y recarga visible |
 | `ItemEffects` | Efectos de pasivos con límite por calidad |
@@ -181,4 +184,6 @@ Con el modo frenético hay hasta 110 enemigos y 200 orbes a la vez:
 
 `Profiles` v2 agrega `Inventory`, `Equipment` y `EquipmentInitialized`, preservando el StoreName y los datos previos. Reconcile valida IDs, rarezas, niveles, UIDs duplicados y correspondencia de espacios. `Equipment` sólo permite cambios en el lobby y sin LISTO; valida propiedad, recursos, rarezas y tres UIDs distintos para fusionar. Cobros y mutaciones no contienen yields. El cliente pide acciones y recibe snapshots.
 
-Al comenzar, `Run` crea stats nuevas y aplica el equipo una vez antes de reaparecer. Al terminar, limpia pasivos y ofertas. Por defecto elegir pausa a todo el equipo, inmoviliza personajes y suspende daño, enemigos, proyectiles y relojes de combate. Se reanuda cuando ningún participante vivo tiene ofertas pendientes; las cartas están centradas con cursor libre y atajos 1/2/3. El dash limita dirección y recarga, controla la física durante el impulso y devuelve la propiedad automática después.
+`Profiles` v4 tiene `Talents` (nodo → rango) y `Account` (`Level`, `XP`); la migración 3 → 4 vacía los talentos viejos. Reconcile descarta ids desconocidos, recorta al máximo y vacía el árbol si se gastaron más puntos que los del nivel. `Rewards.grant` suma la XP de cuenta (`Profiles.addAccountXP`) y `MatchManager` la manda en los resultados. Los puntos no se guardan: se calculan (`pointsForLevel − spent`). `TalentService.buy` usa `Talents.check` (la misma regla que dibuja el cliente): perfil, lobby sin LISTO, frecuencia, conexión, máximo, puntos, oro y gemas; cobra y sube sin yields. `Reset` vacía el árbol sin devolver oro. Reciclar (`Recycle`, `RecycleRarity` sólo común/poco común) nunca toca piezas equipadas.
+
+Al comenzar, `Run` crea stats nuevas y aplica el equipo y después los talentos, una vez, antes de reaparecer; luego da las elecciones gratis de Ventaja (`stats.startChoices`). `stats.rerolls` habilita `Remotes.RerollSkills`: el servidor valida offerId, vida y cambios restantes, y cambia el offerId para que una elección vieja no valga. Al terminar, limpia pasivos y ofertas. Por defecto elegir pausa a todo el equipo, inmoviliza personajes y suspende daño, enemigos, proyectiles y relojes de combate. Se reanuda cuando ningún participante vivo tiene ofertas pendientes; las cartas están centradas con cursor libre y atajos 1/2/3. El dash limita dirección y recarga, controla la física durante el impulso y devuelve la propiedad automática después.

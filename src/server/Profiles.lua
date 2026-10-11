@@ -35,6 +35,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Currencies = require(Shared:WaitForChild("Currencies"))
 
 local EquipmentDefs = require(Shared:WaitForChild("EquipmentDefs"))
+local Talents = require(Shared:WaitForChild("Talents"))
 local Rarities = require(Shared:WaitForChild("Rarities"))
 local Cfg = Config.Profiles
 
@@ -44,6 +45,8 @@ export type Data = {
 	Inventory: { { Uid: string, Id: string, Rarity: string, Level: number } },
 	Equipment: { [string]: string },
 	EquipmentInitialized: boolean,
+	Talents: { [string]: number }, -- árbol de talentos: Id del nodo -> rango (Shared/Talents.lua)
+	Account: { Level: number, XP: number }, -- nivel de cuenta: da los puntos del árbol
 	Currencies: { [string]: number },
 	Chapters: { [string]: ChapterRecord },
 	Stats: Stats,
@@ -66,13 +69,24 @@ type Session = {
 
 local Profiles = {}
 
-Profiles.SCHEMA_VERSION = 2
+Profiles.SCHEMA_VERSION = 4
 
 -- Migraciones: Migrations[n] recibe los datos guardados con la versión n y devuelve los de n + 1.
 -- Para cambiar el formato: subí SCHEMA_VERSION y agregá la migración de la versión anterior.
 -- (Los campos nuevos con valor por defecto no necesitan migración: los completa reconcile.)
 Profiles.Migrations = {
 	[1] = function(data: any): any return data end, -- inventario: reconcile agrega campos sin tocar el progreso
+	-- 2 → 3: talentos. reconcile crea Talents vacío. Subir la versión evita que un servidor con
+	-- código viejo (que no conoce Talents) cargue el perfil, lo guarde y borre los talentos.
+	[2] = function(data: any): any return data end,
+	-- 3 → 4: árbol de talentos. Los talentos de la lista anterior se borran (sin reembolso,
+	-- decidido en desarrollo). reconcile agrega Account (nivel 1).
+	[3] = function(data: any): any
+		if type(data) == "table" then
+			data.Talents = {}
+		end
+		return data
+	end,
 	-- 0 = guardado sin versión: lo que haya se aprovecha y se completa
 	[0] = function(data: any): any
 		return if type(data) == "table" then data else {}
@@ -115,6 +129,8 @@ function Profiles.defaultData(): Data
 	end
 	return {
 		Inventory = {}, Equipment = {}, EquipmentInitialized = false,
+		Talents = {},
+		Account = { Level = 1, XP = 0 },
 		Currencies = currencies,
 		Chapters = {},
 		Stats = { Runs = 0, Victories = 0, Kills = 0, BossKills = 0 },
@@ -176,6 +192,26 @@ function Profiles.reconcile(raw: any): Data
 		end
 	end
 	data.EquipmentInitialized = raw.EquipmentInitialized == true or #data.Inventory > 0
+	-- Nivel de cuenta
+	if type(raw.Account) == "table" then
+		data.Account.Level = math.clamp(count(raw.Account.Level) or 1, 1, 10000)
+		data.Account.XP = math.min(count(raw.Account.XP) or 0, Talents.xpNeeded(data.Account.Level) - 1)
+	end
+	-- Talentos: solo nodos que existen, con rango entre 1 y su máximo
+	if type(raw.Talents) == "table" then
+		for id, level in raw.Talents do
+			local def = type(id) == "string" and Talents.ById[id]
+			local n = count(level)
+			if def and n and n > 0 then
+				data.Talents[id] = math.min(n, def.Max)
+			end
+		end
+	end
+	-- Si hay más puntos gastados que los que da el nivel (datos rotos o cambio de costos), el
+	-- árbol se vacía: los puntos se recuperan enteros para volver a repartirlos.
+	if Talents.spent(data.Talents) > Talents.pointsForLevel(data.Account.Level) then
+		data.Talents = {}
+	end
 	data.CreatedAt = count(raw.CreatedAt) or data.CreatedAt
 	return data
 end
@@ -271,6 +307,11 @@ local function publish(session: Session)
 	for _, c in Currencies do
 		player:SetAttribute(c.Id, if data then data.Currencies[c.Id] or 0 else 0)
 	end
+	local level = if data then data.Account.Level else 1
+	player:SetAttribute("AccountLevel", level)
+	player:SetAttribute("AccountXP", if data then data.Account.XP else 0)
+	player:SetAttribute("AccountXPNeeded", Talents.xpNeeded(level))
+	player:SetAttribute("TalentPoints", if data then Talents.pointsForLevel(level) - Talents.spent(data.Talents) else 0)
 end
 
 local function finishLoad(session: Session, data: Data, status: Status, canSave: boolean)
@@ -545,6 +586,33 @@ function Profiles.addCurrency(player: Player, currencyId: string, amount: number
 	data.Currencies[currencyId] = current + amount
 	publish(session)
 	return true
+end
+
+-- Suma XP de cuenta y sube de nivel las veces que haga falta. Devuelve los niveles ganados.
+function Profiles.addAccountXP(player: Player, amount: number): number
+	local session = sessions[player]
+	local data = session and session.data
+	if not session or not data or type(amount) ~= "number" or amount ~= amount or amount <= 0 then
+		return 0
+	end
+	local account = data.Account
+	account.XP += math.floor(amount)
+	local gained = 0
+	while account.XP >= Talents.xpNeeded(account.Level) do
+		account.XP -= Talents.xpNeeded(account.Level)
+		account.Level += 1
+		gained += 1
+	end
+	publish(session)
+	return gained
+end
+
+-- Vuelve a publicar monedas, nivel y puntos (después de comprar talentos).
+function Profiles.refresh(player: Player)
+	local session = sessions[player]
+	if session then
+		publish(session)
+	end
 end
 
 -- El registro del capítulo (lo crea si no existe).
