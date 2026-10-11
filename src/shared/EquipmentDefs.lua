@@ -68,4 +68,19 @@ function Defs.summary(inventory, equipment, rarityIndex)
 	end
 	return bonus, sets
 end
+
+-- Aplica el equipo puesto a las stats de la partida (bonificaciones con tope y conjuntos).
+-- La usan el servidor (Equipment.apply) y la pantalla de Equipo.
+function Defs.apply(stats, inventory, equipment, rarityIndex)
+	local bonus, sets = Defs.summary(inventory, equipment, rarityIndex)
+	stats.damage *= 1 + bonus.damage
+	stats.maxHealth *= 1 + bonus.maxHealth
+	stats.walkSpeed *= 1 + bonus.walkSpeed
+	stats.pickupRadius *= 1 + bonus.pickupRadius
+	stats.critChance += bonus.critChance
+	if (sets.Hunter or 0) >= 3 then stats.pickupRadius *= 1.1 end
+	if (sets.Hunter or 0) >= 6 then stats.critChance += 0.03 end
+	if (sets.Ember or 0) >= 3 then stats.burnBonus = 0.15 end
+	if (sets.Ember or 0) >= 6 then stats.burn = true end
+end
 return Defs

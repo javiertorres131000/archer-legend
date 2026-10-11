@@ -163,8 +163,10 @@ for i = 1, Defs.ActiveSlots do
 	local stroke = Theme.stroke(Color3.fromRGB(110, 80, 160), 3)
 	stroke.Parent = diamond
 	local icon = text({ AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.42, 0.42), TextScaled = true, ZIndex = 3, Parent = button })
+	-- Runa con imagen subida (RuneDefs.Images): la imagen ya es un rombo con marco, va en lugar del dibujado
+	local image = make("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 3, Parent = button })
 	local caption = text({ AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(1.6, 0, 0, 16), TextSize = 12, TextColor3 = Colors.TextMuted, TextStrokeTransparency = 0.5, ZIndex = 3, Parent = button })
-	slots[i] = { button = button, diamond = diamond, stroke = stroke, icon = icon, caption = caption }
+	slots[i] = { button = button, diamond = diamond, stroke = stroke, icon = icon, image = image, caption = caption }
 	button.Activated:Connect(function()
 		openSlotPicker(i)
 	end)
@@ -452,6 +454,11 @@ local function refresh()
 	end
 	for i, slot in slots do
 		local def = Defs.ById[active[i] or ""]
+		local hasImage = def ~= nil and i <= openSlots and def.Image ~= ""
+		slot.image.Visible = hasImage
+		slot.image.Image = if hasImage then def.Image else ""
+		slot.diamond.Visible = not hasImage
+		slot.icon.Visible = not hasImage
 		if i > openSlots then
 			slot.diamond.BackgroundColor3 = PURPLE_DARK
 			slot.stroke.Color = Color3.fromRGB(80, 64, 110)

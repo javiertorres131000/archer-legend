@@ -315,6 +315,9 @@ Config.Debug = {
 	ShowPerformance = false, -- FPS, peor frame, enemigos y proyectiles; sólo diagnóstico
 	UnlockAllChapters = false, -- todos los capítulos elegibles desde el lobby
 	StartWave = 1, -- oleada con la que arranca cada partida
+	-- Solo en Studio (en el juego publicado no hacen nada):
+	TestGems = 0, -- al entrar, si tenés menos gemas que esto te las completa (0 = apagado)
+	PrintStats = true, -- al empezar la partida escribe en Output tus stats: base, +equipo, +talentos, +runas
 }
 
 return Config

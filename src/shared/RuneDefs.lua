@@ -61,6 +61,12 @@ Runes.Images = {
 	Dragon = "rbxassetid://126571214469997",
 	Bastion = "rbxassetid://131277312501870",
 	Hawk = "rbxassetid://113680989650065",
+	-- Especiales (rombos: la imagen ya trae su marco)
+	Multishot = "rbxassetid://112249724366283",
+	Pierce = "rbxassetid://73764044765126",
+	Ricochet = "rbxassetid://93254520816724",
+	Fan = "rbxassetid://96019685538065",
+	Inferno = "rbxassetid://83937123771444",
 }
 
 Runes.ById = {}
@@ -71,6 +77,7 @@ for _, def in Runes.Collection do
 end
 for _, def in Runes.Special do
 	def.Kind = "Special"
+	def.Image = Runes.Images[def.Id] or ""
 	Runes.ById[def.Id] = def
 end
 

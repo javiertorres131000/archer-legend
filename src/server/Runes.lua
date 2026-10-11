@@ -8,8 +8,10 @@
 -- El cliente pide por RuneRequest y recibe el estado por RuneState. Todo se valida acá.
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Defs = require(Shared:WaitForChild("RuneDefs"))
+local Config = require(Shared:WaitForChild("Config"))
 local Profiles = require(script.Parent.Profiles)
 local PlayerData = require(script.Parent.PlayerData)
 
@@ -150,7 +152,12 @@ end
 
 function Runes.init(r)
 	remotes = r
-	Profiles.onLoaded(function(player)
+	Profiles.onLoaded(function(player, data)
+		-- Pruebas en Studio: gemas para abrir cofres de runas (Config.Debug.TestGems)
+		local testGems = Config.Debug.TestGems or 0
+		if testGems > 0 and RunService:IsStudio() and data.Currencies.Gems < testGems then
+			Profiles.addCurrency(player, "Gems", testGems - data.Currencies.Gems)
+		end
 		Runes.publish(player)
 	end)
 	r.RuneRequest.OnServerEvent:Connect(function(player, action, arg, arg2)

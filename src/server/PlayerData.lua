@@ -7,6 +7,7 @@
 local Players = game:GetService("Players")
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local PlayerCfg = Config.Player
+local BaseStats = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BaseStats"))
 
 local PlayerData = {}
 
@@ -91,30 +92,9 @@ function PlayerData.setPaused(on: boolean)
 	end
 end
 
+-- Stats base de la partida (en Shared/BaseStats: la pantalla de Equipo usa las mismas)
 function PlayerData.newStats(): Stats
-	return {
-		walkSpeed = PlayerCfg.WalkSpeed,
-		dashCooldown = Config.Dash.Cooldown,
-		burnBonus = 0,
-		damage = Config.Projectile.Damage,
-		attackInterval = PlayerCfg.AttackInterval,
-		maxHealth = PlayerCfg.MaxHealth,
-		frontArrows = 0,
-		diagonalPairs = 0,
-		pierce = 0,
-		ricochet = 0,
-		burn = false,
-		critChance = PlayerCfg.CritChance,
-		critMultiplier = PlayerCfg.CritMultiplier,
-		pickupRadius = PlayerCfg.PickupRadius,
-		lightningBolts = 0,
-		meteors = 0,
-		poison = 0,
-		goldBonus = 0,
-		startChoices = 0,
-		rerolls = 0,
-		stacks = {},
-	}
+	return BaseStats.new() :: any
 end
 
 function PlayerData.get(player: Player): State?

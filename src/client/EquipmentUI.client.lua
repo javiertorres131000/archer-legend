@@ -11,6 +11,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Defs = require(Shared:WaitForChild("EquipmentDefs"))
+local BaseStats = require(Shared:WaitForChild("BaseStats"))
+local Talents = require(Shared:WaitForChild("Talents"))
+local RuneDefs = require(Shared:WaitForChild("RuneDefs"))
 local Rarities = require(Shared:WaitForChild("Rarities"))
 local Currencies = require(Shared:WaitForChild("Currencies"))
 local Theme = require(Shared:WaitForChild("UITheme"))
@@ -27,6 +30,9 @@ local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local request = remotes:WaitForChild("EquipmentRequest") :: RemoteEvent
 
 local inventory, equipped = {}, {}
+-- Talentos y runas: también suben tus stats (llegan por TalentState y RuneState)
+local talentLevels: { [string]: number } = {}
+local runeOwned: { [string]: number }, runeActive: { string }, runeSlots = {}, {}, 1
 local selectedUid: string? = nil
 local sortBy = "Rarity" -- "Rarity" | "Slot"
 local confirmFuse = false
@@ -444,10 +450,32 @@ local function refresh()
 	end
 
 	-- Ataque, vida y el resto de bonificaciones
-	local bonus, sets = Defs.summary(inventory, equipped, Rarities.index)
-	attackLabel.Text = string.format("⚔ Ataque %d", math.floor(Config.Projectile.Damage * (1 + bonus.damage) + 0.5))
-	healthLabel.Text = string.format("❤ Vida %d", math.floor(Config.Player.MaxHealth * (1 + bonus.maxHealth) + 0.5))
-	extraLabel.Text = string.format("Crítico %s · Velocidad %s · Imán %s", percent(bonus.critChance), percent(bonus.walkSpeed), percent(bonus.pickupRadius))
+	-- Stats con las que empezás la partida: mismo cálculo y orden que el servidor (Run.start)
+	local _, sets = Defs.summary(inventory, equipped, Rarities.index)
+	local base = BaseStats.new()
+	local final = BaseStats.new()
+	Defs.apply(final, inventory, equipped, Rarities.index)
+	for _, def in Talents.List do
+		local level = talentLevels[def.Id] or 0
+		if level > 0 then
+			def.Apply(final, math.min(level, def.Max))
+		end
+	end
+	RuneDefs.apply(final, runeOwned, runeActive, runeSlots)
+	local function gain(stat: string): string
+		local diff = math.floor(final[stat] + 0.5) - math.floor(base[stat] + 0.5)
+		return if diff > 0 then string.format(" (+%d)", diff) else ""
+	end
+	attackLabel.Text = string.format("⚔ Ataque %d%s", math.floor(final.damage + 0.5), gain("damage"))
+	healthLabel.Text = string.format("❤ Vida %d%s", math.floor(final.maxHealth + 0.5), gain("maxHealth"))
+	extraLabel.Text = string.format(
+		"Crítico %.1f%% · Daño crítico ×%.2f · Disparo cada %.2f s · Velocidad %.1f · Imán %.1f",
+		final.critChance * 100,
+		final.critMultiplier,
+		final.attackInterval,
+		final.walkSpeed,
+		final.pickupRadius
+	)
 	local setTexts = {}
 	for id, name in Defs.SetNames do
 		local count = sets[id] or 0
@@ -571,6 +599,19 @@ local function closeWindow()
 end
 close.Activated:Connect(closeWindow)
 
+remotes:WaitForChild("TalentState").OnClientEvent:Connect(function(levels)
+	talentLevels = if type(levels) == "table" then levels else {}
+	if gui.Enabled then
+		refresh()
+	end
+end)
+remotes:WaitForChild("RuneState").OnClientEvent:Connect(function(owned, active, slots)
+	runeOwned, runeActive, runeSlots = owned or {}, active or {}, slots or 1
+	if gui.Enabled then
+		refresh()
+	end
+end)
+
 remotes:WaitForChild("EquipmentState").OnClientEvent:Connect(function(items, slots, notice)
 	inventory, equipped = items or {}, slots or {}
 	if notice then
@@ -582,6 +623,9 @@ playerGui:GetAttributeChangedSignal("EquipmentTab"):Connect(function()
 	gui.Enabled = playerGui:GetAttribute("EquipmentTab") == "Equipo" and player:GetAttribute("InMatch") ~= true
 	if gui.Enabled then
 		send("Get")
+		-- Talentos y runas al día para calcular las stats
+		remotes.TalentRequest:FireServer("Get")
+		remotes.RuneRequest:FireServer("Get")
 		refreshAvatar()
 		refresh()
 		layout()

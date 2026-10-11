@@ -45,16 +45,7 @@ end
 function Equipment.apply(player, stats)
 	local data = Profiles.get(player)
 	if not data then return end
-	local bonus, sets = Defs.summary(data.Inventory, data.Equipment, Rarities.index)
-	stats.damage *= 1 + bonus.damage
-	stats.maxHealth *= 1 + bonus.maxHealth
-	stats.walkSpeed *= 1 + bonus.walkSpeed
-	stats.pickupRadius *= 1 + bonus.pickupRadius
-	stats.critChance += bonus.critChance
-	if (sets.Hunter or 0) >= 3 then stats.pickupRadius *= 1.1 end
-	if (sets.Hunter or 0) >= 6 then stats.critChance += 0.03 end
-	if (sets.Ember or 0) >= 3 then stats.burnBonus = 0.15 end
-	if (sets.Ember or 0) >= 6 then stats.burn = true end
+	Defs.apply(stats, data.Inventory, data.Equipment, Rarities.index)
 end
 function Equipment.request(player, action, arg)
 	local data = Profiles.get(player)

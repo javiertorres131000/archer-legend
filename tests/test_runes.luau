@@ -108,4 +108,40 @@ test("sorteo: siempre una runa que existe, de la clase pedida", function()
 	assert(Defs.ById[Defs.roll(0)].Kind == "Collection")
 end)
 
+test("la pantalla de Equipo calcula las mismas stats que el servidor (equipo + talentos + runas)", function()
+	local Equipment = require("./Equipment")
+	local TalentService = require("./TalentService")
+	local Talents = require("./Talents")
+	local EquipmentDefs = require("./EquipmentDefs")
+	local BaseStats = require("./BaseStats")
+	local Rarities = require("./Rarities")
+	local q = M.addPlayer("Comparar")
+	local d = Profiles.get(q)
+	-- Un poco de todo: equipo mejorado, talentos y runas
+	for _, item in d.Inventory do item.Level = 4; item.Rarity = "Epic" end
+	for _, def in Talents.List do d.Talents[def.Id] = math.min(2, def.Max) end
+	Runes.grant(q, "Fury"); Runes.grant(q, "Fury"); Runes.grant(q, "Vitality"); Runes.grant(q, "Hawk")
+	Runes.grant(q, "Multishot")
+	d.Runes.Active[1] = "Multishot"
+	-- Servidor (como Run.start)
+	local server = PlayerData.newStats()
+	Equipment.apply(q, server)
+	TalentService.apply(q, server)
+	Runes.apply(q, server)
+	-- Pantalla (EquipmentUI)
+	local client = BaseStats.new()
+	EquipmentDefs.apply(client, d.Inventory, d.Equipment, Rarities.index)
+	for _, def in Talents.List do
+		local level = d.Talents[def.Id] or 0
+		if level > 0 then def.Apply(client, math.min(level, def.Max)) end
+	end
+	Defs.apply(client, d.Runes.Owned, d.Runes.Active, Runes.slots(q))
+	for stat, value in server do
+		if type(value) ~= "table" then
+			assert(client[stat] == value, stat .. ": servidor " .. tostring(value) .. " / pantalla " .. tostring(client[stat]))
+		end
+	end
+	assert(server.damage > BaseStats.new().damage, "las runas y el equipo suben el daño")
+end)
+
 print(passed .. " pruebas, 0 fallas")

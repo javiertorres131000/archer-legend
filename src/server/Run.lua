@@ -196,12 +196,20 @@ function Run.start(index: number, participants: { Player })
 	Arena.buildRoom(ch, roomIndex)
 	Remotes.GameState:SetAttribute("RoomIndex", roomIndex)
 	-- Cada uno en su punto de la entrada, con vida, XP y habilidades de partida en cero
+	local printStats = Config.Debug.PrintStats and game:GetService("RunService"):IsStudio()
 	for _, p in participants do
 		local s = PlayerData.get(p)
 		if s then
+			local steps = { { "base", table.clone(s.stats) } }
 			Equipment.apply(p, s.stats)
+			table.insert(steps, { "+equipo", table.clone(s.stats) })
 			TalentService.apply(p, s.stats)
+			table.insert(steps, { "+talentos", table.clone(s.stats) })
 			Runes.apply(p, s.stats)
+			table.insert(steps, { "+runas", table.clone(s.stats) })
+			if printStats then
+				Run.printStats(p, steps)
+			end
 		end
 		p:SetAttribute("DashReadyAt", 0)
 	end
@@ -214,6 +222,31 @@ function Run.start(index: number, participants: { Player })
 			Progression.giveChoice(p)
 		end
 	end
+end
+
+-- Pruebas en Studio (Config.Debug.PrintStats): cómo cambia cada stat con equipo, talentos y runas
+local STAT_ROWS = {
+	{ "damage", "Daño" }, { "maxHealth", "Vida" }, { "critChance", "Crítico" }, { "critMultiplier", "Daño crítico" },
+	{ "attackInterval", "Entre disparos (s)" }, { "walkSpeed", "Velocidad" }, { "pickupRadius", "Imán" },
+	{ "burnBonus", "Bonus quemadura" }, { "dashCooldown", "Espera dash (s)" },
+	{ "frontArrows", "Flechas al frente" }, { "diagonalPairs", "Pares diagonales" }, { "pierce", "Perforación" },
+	{ "ricochet", "Rebotes" }, { "burn", "Fuego" },
+}
+function Run.printStats(player: Player, steps: { any })
+	local header = string.format("%-20s", "[Stats] " .. player.Name)
+	for _, step in steps do
+		header ..= string.format("%12s", step[1])
+	end
+	local lines = { header }
+	for _, row in STAT_ROWS do
+		local line = string.format("%-20s", row[2])
+		for _, step in steps do
+			local v = step[2][row[1]]
+			line ..= string.format("%12s", if type(v) == "number" then string.format("%.3f", v) else tostring(v))
+		end
+		table.insert(lines, line)
+	end
+	print(table.concat(lines, "\n"))
 end
 
 function Run.isActive(): boolean
