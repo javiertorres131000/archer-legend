@@ -7,6 +7,10 @@ local HttpService = game:GetService("HttpService")
 local Equipment = {}
 local remotes
 local lastRequest = {}
+local function isEquipped(data, uid)
+	for _, equippedUid in data.Equipment do if equippedUid == uid then return true end end
+	return false
+end
 local function find(data, uid)
 	for index, item in data.Inventory do if item.Uid == uid then return item, index end end
 	return nil
@@ -22,7 +26,7 @@ function Equipment.grant(player, id, rarity, announce)
 	local def = Defs.ById[id]
 	if not data or not def or not Rarities.index(rarity) then return nil end
 	if #data.Inventory >= Defs.MaxInventory then
-		Equipment.publish(player, "Inventario lleno: fusioná piezas en el lobby para hacer espacio.")
+		Equipment.publish(player, "Inventario lleno: fusioná o reciclá piezas en el lobby para hacer espacio.")
 		return nil
 	end
 	local item = { Uid = HttpService:GenerateGUID(false), Id = id, Rarity = rarity, Level = 1 }
@@ -103,6 +107,35 @@ function Equipment.request(player, action, arg)
 		for i = #data.Inventory, 1, -1 do if ids[data.Inventory[i].Uid] and data.Inventory[i] ~= first then table.remove(data.Inventory, i) end end
 		first.Rarity = Rarities.Order[rank + 1]
 		remotes.RewardNotice:FireClient(player, Defs.ById[first.Id].Name, first.Rarity, "Fusión completada")
+	elseif action == "Recycle" and type(arg) == "string" then
+		local item, index = find(data, arg)
+		if not item or not index then return false, "Ese objeto no pertenece a tu inventario." end
+		if isEquipped(data, item.Uid) then return false, "Quitate el objeto antes de reciclarlo." end
+		local gold, stones = Defs.recycleValue(item, Rarities.index(item.Rarity))
+		table.remove(data.Inventory, index)
+		Profiles.addCurrency(player, "Gold", gold)
+		if stones > 0 then Profiles.addCurrency(player, "Stones", stones) end
+		Equipment.publish(player, string.format("♻ Reciclado: +%d oro%s", gold, if stones > 0 then " y +" .. stones .. " piedras" else ""))
+		Profiles.saveSoon(player)
+		return true
+	elseif action == "RecycleRarity" and type(arg) == "string" and table.find(Defs.BulkRecycle, arg) then
+		local rank = Rarities.index(arg)
+		local count, gold, stones = 0, 0, 0
+		-- De atrás para adelante: table.remove no saltea elementos. Nunca toca lo equipado.
+		for i = #data.Inventory, 1, -1 do
+			local item = data.Inventory[i]
+			if item.Rarity == arg and not isEquipped(data, item.Uid) then
+				local g, st = Defs.recycleValue(item, rank)
+				gold += g; stones += st; count += 1
+				table.remove(data.Inventory, i)
+			end
+		end
+		if count == 0 then return false, "No tenés piezas sin equipar de esa rareza." end
+		Profiles.addCurrency(player, "Gold", gold)
+		if stones > 0 then Profiles.addCurrency(player, "Stones", stones) end
+		Equipment.publish(player, string.format("♻ %d piezas recicladas: +%d oro%s", count, gold, if stones > 0 then " y +" .. stones .. " piedras" else ""))
+		Profiles.saveSoon(player)
+		return true
 	else return false, "Petición de equipo inválida." end
 	Equipment.publish(player, "Equipo actualizado")
 	Profiles.saveSoon(player)

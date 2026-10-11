@@ -60,7 +60,9 @@ function Loot.grant(players: { Player }, amounts: Amounts): { [Player]: Amounts 
 		local state = PlayerData.get(player)
 		if state then
 			local got: Amounts = {}
-			for id, n in amounts do
+			for id, base in amounts do
+				-- Talento Codicia: más oro para ese jugador
+				local n = if id == "Gold" then math.floor(base * (1 + (state.stats.goldBonus or 0)) + 0.5) else base
 				if n > 0 and Profiles.addCurrency(player, id, n) then
 					got[id] = n
 					state.runLoot[id] = (state.runLoot[id] or 0) + n

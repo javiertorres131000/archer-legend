@@ -220,6 +220,8 @@ local function enterResults(result: Run.Result)
 			})
 		personal.rewards = if granted then granted.amounts else nil -- nil: perfil sin cargar
 		personal.firstClear = granted ~= nil and granted.firstClear
+		personal.accountXP = if granted then granted.accountXP else 0 -- XP de cuenta (árbol de talentos)
+		personal.levelsGained = if granted then granted.levelsGained else 0
 		personal.loot = if stats then table.clone(stats.runLoot) else {} -- botín juntado (ya cobrado)
 		if result == "Victory" then
 			ChapterUnlocks.onChapterCleared(p, selectedChapter)

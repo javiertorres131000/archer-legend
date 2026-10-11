@@ -11,6 +11,7 @@
 --   · Abandonar (se van todos) no da nada; irse a mitad de partida tampoco.
 
 local Profiles = require(script.Parent.Profiles)
+local Talents = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Talents"))
 
 export type Amounts = { [string]: number } -- Id de moneda -> cantidad
 export type RunInfo = {
@@ -19,7 +20,7 @@ export type RunInfo = {
 	bossesKilled: { string }, -- tipos de enemigo jefe vencidos
 	kills: number, -- bajas de este jugador
 }
-export type Granted = { amounts: Amounts, firstClear: boolean }
+export type Granted = { amounts: Amounts, firstClear: boolean, accountXP: number, levelsGained: number }
 
 local Rewards = {}
 
@@ -60,6 +61,25 @@ function Rewards.compute(chapter: any, info: RunInfo, firstClear: boolean): Amou
 	return amounts
 end
 
+-- XP de cuenta de una partida (árbol de talentos). Cálculo puro.
+function Rewards.accountXP(chapter: any, info: RunInfo): number
+	local bosses, minis = 0, 0
+	for _, bossType in info.bossesKilled do
+		if chapter.Boss and chapter.Boss.Type == bossType then
+			bosses += 1
+		elseif chapter.MiniBoss and chapter.MiniBoss.Type == bossType then
+			minis += 1
+		end
+	end
+	return Talents.accountXP({
+		result = info.result,
+		wavesCleared = math.clamp(info.wavesCleared, 0, chapter.Waves or info.wavesCleared),
+		bosses = bosses,
+		miniBosses = minis,
+		kills = math.max(0, math.floor(info.kills)),
+	}, chapter.Rewards and chapter.Rewards.LootMult or 1)
+end
+
 -- Entrega las recompensas al perfil y anota estadísticas. Devuelve lo que se dio
 -- (para mostrarlo en los resultados), o nil si el perfil todavía no está cargado.
 function Rewards.grant(player: Player, chapter: any, info: RunInfo): Granted?
@@ -84,7 +104,9 @@ function Rewards.grant(player: Player, chapter: any, info: RunInfo): Granted?
 		data.Stats.Victories += 1
 		record.Clears += 1
 	end
-	return { amounts = amounts, firstClear = firstClear }
+	local accountXP = Rewards.accountXP(chapter, info)
+	local levelsGained = Profiles.addAccountXP(player, accountXP)
+	return { amounts = amounts, firstClear = firstClear, accountXP = accountXP, levelsGained = levelsGained }
 end
 
 return Rewards
