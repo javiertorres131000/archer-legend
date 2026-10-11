@@ -130,9 +130,22 @@ for _, def in Defs.Collection do
 	stroke.Parent = button
 	local gradient = make("UIGradient", { Rotation = 90, Parent = button })
 	local icon = text({ AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromScale(0.62, 0.62), Text = def.Icon, TextScaled = true, ZIndex = 3, Parent = button })
+	-- Con imagen subida (RuneDefs.Images) se ve la imagen en vez del emoji
+	local image = make("ImageLabel", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.92, 0.92),
+		BackgroundTransparency = 1,
+		Image = def.Image,
+		ScaleType = Enum.ScaleType.Crop,
+		Visible = def.Image ~= "",
+		ZIndex = 2,
+		Parent = button,
+	}, { make("UICorner", { CornerRadius = UDim.new(0.3, 0) }) })
+	icon.Visible = def.Image == ""
 	local level = text({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -2), Size = UDim2.fromScale(0.9, 0.26), Text = "", Font = Fonts.Bold, TextScaled = true, TextStrokeTransparency = 0.2, ZIndex = 3, Parent = button })
 	local scale = make("UIScale", { Parent = button })
-	badges[def.Id] = { button = button, stroke = stroke, gradient = gradient, icon = icon, level = level, scale = scale }
+	badges[def.Id] = { button = button, stroke = stroke, gradient = gradient, icon = icon, image = image, level = level, scale = scale }
 	button.Activated:Connect(function()
 		openDetail(def.Id)
 	end)
@@ -422,6 +435,8 @@ local function refresh()
 			b.stroke.Color = color
 			b.stroke.Transparency = 0
 			b.icon.TextTransparency = 0
+			b.image.ImageColor3 = Color3.new(1, 1, 1)
+			b.image.ImageTransparency = 0
 			b.level.Text = "Nv." .. level
 		else
 			b.button.BackgroundColor3 = PURPLE_DARK
@@ -429,6 +444,9 @@ local function refresh()
 			b.stroke.Color = color
 			b.stroke.Transparency = 0.6
 			b.icon.TextTransparency = 0.75
+			-- Sin conseguir: la imagen apagada y en gris
+			b.image.ImageColor3 = Color3.fromRGB(110, 105, 120)
+			b.image.ImageTransparency = 0.45
 			b.level.Text = ""
 		end
 	end

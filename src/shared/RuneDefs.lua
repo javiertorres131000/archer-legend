@@ -44,9 +44,29 @@ Runes.Special = {
 	{ Id = "Inferno", Name = "Infierno", Icon = "☄️", Rarity = "Mythic", Stat = "burn", Text = "flechas de fuego desde el principio" },
 }
 
+-- Imágenes de las runas (reemplazan al emoji en la pantalla). Los PNG están en assets/runes/<Id>.png.
+-- Para usarlas: en Studio, Ventana › Administrador de recursos › Importación masiva (Bulk Import),
+-- elegí los 12 PNG, y en cada imagen subida: clic derecho › Copiar ID del recurso. Pegalo acá como
+-- "rbxassetid://123456789". Las que queden en "" siguen mostrando el emoji.
+Runes.Images = {
+	Fury = "rbxassetid://127985178700101",
+	Vitality = "rbxassetid://111281780861582",
+	Eagle = "rbxassetid://126077441807449",
+	Brutal = "rbxassetid://131018244102177",
+	Swift = "rbxassetid://87403164187513",
+	Magnet = "rbxassetid://130867553366328",
+	Rapid = "rbxassetid://119790420211834",
+	Embers = "rbxassetid://71456016533733",
+	Blink = "rbxassetid://99120761527375",
+	Dragon = "rbxassetid://126571214469997",
+	Bastion = "rbxassetid://131277312501870",
+	Hawk = "rbxassetid://113680989650065",
+}
+
 Runes.ById = {}
 for _, def in Runes.Collection do
 	def.Kind = "Collection"
+	def.Image = Runes.Images[def.Id] or ""
 	Runes.ById[def.Id] = def
 end
 for _, def in Runes.Special do
