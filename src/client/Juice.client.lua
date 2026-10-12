@@ -31,8 +31,24 @@ local flashing: { [BasePart]: { color: Color3, untilT: number } } = {}
 local FLASH_TIME = 0.07
 local WHITE = Color3.new(1, 1, 1)
 
+-- Enemigos con modelo 3D: la pieza es invisible y el color se ve con su Highlight "ModelTint"
+type TintFlash = { enabled: boolean, color: Color3, untilT: number }
+local flashingTints: { [Highlight]: TintFlash } = {}
+
 local function flash(part: Instance?)
 	if not part or not part:IsA("BasePart") or not part.Parent then
+		return
+	end
+	local tint = part:FindFirstChild("ModelTint")
+	if tint and tint:IsA("Highlight") then
+		local t = flashingTints[tint]
+		if t then
+			t.untilT = os.clock() + FLASH_TIME
+		else
+			flashingTints[tint] = { enabled = tint.Enabled, color = tint.FillColor, untilT = os.clock() + FLASH_TIME }
+			tint.Enabled = true
+			tint.FillColor = WHITE
+		end
 		return
 	end
 	local entry = flashing[part]
@@ -324,6 +340,15 @@ RunService.RenderStepped:Connect(function(dt: number)
 				part.Color = entry.color
 			end
 			flashing[part] = nil
+		end
+	end
+	for tint, entry in flashingTints do
+		if now >= entry.untilT or not tint.Parent then
+			if tint.Parent then
+				tint.Enabled = entry.enabled
+				tint.FillColor = entry.color
+			end
+			flashingTints[tint] = nil
 		end
 	end
 

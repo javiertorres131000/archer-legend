@@ -17,6 +17,7 @@ AI.init({
 	end,
 	baseColor = function(e) return e.color end,
 	setHidden = function(e, h) e.hidden = h end,
+	setTransparency = function(e, t) e.part.Transparency = t end,
 	countSummoned = function() return summoned end,
 	queueSpawn = function(t)
 		assert(T[t], "invoca un tipo inexistente " .. tostring(t))

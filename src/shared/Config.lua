@@ -25,6 +25,11 @@ Config.Map = {
 	EdgeWidth = 30, -- montañas del borde
 	EdgeHeight = 34,
 	Props = 120, -- decoración repartida por el mapa (árboles, rocas, ruinas...)
+	-- Piso modelado (ServerStorage > Maps > <capítulo> > "Ground"): se escala para cubrir el mapa
+	GroundModel = {
+		Fill = 1, -- 1 = el lado más largo del modelo mide lo mismo que el mapa
+		BottomY = nil, -- altura de la base del modelo (nil = la base del terreno generado, -12)
+	},
 	Materials = {
 		forest = { Top = Enum.Material.Grass, Under = Enum.Material.Ground, Cliff = Enum.Material.Rock },
 		ruins = { Top = Enum.Material.Sandstone, Under = Enum.Material.Sandstone, Cliff = Enum.Material.Slate },
@@ -63,6 +68,9 @@ Config.Projectile = {
 
 -- Reglas comunes a todos los enemigos
 Config.Enemy = {
+	-- Modelos 3D: ServerStorage > EnemyModels > <Id del enemigo> (o "Slime" para todos los ...Slime).
+	-- Sin modelo, el enemigo es una pieza de color como siempre. Ver Enemies.attachModel.
+	ModelScale = 1, -- agranda o achica todos los modelos (1 = del tamaño del enemigo)
 	MaxAlive = 110, -- tope de enemigos vivos a la vez (rendimiento); las invocaciones no lo respetan
 	-- Barras de vida sobre los enemigos: "Bosses" (solo jefes y dorados) o "All".
 	-- Con hordas grandes, "All" pesa en celulares; el daño ya se ve con los números flotantes.

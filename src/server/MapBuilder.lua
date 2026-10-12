@@ -5,9 +5,11 @@
 -- montañas en el borde y decoración repartida (árboles, ruinas, braseros...).
 --
 -- Dos formas:
---   · Hecho a mano: si en ServerStorage > Maps > <Id del capítulo> hay un TerrainRegion llamado
---     "Terrain", se pega ese terreno (y los Models que haya en la carpeta, como decoración).
---     La altura del piso se mide con rayos contra el terreno (ver README para crearlo).
+--   · Hecho a mano: en ServerStorage > Maps > <Id del capítulo> puede haber
+--       - un TerrainRegion llamado "Terrain" (Terreno de Roblox), que se pega tal cual, y/o
+--       - un MeshPart o Model llamado "Ground" (un piso modelado, por ejemplo importado de Blender),
+--         que se escala al tamaño del mapa y se centra (ver Config.Map.GroundModel).
+--     Los demás Models de la carpeta van como decoración. La altura del piso se mide con rayos.
 --   · Generado: se escribe el terreno con una fórmula de relieve distinta en cada partida.
 --
 -- Los jugadores caminan y saltan sobre el terreno con la física normal de Roblox. Los enemigos
@@ -181,17 +183,62 @@ end
 local function customMap(chapterId: string): Folder?
 	local maps = ServerStorage:FindFirstChild("Maps")
 	local set = maps and maps:FindFirstChild(chapterId)
-	if set and set:FindFirstChild("Terrain") then
+	if set and (set:FindFirstChild("Terrain") or set:FindFirstChild("Ground")) then
 		return set :: Folder
 	end
 	return nil
 end
 
--- Mide el terreno con rayos (para mapas hechos a mano) y llena Ground.
-local function measureTerrain(half: Vector3, step: number)
+-- Piso modelado: se copia, se escala para cubrir el mapa y se centra en el origen, con la cara de
+-- arriba más o menos en Y = 0 (como el terreno generado). Devuelve la copia.
+local function placeGroundModel(source: Instance, half: Vector3, parent: Instance): Instance
+	local copy = source:Clone()
+	local model: Model
+	if copy:IsA("Model") then
+		model = copy
+	else
+		model = Instance.new("Model")
+		model.Name = "Ground"
+		copy.Parent = model
+	end
+	for _, d in model:GetDescendants() do
+		if d:IsA("LuaSourceContainer") then
+			d:Destroy()
+		elseif d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = true
+			-- Con la colisión simplificada, los jugadores caminan sobre una "lona" invisible por
+			-- arriba de las rocas (parece que flotan). Solo se puede cambiar en Studio.
+			if d:IsA("MeshPart") and d.CollisionFidelity ~= Enum.CollisionFidelity.PreciseConvexDecomposition then
+				warn(string.format(
+					"[Mapa] %s tiene CollisionFidelity = %s: los jugadores van a flotar cerca de las rocas. En Studio ponele PreciseConvexDecomposition.",
+					source:GetFullName() .. (if d ~= copy then "." .. d.Name else ""),
+					d.CollisionFidelity.Name
+				))
+			end
+		end
+	end
+	local cfg = MapCfg.GroundModel or {}
+	local _, extent = model:GetBoundingBox()
+	-- Que cubra el mapa: el lado más largo del modelo = el lado del mapa (Fill de la config)
+	local target = math.max(half.X, half.Z) * 2 * (cfg.Fill or 1)
+	model:ScaleTo(model:GetScale() * target / math.max(extent.X, extent.Z, 0.01))
+	local box, ext = model:GetBoundingBox()
+	local pivot = model:GetPivot()
+	-- Centro del modelo en (0, ?, 0); la base en BOTTOM, o la altura que diga TopY
+	local baseY = if cfg.BottomY then cfg.BottomY else BOTTOM
+	local shift = Vector3.new(-box.Position.X, baseY - (box.Position.Y - ext.Y / 2), -box.Position.Z)
+	model:PivotTo(pivot + shift)
+	model.Name = "Ground"
+	model.Parent = parent
+	return model
+end
+
+-- Mide el terreno con rayos (para mapas hechos a mano) y llena Ground. extra: piso modelado, si hay.
+local function measureTerrain(half: Vector3, step: number, extra: Instance?)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = { workspace.Terrain }
+	params.FilterDescendantsInstances = if extra then { workspace.Terrain, extra } else { workspace.Terrain }
 	local countX = math.floor(half.X * 2 / step) + 1
 	local countZ = math.floor(half.Z * 2 / step) + 1
 	local values = table.create(countX * countZ, 0)
@@ -220,24 +267,28 @@ function MapBuilder.build(chapter: any, seed: number, half: Vector3, propsFolder
 
 	local custom = customMap(chapter.Id)
 	if custom then
-		local region = custom:FindFirstChild("Terrain") :: TerrainRegion
-		-- Se pega donde estaba cuando se copió (atributo "Corner", en celdas de 4 studs);
-		-- si no lo tiene, centrado en el origen del mapa.
-		local saved = region:GetAttribute("Corner")
-		local corner = if typeof(saved) == "Vector3"
-			then Vector3int16.new(saved.X, saved.Y, saved.Z)
-			else Vector3int16.new(
-				-math.floor(region.SizeInCells.X / 2),
-				math.floor(BOTTOM / 4),
-				-math.floor(region.SizeInCells.Z / 2)
-			)
-		terrain:PasteRegion(region, corner, true)
+		local region = custom:FindFirstChild("Terrain")
+		if region and region:IsA("TerrainRegion") then
+			-- Se pega donde estaba cuando se copió (atributo "Corner", en celdas de 4 studs);
+			-- si no lo tiene, centrado en el origen del mapa.
+			local saved = region:GetAttribute("Corner")
+			local corner = if typeof(saved) == "Vector3"
+				then Vector3int16.new(saved.X, saved.Y, saved.Z)
+				else Vector3int16.new(
+					-math.floor(region.SizeInCells.X / 2),
+					math.floor(BOTTOM / 4),
+					-math.floor(region.SizeInCells.Z / 2)
+				)
+			terrain:PasteRegion(region, corner, true)
+		end
+		local groundSource = custom:FindFirstChild("Ground")
+		local ground = if groundSource then placeGroundModel(groundSource, half, propsFolder) else nil
 		for _, child in custom:GetChildren() do
-			if child:IsA("Model") then
+			if child:IsA("Model") and child ~= groundSource then
 				child:Clone().Parent = propsFolder
 			end
 		end
-		measureTerrain(half, MapCfg.VoxelSize)
+		measureTerrain(half, MapCfg.VoxelSize, ground)
 		return "custom"
 	end
 

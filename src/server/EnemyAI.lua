@@ -323,10 +323,10 @@ Attacks.Teleport = {
 		end
 		ctx.dest = dest
 		Hazards.marker(dest, e.radius + 1, R(a.Telegraph, EnemyCfg.DefaultTelegraph) + 0.1)
-		e.part.Transparency = 0.5
+		Enemies.setTransparency(e, 0.5)
 	end,
 	update = function(e, _a, ctx)
-		e.part.Transparency = 0
+		Enemies.setTransparency(e, 0)
 		return ctx.dest, true
 	end,
 }

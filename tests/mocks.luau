@@ -220,6 +220,14 @@ function methods:SetNetworkOwnershipAuto() rawget(self, "_raw")._networkAuto = t
 function methods:SetAttribute(k, v) rawget(self, "_raw")._attrs[k] = v end
 function methods:GetAttribute(k) return rawget(self, "_raw")._attrs[k] end
 function methods:GetChildren() return table.clone(rawget(self, "_raw")._children) end
+function methods:GetDescendants()
+	local all = {}
+	for _, c in rawget(self, "_raw")._children do
+		table.insert(all, c)
+		for _, d in c:GetDescendants() do table.insert(all, d) end
+	end
+	return all
+end
 function methods:FindFirstChild(name)
 	for _, c in rawget(self, "_raw")._children do
 		if c.Name == name then return c end

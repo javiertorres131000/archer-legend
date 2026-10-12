@@ -8,6 +8,7 @@ local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared
 local EnemyTypes = require(script.Parent.Data.EnemyTypes)
 local PlayerData = require(script.Parent.PlayerData)
 local Ground = require(script.Parent.Ground)
+local ServerStorage = game:GetService("ServerStorage")
 local PlayerLife = require(script.Parent.PlayerLife)
 local EnemyAI = require(script.Parent.EnemyAI)
 
@@ -46,6 +47,9 @@ export type Enemy = {
 	summoner: any?, -- enemigo que lo invocó
 	isBoss: boolean,
 	golden: boolean, -- enemigo dorado: brilla y suelta mucho botín
+	model: Model?, -- modelo 3D pegado a la pieza (la pieza queda invisible)
+	modelParts: { [BasePart]: number }?, -- partes del modelo y su transparencia original
+	modelOffsets: { { part: BasePart, offset: CFrame } }?, -- dónde va cada parte respecto de la pieza
 	showBar: boolean,
 	ai: any, -- estado de EnemyAI
 }
@@ -69,6 +73,9 @@ function Enemies.init(arenaHalf: Vector3, combat, hazards)
 	folder.Name = "Enemies"
 	folder.Parent = workspace
 	EnemyAI.init(Enemies, combat, hazards)
+	if game:GetService("RunService"):IsStudio() then
+		pcall(Enemies.reportModels) -- en Output: qué modelos de enemigos hay en ServerStorage
+	end
 end
 
 -- Se llama cada vez que un enemigo recibe daño (para XP, estadísticas, etc.)
@@ -218,6 +225,16 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 		light.Parent = part
 	end
 	part.Parent = folder
+	local ok, model, modelParts, modelOffsets = pcall(Enemies.attachModel, part, typeId, def, size, height)
+	if not ok then
+		warn(string.format("[EnemyModels] %s: no se pudo poner el modelo: %s", typeId, tostring(model)))
+		model, modelParts, modelOffsets = nil, nil, nil
+		part.Transparency = 0
+		local leftover = part:FindFirstChild("Model")
+		if leftover then
+			leftover:Destroy()
+		end
+	end
 
 	local maxHealth = def.Health * healthMult
 	local enemy: Enemy = {
@@ -248,12 +265,195 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 		summoner = o.summoner,
 		isBoss = def.Boss == true,
 		golden = golden,
+		model = model,
+		modelParts = modelParts,
+		modelOffsets = modelOffsets,
 		showBar = showBar,
 		ai = nil,
 	}
 	EnemyAI.setup(enemy)
 	table.insert(Enemies.list, enemy)
 	return enemy
+end
+
+---------------------------------------------------------------------
+-- Modelos 3D de enemigos
+---------------------------------------------------------------------
+
+-- Busca el modelo de un tipo en todo ServerStorage (en EnemyModels o en cualquier carpeta, salvo Rooms).
+-- Sirve un Model o una pieza suelta (MeshPart). Sin importar mayúsculas: primero el nombre exacto
+-- ("GreenSlime"); si no, el nombre más largo con el que termine el Id ("Slime" sirve para GreenSlime,
+-- RedSlime y KingSlime). Se resuelve una vez por tipo y se avisa en Output qué modelo usa.
+local resolved: { [string]: Instance | false } = {}
+
+-- Objetos "de arriba" de ServerStorage que pueden ser modelos de enemigos: sueltos o en una carpeta
+-- (no las piezas de adentro de un modelo, ni las salas de Rooms). Un Model, una pieza (MeshPart,
+-- Part, Unión) o cualquier cosa con piezas adentro.
+local function modelCandidates(): { Instance }
+	local list = {}
+	for _, d in ServerStorage:GetDescendants() do
+		local parent = d.Parent
+		if d:IsA("Folder") or d:IsA("LuaSourceContainer") or not (parent == ServerStorage or (parent and parent:IsA("Folder"))) then
+			continue
+		end
+		if d:FindFirstAncestor("Rooms") then
+			continue
+		end
+		if d:IsA("BasePart") or d:FindFirstChildWhichIsA("BasePart", true) then
+			table.insert(list, d)
+		end
+	end
+	return list
+end
+
+local function describe(d: Instance): string
+	local pieces = if d:IsA("BasePart") then 1 else 0
+	local kinds = {}
+	for _, x in d:GetDescendants() do
+		if x:IsA("BasePart") then
+			pieces += 1
+			kinds[x.ClassName] = true
+		end
+	end
+	if d:IsA("BasePart") then
+		kinds[d.ClassName] = true
+	end
+	local names = {}
+	for k in kinds do
+		table.insert(names, k)
+	end
+	table.sort(names)
+	return string.format("%s (%s, %d pieza%s: %s)", d:GetFullName(), d.ClassName, pieces, if pieces == 1 then "" else "s", table.concat(names, ", "))
+end
+
+-- Escribe en Output qué modelos de enemigos encontró (solo en Studio, al arrancar)
+function Enemies.reportModels()
+	local list = modelCandidates()
+	if #list == 0 then
+		print("[EnemyModels] No hay modelos de enemigos en ServerStorage")
+		return
+	end
+	print(string.format("[EnemyModels] %d posible(s) modelo(s) en ServerStorage:", #list))
+	for _, d in list do
+		print("    " .. describe(d))
+	end
+end
+
+local function findModel(typeId: string): Instance?
+	local cached = resolved[typeId]
+	if cached ~= nil then
+		return cached or nil
+	end
+	local id = string.lower(typeId)
+	local exact, best = nil, nil
+	local duplicates = 0
+	for _, d in modelCandidates() do
+		local name = string.lower(d.Name)
+		if name == id then
+			duplicates += 1
+			-- Si hay más de uno con el mismo nombre, el que tiene más piezas (el viejo suele ser una bola)
+			if not exact or #d:GetDescendants() > #exact:GetDescendants() then
+				exact = d
+			end
+		elseif #name >= 3 and #name < #id and string.sub(id, -#name) == name and (not best or #name > #best.Name) then
+			best = d
+		end
+	end
+	if duplicates > 1 then
+		warn(string.format("[EnemyModels] Hay %d objetos llamados %s en ServerStorage: dejá uno solo", duplicates, typeId))
+	end
+	local found = exact or best
+	resolved[typeId] = found or false
+	if found then
+		print(string.format("[EnemyModels] %s usa %s", typeId, describe(found)))
+	end
+	return found
+end
+
+-- Pega una copia del modelo a la pieza del enemigo. La pieza sigue moviéndose y recibiendo flechas
+-- (invisible); el modelo la sigue soldado. Los colores de estado se ven con un Highlight.
+function Enemies.attachModel(part: BasePart, typeId: string, def: any, size: number, height: number): (Model?, { [BasePart]: number }?, { { part: BasePart, offset: CFrame } }?)
+	local source = findModel(typeId)
+	if not source then
+		return nil, nil
+	end
+	local copy = source:Clone()
+	local model: Model
+	if copy:IsA("Model") then
+		model = copy
+	else
+		-- Una pieza suelta (MeshPart...) u otro objeto con piezas: se mete en un Model
+		model = Instance.new("Model")
+		copy.Parent = model
+		if copy:IsA("BasePart") then
+			model.PrimaryPart = copy
+		end
+	end
+	-- Sin scripts ni Humanoid (los modelos de la Caja de herramientas pueden traer de todo)
+	for _, d in model:GetDescendants() do
+		if d:IsA("LuaSourceContainer") or d:IsA("Humanoid") then
+			d:Destroy()
+		end
+	end
+	local _, extent = model:GetBoundingBox()
+	if extent.Y <= 0 then
+		warn(string.format("[EnemyModels] %s: el modelo %s no tiene piezas visibles", typeId, source.Name))
+		model:Destroy()
+		return nil, nil
+	end
+	-- Del tamaño del enemigo: que entre en su ancho (Size) y su alto (Height)
+	local fit = math.min(size / math.max(extent.X, extent.Z, 0.01), height / extent.Y)
+	model:ScaleTo(model:GetScale() * fit * (EnemyCfg.ModelScale or 1))
+	-- Apoyado en la base de la pieza, mirando hacia donde mira el enemigo (-Z del modelo = frente)
+	local box, ext = model:GetBoundingBox()
+	local pivot = model:GetPivot()
+	local offset = pivot.Position - (box.Position - Vector3.new(0, ext.Y / 2, 0))
+	local bottom = part.Position - Vector3.new(0, part.Size.Y / 2, 0)
+	model:PivotTo(CFrame.new(bottom + offset) * pivot.Rotation)
+	-- Todas las partes ancladas: Enemies.update las mueve junto con la pieza en el mismo BulkMoveTo
+	-- (las soldaduras no siguen a una pieza movida con BulkMoveTo)
+	local parts: { [BasePart]: number } = {}
+	local offsets: { { part: BasePart, offset: CFrame } } = {}
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			parts[d] = d.Transparency
+			d.Anchored = true
+			d.CanCollide = false
+			d.CanTouch = false
+			d.CanQuery = false
+			table.insert(offsets, { part = d, offset = part.CFrame:ToObjectSpace(d.CFrame) })
+		end
+	end
+	model.Name = "Model"
+	model.Parent = part
+	part.Transparency = 1
+	-- Tinte de estado: el color de la pieza (quemado, veneno, aturdido...) pinta el modelo
+	local tint = Instance.new("Highlight")
+	tint.Name = "ModelTint"
+	tint.Adornee = model
+	tint.DepthMode = Enum.HighlightDepthMode.Occluded
+	tint.FillTransparency = 0.45
+	tint.OutlineTransparency = 1
+	tint.Parent = part
+	local natural = def.Color
+	local function updateTint()
+		tint.Enabled = part.Color ~= natural
+		tint.FillColor = part.Color
+	end
+	part:GetPropertyChangedSignal("Color"):Connect(updateTint)
+	updateTint()
+	return model, parts, offsets
+end
+
+-- Transparencia del enemigo (enterrado, teletransportándose). Con modelo, la pieza sigue invisible.
+function Enemies.setTransparency(enemy: Enemy, t: number)
+	if enemy.modelParts then
+		for p, original in enemy.modelParts do
+			p.Transparency = original + (1 - original) * t
+		end
+	else
+		enemy.part.Transparency = t
+	end
 end
 
 -- Crea un enemigo al principio del próximo frame (seguro de usar mientras se recorre la lista).
@@ -271,12 +471,17 @@ function Enemies.knockback(enemy: Enemy, dir: Vector3, distance: number)
 	local pos = Enemies.clampFlat(enemy.part.Position + push, enemy.radius)
 	-- La orientación la vuelve a fijar Enemies.update en el próximo frame
 	enemy.part.CFrame = CFrame.new(Vector3.new(pos.X, Ground.y(pos.X, pos.Z) + enemy.baseY, pos.Z))
+	if enemy.modelOffsets then
+		for _, m in enemy.modelOffsets do
+			m.part.CFrame = enemy.part.CFrame * m.offset
+		end
+	end
 end
 
 -- Enterrado: invisible, no recibe golpes y no lo apunta nadie.
 function Enemies.setHidden(enemy: Enemy, hidden: boolean)
 	enemy.hidden = hidden
-	enemy.part.Transparency = if hidden then 1 else 0
+	Enemies.setTransparency(enemy, if hidden then 1 else 0)
 	enemy.barGui.Enabled = enemy.showBar and not hidden
 end
 
@@ -476,8 +681,16 @@ function Enemies.update(dt: number, targets: { PlayerData.Target }, now: number,
 		local y = Ground.y(newPos.X, newPos.Z) + e.baseY + (e.ai.yOffset or 0)
 		local look = if facing and facing.Magnitude > 0.01 then facing.Unit else e.part.CFrame.LookVector
 		local center = Vector3.new(newPos.X, y, newPos.Z)
+		local cf = CFrame.lookAt(center, center + Vector3.new(look.X, 0, look.Z))
 		table.insert(parts, e.part)
-		table.insert(cframes, CFrame.lookAt(center, center + Vector3.new(look.X, 0, look.Z)))
+		table.insert(cframes, cf)
+		-- El modelo 3D se mueve junto con la pieza
+		if e.modelOffsets then
+			for _, m in e.modelOffsets do
+				table.insert(parts, m.part)
+				table.insert(cframes, cf * m.offset)
+			end
+		end
 
 		-- Daño por contacto
 		if not e.hidden and e.contactDamage > 0 then
