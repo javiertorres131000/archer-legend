@@ -199,6 +199,9 @@ export type ChapterReport = {
 	avgWaves: number,
 	avgTime: number,
 	avgGold: number,
+	avgGems: number,
+	avgStones: number,
+	goldPerMin: number, -- oro total / minutos totales jugados (para comparar con los precios)
 	avgXP: number,
 	avgKills: number,
 	avgDps: number,
@@ -215,7 +218,7 @@ function RunLog.aggregate(entries: { Entry }): { [string]: ChapterReport }
 		end
 		local s = sums[e.ch]
 		if not s then
-			s = { runs = 0, victories = 0, w = 0, s = 0, g = 0, xp = 0, k = 0, dps = 0, dn = 0, n = 0 }
+			s = { runs = 0, victories = 0, w = 0, s = 0, g = 0, gm = 0, st = 0, xp = 0, k = 0, dps = 0, dn = 0, n = 0 }
 			sums[e.ch] = s
 		end
 		s.runs += 1
@@ -223,6 +226,8 @@ function RunLog.aggregate(entries: { Entry }): { [string]: ChapterReport }
 		s.w += e.w
 		s.s += e.s
 		s.g += e.g
+		s.gm += e.gm or 0
+		s.st += e.st or 0
 		s.xp += e.xp
 		s.k += e.k
 		s.dps += e.dmg / math.max(1, e.s)
@@ -238,6 +243,9 @@ function RunLog.aggregate(entries: { Entry }): { [string]: ChapterReport }
 			avgWaves = s.w / n,
 			avgTime = s.s / n,
 			avgGold = s.g / n,
+			avgGems = s.gm / n,
+			avgStones = s.st / n,
+			goldPerMin = s.g / math.max(1, s.s) * 60,
 			avgXP = s.xp / n,
 			avgKills = s.k / n,
 			avgDps = s.dps / n,
@@ -281,9 +289,9 @@ function RunLog.report(days: number?): string
 		local r = report[ch.Id]
 		if r then
 			table.insert(lines, string.format(
-				"  %s: %d partidas · %d%% victorias · oleadas %.1f · %ds · oro %d · XP %d · bajas %d · DPS %d · caídas %.1f · %.1f jug",
+				"  %s: %d partidas · %d%% victorias · oleadas %.1f · %ds · oro %d (%d/min) · gemas %.1f · piedras %.1f · XP %d · bajas %d · DPS %d · caídas %.1f · %.1f jug",
 				ch.Name, r.runs, math.floor(r.victories / r.runs * 100 + 0.5), r.avgWaves, math.floor(r.avgTime),
-				math.floor(r.avgGold), math.floor(r.avgXP), math.floor(r.avgKills), math.floor(r.avgDps), r.avgDowns, r.avgPlayers
+				math.floor(r.avgGold), math.floor(r.goldPerMin), r.avgGems, r.avgStones, math.floor(r.avgXP), math.floor(r.avgKills), math.floor(r.avgDps), r.avgDowns, r.avgPlayers
 			))
 		end
 	end

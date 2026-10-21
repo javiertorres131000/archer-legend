@@ -40,6 +40,7 @@ local RuneDefs = require(Shared:WaitForChild("RuneDefs"))
 local Weapons = require(Shared:WaitForChild("Weapons"))
 local Rarities = require(Shared:WaitForChild("Rarities"))
 local CrateItems = require(Shared:WaitForChild("CrateItems"))
+local Missions = require(Shared:WaitForChild("Missions"))
 local Cfg = Config.Profiles
 
 export type ChapterRecord = { Unlocked: boolean, Clears: number, BestWave: number }
@@ -54,6 +55,13 @@ export type CrateData = {
 	Equipped: { [string]: string },
 	Receipts: { string },
 }
+-- Misiones (Shared/Missions.lua): las del día y la semana en curso con su progreso. Day/Week es
+-- el número de período en que se sortearon (cuando cambia, MissionService las vuelve a sortear).
+export type MissionEntry = { Id: string, Weapon: string?, Progress: number, Claimed: boolean }
+export type MissionData = { Day: number, Daily: { MissionEntry }, Week: number, Weekly: { MissionEntry } }
+-- Tienda (Shared/ShopDefs.lua): en qué día se compró, qué ofertas de ese día (por número) y
+-- cuántos cambios de cada tipo se hicieron ese día
+export type ShopData = { Day: number, Bought: { [string]: boolean }, Exchanges: { [string]: number } }
 export type Data = {
 	Inventory: { { Uid: string, Id: string, Rarity: string, Level: number } },
 	Equipment: { [string]: string },
@@ -67,6 +75,8 @@ export type Data = {
 	Chapters: { [string]: ChapterRecord },
 	Stats: Stats,
 	Crates: CrateData,
+	Missions: MissionData,
+	Shop: ShopData,
 	CreatedAt: number,
 	LastSeen: number,
 }
@@ -86,7 +96,7 @@ type Session = {
 
 local Profiles = {}
 
-Profiles.SCHEMA_VERSION = 8
+Profiles.SCHEMA_VERSION = 9
 
 -- Migraciones: Migrations[n] recibe los datos guardados con la versión n y devuelve los de n + 1.
 -- Para cambiar el formato: subí SCHEMA_VERSION y agregá la migración de la versión anterior.
@@ -112,6 +122,8 @@ Profiles.Migrations = {
 	[6] = function(data: any): any return data end,
 	-- 7 → 8: premios equipados y recibos de Robux. reconcile los completa; se sube por lo mismo.
 	[7] = function(data: any): any return data end,
+	-- 8 → 9: misiones y tienda. reconcile las crea vacías; se sube por lo mismo que en 2 → 3.
+	[8] = function(data: any): any return data end,
 	-- 0 = guardado sin versión: lo que haya se aprovecha y se completa
 	[0] = function(data: any): any
 		return if type(data) == "table" then data else {}
@@ -162,6 +174,8 @@ function Profiles.defaultData(): Data
 		Chapters = {},
 		Stats = { Runs = 0, Victories = 0, Kills = 0, BossKills = 0 },
 		Crates = { Owned = {}, Opened = 0, TestGoldGiven = false, Equipped = {}, Receipts = {} },
+		Missions = { Day = -1, Daily = {}, Week = -1, Weekly = {} },
+		Shop = { Day = -1, Bought = {}, Exchanges = {} },
 		CreatedAt = serverTime(),
 		LastSeen = serverTime(),
 	}
@@ -292,6 +306,58 @@ function Profiles.reconcile(raw: any): Data
 			for _, id in raw.Crates.Receipts do
 				if type(id) == "string" and #id <= 100 and #data.Crates.Receipts < 500 then
 					table.insert(data.Crates.Receipts, id)
+				end
+			end
+		end
+	end
+	-- Misiones: solo las que existen, con progreso válido. Si el período ya pasó, MissionService
+	-- las vuelve a sortear al cargar.
+	if type(raw.Missions) == "table" then
+		local function entries(list: any): { MissionEntry }
+			local out = {}
+			if type(list) ~= "table" then
+				return out
+			end
+			for _, e in list do
+				if #out >= Missions.PerPeriod then
+					break
+				end
+				local def = type(e) == "table" and type(e.Id) == "string" and Missions.ById[e.Id] or nil
+				if def then
+					local weapon = if type(e.Weapon) == "string" and table.find(Missions.Weapons, e.Weapon) then e.Weapon else nil
+					if def.Kind == "WeaponKills" and not weapon then
+						weapon = Missions.Weapons[1]
+					end
+					table.insert(out, {
+						Id = def.Id,
+						Weapon = weapon,
+						Progress = math.min(count(e.Progress) or 0, def.Target),
+						Claimed = e.Claimed == true,
+					})
+				end
+			end
+			return out
+		end
+		data.Missions.Day = if type(raw.Missions.Day) == "number" then math.floor(raw.Missions.Day) else -1
+		data.Missions.Week = if type(raw.Missions.Week) == "number" then math.floor(raw.Missions.Week) else -1
+		data.Missions.Daily = entries(raw.Missions.Daily)
+		data.Missions.Weekly = entries(raw.Missions.Weekly)
+	end
+	-- Tienda: compras del día (ShopService las borra si cambió el día)
+	if type(raw.Shop) == "table" then
+		data.Shop.Day = if type(raw.Shop.Day) == "number" then math.floor(raw.Shop.Day) else -1
+		if type(raw.Shop.Bought) == "table" then
+			for k, v in raw.Shop.Bought do
+				if type(k) == "string" and #k <= 4 and v == true then
+					data.Shop.Bought[k] = true
+				end
+			end
+		end
+		if type(raw.Shop.Exchanges) == "table" then
+			for k, v in raw.Shop.Exchanges do
+				local n = count(v)
+				if type(k) == "string" and #k <= 20 and n then
+					data.Shop.Exchanges[k] = math.min(n, 1000)
 				end
 			end
 		end

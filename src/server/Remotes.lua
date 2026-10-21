@@ -28,6 +28,12 @@ local Remotes = {
 	CrateRequest = func("CrateRequest"),
 	-- servidor -> jugador: (resultado) se abrió una caja pagada con Robux (llega con el recibo)
 	CrateOpened = event("CrateOpened"),
+	-- jugador -> servidor (RemoteFunction): ("Get") · ("Claim", "Daily" | "Weekly", número).
+	-- Misiones diarias y semanales; lo valida todo MissionService (ver ahí el formato).
+	MissionRequest = func("MissionRequest"),
+	-- jugador -> servidor (RemoteFunction): ("Get") · ("BuyOffer", número) · ("Exchange", Id) ·
+	-- ("RuneChest"). Tienda del lobby; lo valida todo ShopService (ver ahí el formato).
+	ShopRequest = func("ShopRequest"),
 	ItemGranted = event("ItemGranted"),
 	ItemEffect = event("ItemEffect"),
 	RewardNotice = event("RewardNotice"),

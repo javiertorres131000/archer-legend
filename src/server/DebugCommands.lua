@@ -140,11 +140,30 @@ local Actions: { [string]: { label: string, match: boolean?, run: (Player) -> (b
 		humanoid.Health = humanoid.MaxHealth
 		return true, "Vida al máximo"
 	end },
+	-- Solo visual (no hace daño): para ver los efectos del arma sin esperar a que salgan
+	FxWhirl = { label = "Efecto: Torbellino", match = true, run = function(p)
+		local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not root then
+			return false, "Sin personaje"
+		end
+		Remotes.MeleeSwing:FireAllClients(p.UserId, root.Position, root.CFrame.LookVector, 11, 360, p:GetAttribute("Weapon"))
+		return true, "Torbellino (solo visual)"
+	end },
+	FxJudgment = { label = "Efecto: Juicio", match = true, run = function(p)
+		local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not root then
+			return false, "Sin personaje"
+		end
+		local look = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+		look = if look.Magnitude > 0.01 then look.Unit else Vector3.zAxis
+		Remotes.MeleeSwing:FireAllClients(p.UserId, root.Position + look * 14, Vector3.zAxis, 10, 360, "Judgment")
+		return true, "Juicio (solo visual)"
+	end },
 }
 DebugCommands.Actions = Actions
 
 -- Orden en el panel
-DebugCommands.Order = { "Gold", "Gems", "Stones", "Levels", "Chapters", "Report", "SkipWave", "KillAll", "Boss", "LevelUp", "Item", "Heal" }
+DebugCommands.Order = { "Gold", "Gems", "Stones", "Levels", "Chapters", "Report", "SkipWave", "KillAll", "Boss", "LevelUp", "Item", "Heal", "FxWhirl", "FxJudgment" }
 
 function DebugCommands.run(player: Player, action: any): (boolean, string)
 	if not DebugCommands.allowed(player) then

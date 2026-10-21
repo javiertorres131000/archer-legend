@@ -7,13 +7,23 @@
 --   · "Judgment": una espada gigante que cae y una onda en el piso (Juicio).
 --   · "Burst": un anillo de energía alrededor del jugador (Ráfaga de mil puños).
 -- Es solo visual: el daño ya lo calculó el servidor.
+-- Las armas con estilo anime (campo Fx en Shared/Weapons.lua) las dibuja AnimeFx, no este script.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FxQuality = require(Shared:WaitForChild("FxQuality"))
+local Weapons = require(Shared:WaitForChild("Weapons"))
+local FxStyles = require(Shared:WaitForChild("FxStyles"))
+
+-- ¿Lo dibuja AnimeFx? (el arma tiene un estilo anime)
+local function hasAnimeFx(weaponId: string): boolean
+	local def = Weapons.ById[weaponId]
+	return def ~= nil and FxStyles.get(def.Fx) ~= nil
+end
 local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("MeleeSwing") :: RemoteEvent
 
 local low = FxQuality.isLow()
@@ -111,11 +121,21 @@ local function burst(pos: Vector3, radius: number)
 	fade(ring, 0.5, Vector3.new(0, radius * 2, radius * 2))
 end
 
-remote.OnClientEvent:Connect(function(_userId, origin, dir, range, arc, weaponId)
+-- Arma de quien lanzó el poder (el Juicio de una espada especial lo dibuja AnimeFx)
+local function weaponOf(userId: any): string
+	local owner = type(userId) == "number" and Players:GetPlayerByUserId(userId) or nil
+	local id = owner and owner:GetAttribute("Weapon")
+	return if type(id) == "string" then id else "Sword"
+end
+
+remote.OnClientEvent:Connect(function(userId, origin, dir, range, arc, weaponId)
 	if weaponId == "Rain" and typeof(origin) == "Vector3" then
 		rain(origin)
 		return
 	elseif weaponId == "Judgment" and typeof(origin) == "Vector3" then
+		if hasAnimeFx(weaponOf(userId)) then
+			return
+		end
 		judgment(origin, if type(range) == "number" then range else 10)
 		return
 	elseif weaponId == "Burst" and typeof(origin) == "Vector3" then
@@ -123,6 +143,9 @@ remote.OnClientEvent:Connect(function(_userId, origin, dir, range, arc, weaponId
 		return
 	end
 	if typeof(origin) ~= "Vector3" or typeof(dir) ~= "Vector3" or type(range) ~= "number" then
+		return
+	end
+	if type(weaponId) == "string" and hasAnimeFx(weaponId) then
 		return
 	end
 	if weaponId == "Fists" then

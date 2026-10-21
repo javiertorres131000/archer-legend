@@ -333,7 +333,7 @@ Config.Crates = {
 		Size = Vector3.new(80, 1, 96), -- ancho (X) x alto x largo (Z)
 		DoorZ = 12, -- dónde está la puerta en el muro del lobby (corrida en Z desde el centro)
 		DoorWidth = 14,
-		StationSpacing = 17, -- distancia entre plataformas
+		StationSpacing = 15, -- distancia entre plataformas (con 6 cajas, más de 16 se sale de la plaza)
 		StationRadius = 6, -- radio del hexágono
 	},
 	-- Luz de la plaza (solo en tu pantalla, al entrar): cielo rojizo y niebla cálida

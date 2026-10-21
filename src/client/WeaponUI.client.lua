@@ -1,7 +1,9 @@
 -- WeaponUI (LocalScript)
 -- Ubicación: StarterPlayer > StarterPlayerScripts > Client > WeaponUI
--- Elegir arma en el lobby (botón "Arma"): arco, espada o puños. Solo muestra y pide; el servidor
--- (WeaponService) valida y la guarda en el perfil. La elegida llega en el atributo "Weapon".
+-- Elegir arma en el lobby (botón "Arma"): arco, espada, puños y las especiales. Solo muestra y
+-- pide; el servidor (WeaponService) valida y la guarda en el perfil. La elegida llega en el
+-- atributo "Weapon"; las especiales que tenés, en "OwnedWeapons" (las otras salen bloqueadas,
+-- con el aviso de que se ganan en la Caja de Armas).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26,7 +28,7 @@ local backdrop = Theme.make("TextButton", {
 	Parent = gui,
 })
 local window = Theme.panel({ AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.94, 0.8), Parent = backdrop })
-Theme.make("UISizeConstraint", { MaxSize = Vector2.new(760, 380), Parent = window })
+Theme.make("UISizeConstraint", { MaxSize = Vector2.new(math.max(760, #Weapons.List * 200), 380), Parent = window })
 Theme.text({
 	Position = UDim2.fromOffset(18, 10),
 	Size = UDim2.new(1, -90, 0, 34),
@@ -60,10 +62,12 @@ local function refresh()
 		end
 	end
 	local current = player:GetAttribute("Weapon") or Weapons.Default
+	local ownedList = string.split(tostring(player:GetAttribute("OwnedWeapons") or ""), ",")
 	for i, def in Weapons.List do
 		local selected = def.Id == current
+		local locked = def.Prize ~= nil and not table.find(ownedList, def.Id)
 		local card = Theme.panel({ Size = UDim2.new(1 / #Weapons.List, -8, 1, 0), LayoutOrder = i, Parent = row })
-		Theme.stroke(if selected then Colors.GoldBright else Colors.Locked, if selected then 2.5 else 1).Parent = card
+		Theme.stroke(if selected then Colors.GoldBright elseif def.Prize then def.Tint or Colors.Locked else Colors.Locked, if selected or def.Prize then 2.5 else 1).Parent = card
 		Theme.text({ Position = UDim2.fromOffset(0, 10), Size = UDim2.new(1, 0, 0, 56), Text = def.Icon, TextSize = 46, Parent = card })
 		Theme.text({ Position = UDim2.fromOffset(0, 68), Size = UDim2.new(1, 0, 0, 26), Text = def.Name, Font = Theme.Fonts.Heading, TextSize = 20, TextColor3 = if selected then Colors.GoldBright else Colors.Text, Parent = card })
 		Theme.text({ Position = UDim2.fromOffset(10, 98), Size = UDim2.new(1, -20, 0, 70), Text = def.Description, TextSize = 13, TextWrapped = true, TextColor3 = Colors.TextMuted, TextYAlignment = Enum.TextYAlignment.Top, Parent = card })
@@ -72,13 +76,13 @@ local function refresh()
 			AnchorPoint = Vector2.new(0.5, 1),
 			Position = UDim2.new(0.5, 0, 1, -10),
 			Size = UDim2.new(1, -20, 0, 36),
-			Text = if selected then "Equipada" else "Elegir",
-			TextSize = 16,
-			BackgroundColor3 = if selected then Colors.Locked else Colors.Gold,
+			Text = if locked then "🔒 Caja de Armas" elseif selected then "Equipada" else "Elegir",
+			TextSize = if locked then 13 else 16,
+			BackgroundColor3 = if selected or locked then Colors.Locked else Colors.Gold,
 			Parent = card,
 		})
 		choose.Activated:Connect(function()
-			if not selected then
+			if not selected and not locked then
 				request:FireServer("Select", def.Id)
 			end
 		end)
@@ -99,6 +103,11 @@ playerGui:GetAttributeChangedSignal("WeaponOpen"):Connect(function()
 	setOpen(playerGui:GetAttribute("WeaponOpen") == true)
 end)
 player:GetAttributeChangedSignal("Weapon"):Connect(function()
+	if gui.Enabled then
+		refresh()
+	end
+end)
+player:GetAttributeChangedSignal("OwnedWeapons"):Connect(function()
 	if gui.Enabled then
 		refresh()
 	end

@@ -33,6 +33,7 @@ local Rewards = require(script.Parent.Rewards)
 local Runes = require(script.Parent.Runes)
 local Run = require(script.Parent.Run)
 local RunLog = require(script.Parent.RunLog)
+local MissionService = require(script.Parent.MissionService)
 
 local MatchCfg = Config.Match
 
@@ -250,6 +251,19 @@ local function enterResults(result: Run.Result)
 			Runes.onFirstClear(p) -- runa garantizada (y quizás un espacio activo nuevo)
 		end
 		ChapterUnlocks.publish(p) -- récords nuevos para el lobby
+		-- Misiones diarias y semanales (con números del servidor)
+		if stats then
+			MissionService.onRunEnded(p, {
+				kills = stats.kills,
+				weapon = stats.stats.weapon,
+				wavesCleared = summary.wavesCleared,
+				bosses = #summary.bossesKilled,
+				victory = result == "Victory",
+				finished = result ~= "Abandoned",
+				chests = stats.chests,
+				gold = stats.runLoot.Gold or 0,
+			})
+		end
 		Profiles.saveSoon(p) -- guardar ya: no esperar al guardado automático
 		Remotes.RunEnded:FireClient(p, personal)
 		RunLog.record(RunLog.entry(p, summary, personal, stats)) -- para balancear (Config.RunLog)

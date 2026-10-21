@@ -11,14 +11,18 @@
 -- El cliente pide ("Equip", prizeId) o ("Unequip", espacio) por Remotes.CrateRequest; acá se
 -- valida que lo tengas, que estés en el lobby y el límite de frecuencia.
 -- Atributos del Player: EquippedPet y EquippedCharacter (Id del premio o "").
+-- Armas especiales (Kind = "Weapon"): "Equip" las elige como arma (WeaponService.select) y
+-- "Unequip" con el espacio "Weapon" vuelve a su arma común. Su atributo es EquippedWeapon.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local CrateItems = require(Shared:WaitForChild("CrateItems"))
 local CrateModels = require(Shared:WaitForChild("CrateModels"))
+local Weapons = require(Shared:WaitForChild("Weapons"))
 local Profiles = require(script.Parent.Profiles)
 local PlayerData = require(script.Parent.PlayerData)
+local WeaponService = require(script.Parent.WeaponService)
 
 local Cfg = Config.Crates
 
@@ -240,6 +244,13 @@ function CrateEquip.equip(player: Player, prizeId: any): { [string]: any }
 	if problem then
 		return fail(problem)
 	end
+	if prize.Kind == "Weapon" then
+		local ok, message = WeaponService.select(player, prize.Weapon)
+		if not ok then
+			return fail(message)
+		end
+		return { Ok = true, Equipped = table.clone(data.Crates.Equipped), Weapon = data.Weapon }
+	end
 	local slot = CrateItems.slotOf(prize)
 	data.Crates.Equipped[slot] = prizeId
 	CrateEquip.publish(player)
@@ -251,7 +262,7 @@ function CrateEquip.equip(player: Player, prizeId: any): { [string]: any }
 end
 
 function CrateEquip.unequip(player: Player, slot: any): { [string]: any }
-	if type(slot) ~= "string" or not table.find(CrateItems.Slots, slot) then
+	if type(slot) ~= "string" or (slot ~= "Weapon" and not table.find(CrateItems.Slots, slot)) then
 		return fail("Pedido inválido.")
 	end
 	local data = Profiles.get(player)
@@ -261,6 +272,14 @@ function CrateEquip.unequip(player: Player, slot: any): { [string]: any }
 	local problem = canChange(player)
 	if problem then
 		return fail(problem)
+	end
+	if slot == "Weapon" then
+		-- Sacar el arma especial: vuelve a la común de la que es variante
+		local ok, message = WeaponService.select(player, Weapons.baseOf(data.Weapon))
+		if not ok then
+			return fail(message)
+		end
+		return { Ok = true, Equipped = table.clone(data.Crates.Equipped), Weapon = data.Weapon }
 	end
 	data.Crates.Equipped[slot] = nil
 	CrateEquip.publish(player)

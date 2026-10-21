@@ -15,6 +15,16 @@
 -- Campos: Id (no cambiar: se guarda en el perfil) · Name · Icon · Kind ("Ranged" | "Melee")
 --   DamageMult: multiplica el daño · IntervalMult: multiplica el tiempo entre ataques
 --   Range, Arc, Knockback: solo cuerpo a cuerpo · Description
+--   Fx (opcional): estilo de efectos anime de Shared/FxStyles.lua (p. ej. "Frost"). Lo dibuja
+--     Client/AnimeFx: tajo, Torbellino, Juicio, impactos y aura. Sin Fx: efectos simples.
+--
+-- Armas especiales (salen en la caja de armas, Shared/Crates.lua):
+--   Base: el arma común de la que es variante ("Sword"). Juega como ella: mismas habilidades
+--     (Torbellino, Juicio...), misma animación; pero con sus propios números (DamageMult, Range...)
+--   Prize: Id del premio en Shared/CrateItems.lua que la desbloquea. Sin ese premio no se puede
+--     elegir (lo revisa el servidor, WeaponService).
+--   Tint (opcional): color de la hoja en primera persona si no hay modelo propio en
+--     ReplicatedStorage > WeaponModels > <Id> (se usa el modelo de la Base teñido).
 
 local Weapons = {}
 
@@ -54,6 +64,42 @@ Weapons.List = {
 		Knockback = 0.7,
 		Description = "Golpes muy rápidos y de corto alcance. Ideal con críticos y quemadura.",
 	},
+
+	-------------------------------------------------------------------
+	-- Especiales (caja de armas)
+	-------------------------------------------------------------------
+	{
+		Id = "FrostKatana",
+		Name = "Katana de Escarcha",
+		Icon = "🗡️",
+		Kind = "Melee",
+		Base = "Sword",
+		Prize = "FrostKatana",
+		Fx = "Frost",
+		Tint = Color3.fromRGB(130, 215, 255),
+		DamageMult = 2.15,
+		IntervalMult = 1.2,
+		Range = 12,
+		Arc = 140,
+		Knockback = 1.7,
+		Description = "Espada especial: llamas de hielo en cada tajo. Juega como la espada, pero pega más fuerte y más rápido.",
+	},
+	{
+		Id = "InfernoBlade",
+		Name = "Hoja Infernal",
+		Icon = "🔥",
+		Kind = "Melee",
+		Base = "Sword",
+		Prize = "InfernoBlade",
+		Fx = "Inferno",
+		Tint = Color3.fromRGB(255, 120, 40),
+		DamageMult = 2.4,
+		IntervalMult = 1.4,
+		Range = 12.5,
+		Arc = 150,
+		Knockback = 2.2,
+		Description = "Espada especial: fuego en cada tajo. Más lenta que la Katana de Escarcha, pero cada golpe pega más y llega más lejos.",
+	},
 }
 
 -- Qué dan las habilidades de flechas con un arma cuerpo a cuerpo
@@ -70,6 +116,18 @@ end
 
 function Weapons.get(id: string?): any
 	return Weapons.ById[id or Weapons.Default] or Weapons.ById[Weapons.Default]
+end
+
+-- Arma común con la que juega ("FrostKatana" → "Sword"; las comunes se devuelven a sí mismas)
+function Weapons.baseOf(id: string?): string
+	local def = Weapons.get(id)
+	return def.Base or def.Id
+end
+
+-- ¿Hay que ganarla en una caja?
+function Weapons.isSpecial(id: string?): boolean
+	local def = type(id) == "string" and Weapons.ById[id] or nil
+	return def ~= nil and def.Prize ~= nil
 end
 
 return Weapons

@@ -336,7 +336,7 @@ local function updatePowers(t: PlayerData.Target, now: number)
 		local center = flat(target.part.Position)
 		local radius = 10
 		fx("Judgment", t.player, target.part.Position, radius)
-		local sword = Weapons.get("Sword")
+		local sword = Weapons.get(stats.weaponId or "Sword") -- con una espada especial, su daño
 		for _, e in table.clone(Enemies.list) do
 			if e.alive and not e.hidden and (flat(e.part.Position) - center).Magnitude <= radius + e.radius then
 				Enemies.damage(e, stats.damage * sword.DamageMult * 3, t.player, "crit")
@@ -362,7 +362,7 @@ local function updateAttacks(targets: { PlayerData.Target }, now: number)
 			continue
 		end
 		updatePowers(t, now)
-		local weapon = Weapons.get(state.stats.weapon)
+		local weapon = Weapons.get(state.stats.weaponId or state.stats.weapon) -- especial: sus números
 		local interval = state.stats.attackInterval * weapon.IntervalMult
 		if now < (state.burstUntil or 0) then
 			interval /= 3 -- Ráfaga de mil puños

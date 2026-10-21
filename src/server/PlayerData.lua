@@ -29,7 +29,8 @@ export type Stats = {
 	goldBonus: number, -- oro extra del botín (0.1 = +10%)
 	startChoices: number, -- habilidades gratis al empezar la partida
 	rerolls: number, -- cambios de cartas que quedan en esta partida
-	weapon: string, -- arma de la partida (Shared/Weapons.lua): "Bow" | "Sword" | "Fists"
+	weapon: string, -- arma de la partida (Shared/Weapons.lua): "Bow" | "Sword" | "Fists" (las especiales, su Base)
+	weaponId: string?, -- el arma exacta si es especial ("FrostKatana"): sus números y efectos
 	-- Habilidades de arco
 	backArrows: number, -- flechas hacia atrás
 	chargedEvery: number, -- cada cuántos disparos sale una flecha gigante (0 = nunca)
@@ -81,6 +82,7 @@ export type State = {
 	damageDealt: number,
 	downs: number, -- veces que cayó
 	revives: number, -- compañeros que revivió
+	chests: number, -- cofres abiertos en la partida (del equipo: el botín es compartido; misiones)
 	runLoot: { [string]: number }, -- botín juntado en esta partida (ya está en el perfil)
 	lastHurt: number, -- os.clock() del último golpe recibido (pausa entre golpes)
 	-- Habilidades por arma (Combat)
@@ -230,6 +232,7 @@ function PlayerData.resetStats()
 		state.damageDealt = 0
 		state.downs = 0
 		state.revives = 0
+		state.chests = 0
 		table.clear(state.runLoot)
 	end
 end
@@ -264,6 +267,7 @@ function PlayerData.init(onAdded: (Player) -> (), onRemoving: (Player) -> ())
 			damageDealt = 0,
 			downs = 0,
 			revives = 0,
+			chests = 0,
 			runLoot = {},
 			lastHurt = -math.huge,
 		}

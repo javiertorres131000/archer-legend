@@ -12,6 +12,7 @@ local CrateService = require("./CrateService")
 local CratePlazaLayout = require("./CratePlazaLayout")
 local CrateEquip = require("./CrateEquip")
 local Receipts = require("./Receipts")
+local Weapons = require("./Weapons")
 
 local Cfg = Config.Crates
 local V = M.Vector3.new
@@ -37,9 +38,9 @@ local function open(id)
 	return invoke(p, "Open", id)
 end
 
-test("5 cajas con su precio y 7 rarezas, de menor a mayor", function()
-	local expected = { Common = 100, Rare = 500, Epic = 1500, Legendary = 5000, Secret = 15000 }
-	eq(#Crates.List, 5, "cajas")
+test("6 cajas con su precio y 7 rarezas, de menor a mayor", function()
+	local expected = { Common = 100, Rare = 500, Epic = 1500, Legendary = 5000, Secret = 15000, Weapons = 10000 }
+	eq(#Crates.List, 6, "cajas")
 	for id, price in expected do
 		assert(Crates.ById[id], "falta " .. id)
 		eq(Crates.ById[id].Price, price, id)
@@ -56,7 +57,11 @@ test("tablas: todo premio existe, Ids únicos y cada caja suma 100%", function()
 		assert(not seen[prize.Id], "repetido " .. prize.Id)
 		seen[prize.Id] = true
 		assert(CrateItems.RarityById[prize.Rarity], prize.Id .. ": rareza")
-		assert(prize.Kind == "Unit" or prize.Kind == "Pet" or prize.Kind == "Character", prize.Id .. ": tipo")
+		assert(prize.Kind == "Unit" or prize.Kind == "Pet" or prize.Kind == "Character" or prize.Kind == "Weapon", prize.Id .. ": tipo")
+		if prize.Kind == "Weapon" then
+			local w = Weapons.ById[prize.Weapon]
+			assert(w and w.Prize == prize.Id, prize.Id .. ": su arma no existe o no apunta al premio")
+		end
 	end
 	for _, crate in Crates.List do
 		local sum, rates = 0, 0
@@ -66,6 +71,10 @@ test("tablas: todo premio existe, Ids únicos y cada caja suma 100%", function()
 			sum += e.Chance
 		end
 		assert(math.abs(sum - 100) < 1e-6, crate.Id .. " suma " .. sum)
+		-- La caja de armas solo da armas; las otras, nunca
+		for _, e in crate.Prizes do
+			eq(CrateItems.ById[e.Prize].Kind == "Weapon", crate.Id == "Weapons", crate.Id .. ": " .. e.Prize)
+		end
 		for _, r in Crates.rates(crate) do rates += r.Percent end
 		assert(math.abs(rates - 100) < 1e-6)
 	end
@@ -344,7 +353,7 @@ test("perfil: lo equipado que no tenés se descarta; recibos válidos", function
 	local bad = Profiles.reconcile({ Crates = { Owned = { Fox = 1 }, Equipped = { Character = "Fox" } } })
 	eq(bad.Crates.Equipped.Character, nil, "una mascota no va en el espacio de personaje")
 	eq(#rec.Crates.Receipts, 2)
-	eq(Profiles.SCHEMA_VERSION, 8)
+	eq(Profiles.SCHEMA_VERSION >= 8, true) -- 9: misiones y tienda
 end)
 
 test("perfil: los premios se guardan y los Ids desconocidos se descartan", function()
@@ -387,6 +396,61 @@ test("plaza: una plataforma por caja con prompt, cartel y cofre; puerta en el lo
 	eq(walls, 5, "muros del lobby (4 + el este partido en 2)")
 	assert(CratePlazaLayout.contains(layout, layout.Stations[1].Position))
 	assert(not CratePlazaLayout.contains(layout, Config.Lobby.Center))
+end)
+
+test("caja de armas: no repite, se elige como arma y no se abre si ya tenés todas", function()
+	state.inMatch = false
+	p:SetAttribute("Ready", false)
+	local idx
+	for i, s in layout.Stations do
+		if s.Id == "Weapons" then idx = i end
+	end
+	assert(idx, "no hay plataforma de la caja de armas")
+	atStation(idx)
+	data.Crates.Owned.FrostKatana = nil
+	data.Crates.Owned.InfernoBlade = nil
+	data.Weapon = "Bow"
+	setGold(100000)
+	-- Sin la katana no se puede elegir (ni pidiéndola a mano)
+	M.advance(1)
+	local res = invoke(p, "Equip", "FrostKatana")
+	assert(not res.Ok, "equipó un arma que no tiene")
+	-- Con la tirada en 0 sale la primera (katana); la segunda vez, aunque la tirada sea la
+	-- misma, sale la que falta: la caja de armas no repite
+	CrateService._forceRoll(0)
+	local r = open("Weapons")
+	assert(r.Ok, tostring(r.Error))
+	eq(r.Prize, "FrostKatana", "premio")
+	eq(data.Crates.Owned.FrostKatana, 1, "inventario")
+	eq(p:GetAttribute("OwnedWeapons"), "FrostKatana", "atributo OwnedWeapons")
+	M.advance(Cfg.OpenCooldown + 0.1)
+	r = open("Weapons")
+	CrateService._forceRoll(nil)
+	assert(r.Ok, tostring(r.Error))
+	eq(r.Prize, "InfernoBlade", "segunda arma")
+	eq(data.Crates.Owned.FrostKatana, 1, "no repitió")
+	eq(p:GetAttribute("OwnedWeapons"), "FrostKatana,InfernoBlade", "OwnedWeapons con las dos")
+	-- Ya la tiene toda: no deja abrir de nuevo ni cobra
+	local gold = data.Currencies.Gold
+	local again = open("Weapons")
+	assert(not again.Ok and string.find(again.Error, "todas"), "dejó abrir otra vez")
+	eq(data.Currencies.Gold, gold, "cobró igual")
+	-- Equipar desde el Index = elegirla como arma
+	M.advance(1)
+	res = invoke(p, "Equip", "FrostKatana")
+	assert(res.Ok, tostring(res.Error))
+	eq(data.Weapon, "FrostKatana", "arma guardada")
+	eq(p:GetAttribute("Weapon"), "FrostKatana", "atributo Weapon")
+	eq(p:GetAttribute("EquippedWeapon"), "FrostKatana", "atributo EquippedWeapon")
+	-- No queda como aspecto ni como mascota
+	assert(data.Crates.Equipped.Character ~= "FrostKatana" and data.Crates.Equipped.Pet ~= "FrostKatana")
+	-- Sacarla vuelve a la espada común
+	M.advance(1)
+	res = invoke(p, "Unequip", "Weapon")
+	assert(res.Ok, tostring(res.Error))
+	eq(data.Weapon, "Sword", "vuelve a la base")
+	eq(p:GetAttribute("EquippedWeapon"), "", "EquippedWeapon vacío")
+	eq(Weapons.baseOf("FrostKatana"), "Sword", "base")
 end)
 
 print(passed .. " pruebas, 0 fallas")

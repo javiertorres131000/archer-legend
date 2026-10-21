@@ -47,7 +47,7 @@ local BIND = "CrateCinematicCamera"
 local FREEZE = "CrateCinematicFreeze"
 local PEDESTAL_TOP = 3 -- alto del pedestal central
 
-local KIND_NAMES = { Unit = "Unidad", Pet = "Mascota", Character = "Personaje" }
+local KIND_NAMES = { Unit = "Unidad", Pet = "Mascota", Character = "Personaje", Weapon = "Arma" }
 
 export type Result = { Prize: string, Count: number?, New: boolean? }
 

@@ -1,5 +1,40 @@
 # Cambios
 
+## 2026-10-21 · Misiones, tienda, más premios y Hoja Infernal
+
+- **Misiones diarias y semanales** (`Shared/Missions.lua`, `MissionService`, `Remotes.MissionRequest`):
+  - 3 diarias y 3 semanales por jugador, sorteadas de 8 cada una. Siempre son las mismas en el período y se reinician a las 00:00 UTC (las semanales, los lunes).
+  - Tipos: bajas, bajas con un arma, oleadas, jefes, victorias, partidas, cofres, oro y cajas abiertas.
+  - El progreso lo cuenta el servidor al terminar la partida (`MatchManager`; abandonar no cuenta) y al abrir cajas.
+  - Premios en oro, gemas y a veces piedras. El atributo `MissionsClaimable` alimenta el aviso del botón.
+- **Tienda del lobby** (`Shared/ShopDefs.lua`, `ShopService`, `Remotes.ShopRequest`), sin Robux:
+  - 4 ofertas de equipo por día, distintas por jugador, sin míticas.
+  - Cambios gemas→oro y oro→piedras con límite diario.
+  - Cofre de runas.
+  - El servidor valida lobby, frecuencia, inventario y monedas. Si la entrega falla, devuelve lo cobrado.
+- **Ventana Tienda/Misiones** (`ShopUI`, nuevo) con dos pestañas. En el lobby, el botón **Tienda** queda activo y hay un botón nuevo **Misiones** con aviso.
+- Perfil **versión 9**: `Missions` y `Shop`, con reconcile que limpia datos rotos. `PlayerData` cuenta los cofres abiertos en la partida.
+- **8 premios nuevos** (27 en total), todos repartidos en las tablas de `Crates.lua`, que siguen sumando 100:
+
+  | Premio | Rareza |
+  |---|---|
+  | Escudero, Conejo | Common |
+  | Búho, Pirata | Uncommon |
+  | Druida | Rare |
+  | Valquiria | Epic |
+  | Dragoncito | Legendary |
+  | Caballero del Vacío | Mythic |
+
+- **Hoja Infernal**, segunda arma especial (`InfernoBlade`, mítica):
+  - Juega como espada: más lenta que la katana, pero pega más y llega más lejos.
+  - Estilo de efectos `Inferno` (fuego rojo y naranja). Paleta `inferno` en `tools/gen_vfx_textures.py` y 8 texturas en `assets/vfx`. Hasta importarlas usa las de respaldo.
+  - Modelo con `tools/build_inferno_blade.luau`.
+  - La **caja de armas** queda 50/50 entre la katana y la hoja. **No repite**: tira solo entre las armas que todavía no tenés.
+- Los colores de la estela y del "impact frame" salen del estilo (`Core`, `Deep`, `Flash` en `FxStyles`), ya no son celestes fijos.
+- **RunLog:** el resumen suma oro por minuto, gemas y piedras promedio por capítulo.
+- **README › Economía:** ingresos por capítulo, precios de referencia, cómo recalibrar con RunLog y el análisis del bono de las mascotas, que queda igual (+2% a +20%; el riesgo es vender la caja Secret por Robux).
+- Pruebas nuevas: `test_missions.luau` y `test_shop.luau`. `test_crates` prueba que la caja de armas no repite.
+
 ## 2026-10-20 · Cajas con Robux y premios equipables
 
 - **Robux por caja:** cada caja puede tener un Developer Product (`ProductId` en `Shared/Crates.lua`; 0 = sin Robux). Botón verde "R$" con el precio real (`GetProductInfo`) debajo de OPEN. El servidor valida (lobby, cercanía, límite, perfil guardable) y muestra la compra; el premio se entrega con el recibo.

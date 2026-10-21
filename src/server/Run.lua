@@ -102,6 +102,10 @@ function Run.init()
 		for _, p in participants do
 			ItemService.roll(p, rarity)
 			Equipment.drop(p, false)
+			local s = PlayerData.get(p)
+			if s then
+				s.chests += 1 -- misiones de cofres
+			end
 		end
 		if Config.Frenzy.ChestGivesSkill then
 			for _, p in participants do

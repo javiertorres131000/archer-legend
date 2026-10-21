@@ -7,6 +7,7 @@
 --   PlayerData / PlayerLife   estado y ciclo de vida de cada jugador
 --   Profiles     perfil guardado (DataStore): monedas, capítulos y estadísticas
 --   CratePlaza / CrateService   plaza volcánica del lobby y compra/apertura de cajas
+--   MissionService / ShopService   misiones diarias y semanales, tienda del lobby
 
 local RunService = game:GetService("RunService")
 
@@ -19,11 +20,16 @@ local Profiles = require(script.Parent.Profiles)
 local DebugCommands = require(script.Parent.DebugCommands)
 local CratePlaza = require(script.Parent.CratePlaza)
 local CrateService = require(script.Parent.CrateService)
+local Remotes = require(script.Parent.Remotes)
+local MissionService = require(script.Parent.MissionService)
+local ShopService = require(script.Parent.ShopService)
 
 Run.init() -- arena y motor de combate (borra el Baseplate y el spawn de la plantilla)
 Lobby.build() -- después de la arena: el único SpawnLocation del juego es el del lobby
 CratePlaza.build() -- pegada al lobby (Config.Crates.Enabled)
 CrateService.init()
+MissionService.init(Remotes) -- misiones diarias y semanales
+ShopService.init(Remotes) -- tienda del lobby (sin Robux)
 PlayerLife.init()
 MatchManager.init()
 Profiles.init() -- guardado automático y al cerrar el servidor

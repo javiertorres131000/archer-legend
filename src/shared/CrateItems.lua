@@ -7,6 +7,8 @@
 -- Para agregar un premio: sumalo a la lista con un Id nuevo (no cambies el Id de uno ya
 -- publicado: el inventario guardado usa ese Id) y ponelo en la tabla de alguna caja.
 --   Kind: "Unit" (unidad con arma) | "Pet" (mascota de 4 patas) | "Character" (personaje)
+--         | "Weapon" (arma especial: desbloquea el arma Weapon de Shared/Weapons.lua; se equipa
+--           como arma, no como aspecto. Solo sale en la caja de armas)
 --   Look: colores y accesorios del modelo de bloques que arma CrateModels:
 --     Body / Accent / Skin / Pants: colores · Weapon: "Sword" | "Bow" | "Spear" | "Staff" | "Shield"
 --     Acc: lista de "Crown" | "Horns" | "Halo" | "Wings" | "WizardHat" | "Helmet" | "Cape" | "Ears" | "Aura"
@@ -27,7 +29,7 @@ export type Look = {
 	Neon: boolean?,
 	Shape: string?, -- solo mascotas: "Slime" | "Bird" (sin esto, de 4 patas)
 }
-export type Prize = { Id: string, Name: string, Rarity: string, Kind: string, Look: Look }
+export type Prize = { Id: string, Name: string, Rarity: string, Kind: string, Look: Look, Weapon: string? }
 
 local CrateItems = {}
 
@@ -58,27 +60,39 @@ CrateItems.List = {
 	{ Id = "Chicken", Name = "Gallina", Rarity = "Common", Kind = "Pet", Look = { Body = C(245, 245, 240), Accent = C(230, 60, 50), Shape = "Bird" } },
 	{ Id = "Villager", Name = "Aldeano", Rarity = "Common", Kind = "Character", Look = { Body = C(150, 110, 70), Pants = C(90, 80, 60), Skin = SKIN } },
 	{ Id = "BabySlime", Name = "Slime Bebé", Rarity = "Common", Kind = "Pet", Look = { Body = C(110, 220, 90), Accent = C(60, 160, 50), Shape = "Slime" } },
+	{ Id = "Squire", Name = "Escudero", Rarity = "Common", Kind = "Unit", Look = { Body = C(150, 120, 80), Pants = C(70, 60, 50), Skin = SKIN, Weapon = "Shield" } },
+	{ Id = "Bunny", Name = "Conejo", Rarity = "Common", Kind = "Pet", Look = { Body = C(235, 225, 215), Accent = C(255, 170, 190), Acc = { "Ears" } } },
 	-- Uncommon
 	{ Id = "Spearman", Name = "Lancero", Rarity = "Uncommon", Kind = "Unit", Look = { Body = C(70, 150, 80), Pants = C(60, 60, 70), Skin = SKIN, Weapon = "Spear", Acc = { "Helmet" } } },
 	{ Id = "Fox", Name = "Zorro", Rarity = "Uncommon", Kind = "Pet", Look = { Body = C(235, 130, 40), Accent = C(250, 245, 235), Acc = { "Ears" } } },
 	{ Id = "Lumberjack", Name = "Leñador", Rarity = "Uncommon", Kind = "Character", Look = { Body = C(190, 40, 40), Accent = C(40, 30, 30), Pants = C(50, 70, 120), Skin = SKIN } },
+	{ Id = "Owl", Name = "Búho", Rarity = "Uncommon", Kind = "Pet", Look = { Body = C(140, 100, 60), Accent = C(240, 200, 90), Shape = "Bird" } },
+	{ Id = "Pirate", Name = "Pirata", Rarity = "Uncommon", Kind = "Character", Look = { Body = C(230, 230, 220), Accent = C(180, 30, 40), Pants = C(40, 40, 60), Skin = SKIN, Weapon = "Sword" } },
 	-- Rare
 	{ Id = "BlueArcher", Name = "Arquero Azul", Rarity = "Rare", Kind = "Unit", Look = { Body = C(50, 110, 220), Pants = C(40, 50, 90), Skin = SKIN, Weapon = "Bow", Acc = { "Cape" }, Accent = C(30, 70, 160) } },
 	{ Id = "IceWolf", Name = "Lobo de Hielo", Rarity = "Rare", Kind = "Pet", Look = { Body = C(200, 230, 255), Accent = C(90, 180, 255), Acc = { "Ears" }, Neon = true } },
 	{ Id = "Knight", Name = "Caballero", Rarity = "Rare", Kind = "Character", Look = { Body = C(170, 175, 190), Accent = C(60, 120, 230), Pants = C(110, 115, 130), Skin = SKIN, Acc = { "Helmet", "Cape" } } },
+	{ Id = "Druid", Name = "Druida", Rarity = "Rare", Kind = "Unit", Look = { Body = C(60, 110, 50), Accent = C(150, 230, 90), Pants = C(70, 55, 35), Skin = SKIN, Weapon = "Staff", Acc = { "Cape" } } },
 	-- Epic
 	{ Id = "Sorcerer", Name = "Hechicero", Rarity = "Epic", Kind = "Character", Look = { Body = C(110, 50, 180), Accent = C(200, 120, 255), Pants = C(60, 30, 100), Skin = SKIN, Weapon = "Staff", Acc = { "WizardHat" }, Neon = true } },
 	{ Id = "ShadowPanther", Name = "Pantera Sombría", Rarity = "Epic", Kind = "Pet", Look = { Body = C(35, 25, 50), Accent = C(190, 90, 255), Acc = { "Ears", "Aura" }, Neon = true } },
 	{ Id = "Paladin", Name = "Paladín", Rarity = "Epic", Kind = "Unit", Look = { Body = C(240, 240, 245), Accent = C(240, 190, 60), Pants = C(200, 200, 210), Skin = SKIN, Weapon = "Shield", Acc = { "Helmet", "Cape" } } },
+	{ Id = "Valkyrie", Name = "Valquiria", Rarity = "Epic", Kind = "Unit", Look = { Body = C(210, 215, 230), Accent = C(120, 200, 255), Pants = C(150, 155, 175), Skin = SKIN, Weapon = "Spear", Acc = { "Helmet", "Wings" } } },
 	-- Legendary
 	{ Id = "GoldenKing", Name = "Rey Dorado", Rarity = "Legendary", Kind = "Character", Look = { Body = C(250, 200, 60), Accent = C(180, 30, 40), Pants = C(140, 20, 30), Skin = SKIN, Acc = { "Crown", "Cape" } } },
 	{ Id = "Phoenix", Name = "Fénix", Rarity = "Legendary", Kind = "Pet", Look = { Body = C(255, 120, 30), Accent = C(255, 220, 60), Acc = { "Wings", "Aura" }, Neon = true, Shape = "Bird" } },
+	{ Id = "BabyDragon", Name = "Dragoncito", Rarity = "Legendary", Kind = "Pet", Look = { Body = C(60, 160, 90), Accent = C(255, 210, 70), Acc = { "Horns", "Wings" }, Neon = true } },
 	-- Mythic
 	{ Id = "FireDemon", Name = "Demonio Ígneo", Rarity = "Mythic", Kind = "Unit", Look = { Body = C(140, 20, 20), Accent = C(255, 110, 20), Pants = C(50, 10, 10), Skin = C(200, 50, 40), Weapon = "Sword", Acc = { "Horns", "Wings", "Aura" }, Neon = true } },
 	{ Id = "LavaGolem", Name = "Gólem de Lava", Rarity = "Mythic", Kind = "Character", Look = { Body = C(60, 45, 40), Accent = C(255, 90, 10), Pants = C(45, 35, 30), Skin = C(70, 55, 50), Acc = { "Horns", "Aura" }, Neon = true } },
+	{ Id = "VoidKnight", Name = "Caballero del Vacío", Rarity = "Mythic", Kind = "Character", Look = { Body = C(25, 20, 40), Accent = C(120, 60, 255), Pants = C(20, 15, 30), Skin = C(60, 50, 80), Weapon = "Sword", Acc = { "Helmet", "Cape", "Aura" }, Neon = true } },
 	-- Secret
 	{ Id = "FallenAngel", Name = "Ángel Caído", Rarity = "Secret", Kind = "Character", Look = { Body = C(255, 120, 190), Accent = C(255, 175, 220), Pants = C(120, 30, 70), Skin = SKIN, Weapon = "Staff", Acc = { "Halo", "Wings", "Aura" }, Neon = true } },
 	{ Id = "CosmicCat", Name = "Gato Cósmico", Rarity = "Secret", Kind = "Pet", Look = { Body = C(60, 30, 110), Accent = C(255, 90, 200), Acc = { "Ears", "Halo", "Aura" }, Neon = true } },
+	-- Armas especiales (caja de armas). Weapon = Id en Shared/Weapons.lua. En Look, Body es el
+	-- metal de la empuñadura y Accent el color de la hoja (que brilla con Neon).
+	{ Id = "FrostKatana", Name = "Katana de Escarcha", Rarity = "Mythic", Kind = "Weapon", Weapon = "FrostKatana", Look = { Body = C(40, 55, 90), Accent = C(130, 215, 255), Neon = true, Acc = { "Aura" } } },
+	{ Id = "InfernoBlade", Name = "Hoja Infernal", Rarity = "Mythic", Kind = "Weapon", Weapon = "InfernoBlade", Look = { Body = C(40, 18, 14), Accent = C(255, 120, 40), Neon = true, Acc = { "Aura" } } },
 } :: { Prize }
 
 CrateItems.ById = {} :: { [string]: Prize }
@@ -86,9 +100,13 @@ for _, p in CrateItems.List do
 	CrateItems.ById[p.Id] = p
 end
 
--- Espacio donde se equipa: las mascotas en "Pet"; personajes y unidades en "Character"
+-- Espacio donde se equipa: las mascotas en "Pet"; personajes y unidades en "Character".
+-- Las armas van en "Weapon", que no se guarda acá: es el arma elegida (Data.Weapon, WeaponService).
 CrateItems.Slots = { "Pet", "Character" }
 function CrateItems.slotOf(prize: Prize): string
+	if prize.Kind == "Weapon" then
+		return "Weapon"
+	end
 	return if prize.Kind == "Pet" then "Pet" else "Character"
 end
 

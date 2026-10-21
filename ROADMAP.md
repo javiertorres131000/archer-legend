@@ -29,12 +29,12 @@
 - [ ] Cofres gratuitos y especiales (hechas: cajas con monedas en la plaza volcánica, 5 rarezas de caja y 7 de premio, animación de apertura)
 - [x] Premios equipables: mascota que sigue y da daño, personaje que cambia el avatar; cajas por Robux con recibos seguros
 - [ ] Crear los Developer Products en el Creator Dashboard y pegar los ProductId (Shared/Crates.lua)
-- [ ] Más premios y formas de ganar monedas jugando (misiones diarias)
+- [x] Más premios y formas de ganar monedas jugando (misiones diarias)
 - [x] Reciclaje de equipo (por pieza y en lote) — 8a
 - [x] Herramientas para balancear: registro de partidas, panel de stats y panel de prueba (F2)
-- [ ] Balance de costos/botín con datos de partidas reales (usar el resumen de RunLog)
-- [ ] Misiones diarias y semanales
-- [ ] Activar el botón de Tienda (sin monetización)
+- [ ] Balance de costos/botín con datos de partidas reales (usar el resumen de RunLog). Modelo y precios de referencia en README › Economía; falta recalibrar cuando haya partidas de jugadores
+- [x] Misiones diarias y semanales
+- [x] Activar el botón de Tienda (sin monetización)
 
 ### Etapa 9 · Contenido y modos
 - [ ] Más habilidades temporales y sinergias

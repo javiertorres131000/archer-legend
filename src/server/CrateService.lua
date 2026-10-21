@@ -43,6 +43,8 @@ local PlayerData = require(script.Parent.PlayerData)
 local Remotes = require(script.Parent.Remotes)
 local Receipts = require(script.Parent.Receipts)
 local CrateEquip = require(script.Parent.CrateEquip)
+local WeaponService = require(script.Parent.WeaponService)
+local MissionService = require(script.Parent.MissionService)
 
 local Cfg = Config.Crates
 
@@ -83,6 +85,34 @@ local function nearStation(player: Player): boolean
 	return false
 end
 
+-- Caja de solo armas especiales
+local function isWeaponCrate(crate: Crates.Crate): boolean
+	if #crate.Prizes == 0 then
+		return false
+	end
+	for _, e in crate.Prizes do
+		local prize = CrateItems.ById[e.Prize]
+		if not prize or prize.Kind ~= "Weapon" then
+			return false
+		end
+	end
+	return true
+end
+
+-- Caja de armas: si ya tenés todas sus armas, no tiene sentido abrirla (no se cobra)
+function CrateService.ownsAllWeapons(data: Profiles.Data, crate: Crates.Crate): boolean
+	if #crate.Prizes == 0 then
+		return false
+	end
+	for _, e in crate.Prizes do
+		local prize = CrateItems.ById[e.Prize]
+		if not prize or prize.Kind ~= "Weapon" or (data.Crates.Owned[e.Prize] or 0) <= 0 then
+			return false
+		end
+	end
+	return true
+end
+
 -- Lo que comparten las dos formas de abrir: caja válida, perfil, lobby, frecuencia, cercanía
 local function check(player: Player, crateId: any): (Crates.Crate?, Profiles.Data?, string?)
 	if not Cfg.Enabled then
@@ -99,6 +129,9 @@ local function check(player: Player, crateId: any): (Crates.Crate?, Profiles.Dat
 	if not data then
 		return nil, nil, "Tu perfil todavía está cargando."
 	end
+	if CrateService.ownsAllWeapons(data, crate) then
+		return nil, nil, "Ya tenés todas las armas de esta caja."
+	end
 	local state = PlayerData.get(player)
 	if not state or state.inMatch then
 		return nil, nil, "Las cajas se abren en el lobby."
@@ -114,7 +147,20 @@ end
 
 -- Tira el premio y lo suma al perfil. Devuelve el resultado para el cliente.
 local function grant(player: Player, data: Profiles.Data, crate: Crates.Crate): { [string]: any }?
-	local prizeId = Crates.pick(crate, forcedRoll or rng:NextNumber())
+	-- En la caja de armas no salen repetidas: se tira solo entre las que todavía no tiene
+	-- (manteniendo sus proporciones). ownsAllWeapons ya cortó si no queda ninguna.
+	local pool = crate
+	if isWeaponCrate(crate) then
+		local left = {}
+		for _, e in crate.Prizes do
+			if (data.Crates.Owned[e.Prize] or 0) <= 0 then
+				table.insert(left, e)
+			end
+		end
+		pool = table.clone(crate)
+		pool.Prizes = left
+	end
+	local prizeId = Crates.pick(pool, forcedRoll or rng:NextNumber())
 	if not prizeId or not CrateItems.ById[prizeId] then
 		return nil
 	end
@@ -122,6 +168,10 @@ local function grant(player: Player, data: Profiles.Data, crate: Crates.Crate): 
 	local count = (owned[prizeId] or 0) + 1
 	owned[prizeId] = count
 	data.Crates.Opened += 1
+	MissionService.add(player, "Crates", 1)
+	if CrateItems.ById[prizeId].Kind == "Weapon" then
+		WeaponService.publish(player) -- ya la puede elegir en el menú "Arma"
+	end
 	return {
 		Ok = true,
 		Crate = crate.Id,

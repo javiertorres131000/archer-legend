@@ -435,6 +435,37 @@ local function birdModel(model: Model, look: CrateItems.Look)
 	end
 end
 
+-- Arma especial: katana parada con la punta para arriba (unos 5.7 studs), hoja curva que brilla.
+-- Body = metal de empuñadura y guarda · Accent = color de la hoja
+local function weaponPrize(model: Model, look: CrateItems.Look)
+	local metal = look.Body
+	local blade = accent(look, C(220, 230, 240))
+	local bladeMat = accMaterial(look)
+	part(model, "Pommel", Vector3.new(0.38, 0.3, 0.38), CFrame.new(0, 0.3, 0), metal, Enum.Material.Metal)
+	part(model, "Grip", Vector3.new(0.28, 1.3, 0.28), CFrame.new(0, 1.1, 0), C(22, 24, 34), Enum.Material.Fabric)
+	for i = 0, 3 do
+		-- cruces del encordado de la empuñadura
+		part(model, "Wrap", Vector3.new(0.32, 0.08, 0.32), CFrame.new(0, 0.6 + i * 0.3, 0) * CFrame.Angles(0, math.rad(45), 0), metal, Enum.Material.Metal)
+	end
+	local guard = part(model, "Guard", Vector3.new(0.14, 1.05, 1.05), CFrame.new(0, 1.85, 0) * CFrame.Angles(0, 0, math.rad(90)), metal, Enum.Material.Metal)
+	guard.Shape = Enum.PartType.Cylinder
+	-- Hoja en tramos, cada uno un poco más corrido y girado: queda curva como una katana
+	local seg, y, x = 0.62, 1.95, 0
+	for i = 0, 5 do
+		local bend = 0.035 * (i + 1)
+		local width = if i == 5 then 0.17 else 0.3
+		local cf = CFrame.new(x + bend / 2, y + seg / 2, 0) * CFrame.Angles(0, 0, -bend * 0.9)
+		local b = part(model, "Blade", Vector3.new(width, seg + 0.04, 0.08), cf, blade, bladeMat)
+		b.CastShadow = false
+		neon(model, "Edge", Vector3.new(0.06, seg + 0.04, 0.09), cf * CFrame.new(width / 2, 0, 0), C(245, 252, 255))
+		x += bend
+		y += seg
+	end
+	if has(look, "Aura") then
+		aura(model, CFrame.new(x / 2, 3.6, 0), blade)
+	end
+end
+
 -- Modelo de un premio: pivote en los pies, mirando hacia -Z.
 function CrateModels.prize(prizeId: string): Model
 	local custom = override("Prizes", prizeId)
@@ -450,7 +481,9 @@ function CrateModels.prize(prizeId: string): Model
 		return model
 	end
 	local look = def.Look
-	if def.Kind == "Pet" then
+	if def.Kind == "Weapon" then
+		weaponPrize(model, look)
+	elseif def.Kind == "Pet" then
 		if look.Shape == "Slime" then
 			slimeModel(model, look)
 		elseif look.Shape == "Bird" then

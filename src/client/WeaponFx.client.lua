@@ -26,6 +26,8 @@ local Debris = game:GetService("Debris")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FxQuality = require(Shared:WaitForChild("FxQuality"))
 local Config = require(Shared:WaitForChild("Config"))
+local Weapons = require(Shared:WaitForChild("Weapons"))
+local SwingCombo = require(script.Parent:WaitForChild("SwingCombo"))
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local meleeSwing = remotes:WaitForChild("MeleeSwing") :: RemoteEvent
 local projectileFired = remotes:WaitForChild("ProjectileFired") :: RemoteEvent
@@ -163,6 +165,9 @@ local function prepare(model: Model, weapon: string): Weapon
 		end)
 	end
 	local box, scaled = model:GetBoundingBox()
+	-- Con PrimaryPart, Roblox usa el pivote de esa pieza e ignora WorldPivot: el arma quedaría
+	-- corrida de la mano. Sin ella, el pivote es el centro de la caja.
+	model.PrimaryPart = nil
 	model.WorldPivot = box -- girar desde el centro de la caja
 	local h = HOLD[weapon]
 	local axes = sortedAxes(scaled)
@@ -185,9 +190,12 @@ local function prepare(model: Model, weapon: string): Weapon
 	return { model = model, hold = CFrame.new(shift) * turn * flip * extra * align, length = length, depth = depth }
 end
 
-local function build(weapon: string): Weapon
+-- weapon = arma base (cómo se sostiene y anima) · id = el arma exacta (especiales: modelo propio
+-- en WeaponModels > <id>, o el de la base con la hoja teñida de su Tint)
+local function build(weapon: string, id: string?): Weapon
 	local folder = ReplicatedStorage:FindFirstChild("WeaponModels")
-	local template = folder and folder:FindFirstChild(weapon)
+	local own = folder and id and folder:FindFirstChild(id)
+	local template = own or (folder and folder:FindFirstChild(weapon))
 	local model: Model
 	if template and template:IsA("Model") then
 		model = template:Clone()
@@ -199,6 +207,30 @@ local function build(weapon: string): Weapon
 		model = fallback(weapon)
 	end
 	model.Name = "ViewModel"
+	local def = id and Weapons.ById[id]
+	if def and def.Tint and not own then
+		-- La pieza más grande es la hoja: del color del arma especial, brillando
+		local blade, size = nil, 0
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") and d.Size.X * d.Size.Y * d.Size.Z > size then
+				blade, size = d, d.Size.X * d.Size.Y * d.Size.Z
+			end
+		end
+		if blade then
+			blade.Color = def.Tint
+			blade.Material = Enum.Material.Neon
+			if blade:IsA("MeshPart") then
+				blade.TextureID = ""
+			end
+			for _, c in blade:GetChildren() do
+				if c:IsA("SpecialMesh") then
+					c.TextureId = ""
+				elseif c:IsA("SurfaceAppearance") or c:IsA("Decal") or c:IsA("Texture") then
+					c:Destroy()
+				end
+			end
+		end
+	end
 	return prepare(model, weapon)
 end
 
@@ -207,7 +239,8 @@ end
 ---------------------------------------------------------------------
 
 type Rig = {
-	weapon: string,
+	weapon: string, -- base: "Bow" | "Sword" | "Fists"
+	id: string, -- el arma exacta (especiales: "FrostKatana")
 	items: { Weapon }, -- arma (o un guante por lado)
 	arrow: Model?, -- flecha cargada en el arco
 	arrowParts: { { part: BasePart, offset: CFrame } },
@@ -216,7 +249,7 @@ type Rig = {
 	folder: Model,
 }
 local rig: Rig? = nil
-local anim = { t = 1, kind = "", side = 1, dur = 0.2 }
+local anim = { t = 1, kind = "", side = 1, dur = 0.2, step = 1 }
 local bobClock = 0 -- reloj del balanceo (se detiene en la pausa de impacto)
 
 -- Flecha de verdad para la primera persona: astil redondo, punta de metal con 4 filos,
@@ -296,14 +329,14 @@ local function clear()
 	end
 end
 
-local function ensure(weapon: string)
-	if rig and rig.weapon == weapon then
+local function ensure(weapon: string, id: string)
+	if rig and rig.id == id then
 		return
 	end
 	clear()
 	local folder = Instance.new("Model")
 	folder.Name = "FirstPersonWeapon"
-	local items = { build(weapon) }
+	local items = { build(weapon, id) }
 	if weapon == "Fists" then
 		table.insert(items, build(weapon))
 	end
@@ -316,6 +349,7 @@ local function ensure(weapon: string)
 	end
 	rig = {
 		weapon = weapon,
+		id = id,
 		items = items,
 		arrow = arrow,
 		arrowParts = arrowParts,
@@ -350,6 +384,49 @@ local function ease(t: number): number
 	return 1 - (1 - t) ^ 3
 end
 
+-- Combo anime exagerado de las armas con estilo (Fx): por cada paso, dónde se carga el golpe
+-- (wind, bien atrás), dónde termina (hit) y hasta dónde se sigue moviendo apenas mientras queda
+-- congelado (over), en el espacio de la cámara. Los tiempos de cada fase son los de SwingCombo
+-- (los mismos que el cuerpo en tercera persona y el tajo de AnimeFx).
+local ANIME = {
+	{ -- 1: de arriba a la derecha hacia abajo a la izquierda
+		wind = CFrame.new(1.1, 0.35, -1.0) * CFrame.Angles(math.rad(35), math.rad(-25), math.rad(-75)),
+		hit = CFrame.new(-0.85, -1.05, -1.6) * CFrame.Angles(math.rad(-95), math.rad(15), math.rad(75)),
+		over = CFrame.new(-0.95, -1.15, -1.55) * CFrame.Angles(math.rad(-100), math.rad(18), math.rad(80)),
+	},
+	{ -- 2: de vuelta, de abajo a la izquierda hacia arriba a la derecha
+		wind = CFrame.new(-0.75, -1.1, -1.2) * CFrame.Angles(math.rad(-90), math.rad(15), math.rad(80)),
+		hit = CFrame.new(1.1, 0.4, -1.5) * CFrame.Angles(math.rad(30), math.rad(-15), math.rad(-80)),
+		over = CFrame.new(1.2, 0.5, -1.45) * CFrame.Angles(math.rad(35), math.rad(-18), math.rad(-85)),
+	},
+	{ -- 3: remate: la hoja bien arriba por detrás de la cabeza y abajo de un golpe
+		wind = CFrame.new(0.35, 0.75, -0.9) * CFrame.Angles(math.rad(55), 0, math.rad(-10)),
+		hit = CFrame.new(0.05, -1.1, -1.7) * CFrame.Angles(math.rad(-110), 0, 0),
+		over = CFrame.new(0.05, -1.2, -1.65) * CFrame.Angles(math.rad(-115), 0, 0),
+	},
+}
+
+local function expoOut(t: number): number
+	return if t >= 1 then 1 else 1 - 2 ^ (-10 * t)
+end
+
+local function animePose(idle: CFrame, step: number, t: number): CFrame
+	local k = ANIME[step] or ANIME[1]
+	local m = SwingCombo.Moves[step] or SwingCombo.Moves[1]
+	if t < m.wind then
+		return idle:Lerp(k.wind, ease(t / m.wind))
+	elseif t < m.strike then
+		return k.wind:Lerp(k.hit, expoOut((t - m.wind) / (m.strike - m.wind)))
+	elseif t < m.hold then
+		-- congelado, arrastrándose apenas hacia "over", con un temblor de impacto que se apaga
+		local f = (t - m.strike) / (m.hold - m.strike)
+		local shake = math.sin(f * 45) * 0.02 * (1 - f)
+		return k.hit:Lerp(k.over, ease(f)) * CFrame.new(shake, -shake, 0)
+	end
+	local f = (t - m.hold) / (1 - m.hold)
+	return k.over:Lerp(idle, f * f * (3 - 2 * f))
+end
+
 -- Poses (en el espacio de la cámara). Devuelve dónde va el arma (o el guante izquierdo y el
 -- derecho) y, para el arco, cuánto está tensada la flecha (0..1) y si hay flecha cargada.
 local function poses(weapon: string, t: number, bob: Vector3): (CFrame, CFrame, number, boolean)
@@ -374,7 +451,9 @@ local function poses(weapon: string, t: number, bob: Vector3): (CFrame, CFrame, 
 		-- Abajo a la derecha, hoja hacia arriba y un poco adelante
 		local idle = CFrame.new(Vector3.new(0.6, -0.65, -1.45) + bob) * CFrame.Angles(math.rad(-25), math.rad(-15), math.rad(-15))
 		local right = idle
-		if active and anim.kind == "slash" then
+		if active and anim.kind == "anime" then
+			right = animePose(idle, anim.step, t) + bob
+		elseif active and anim.kind == "slash" then
 			local e = ease(t)
 			local k = math.sin(t * math.pi)
 			local from = CFrame.new(0.8, -0.25, -1.5) * CFrame.Angles(math.rad(-10), 0, math.rad(-60))
@@ -442,8 +521,9 @@ RunService.RenderStepped:Connect(function(dt)
 		clear()
 		return
 	end
-	local weapon = player:GetAttribute("Weapon") or "Bow"
-	ensure(weapon)
+	local id = player:GetAttribute("Weapon") or "Bow"
+	local weapon = Weapons.baseOf(id) -- las especiales se sostienen y animan como su base
+	ensure(weapon, id)
 	local r = rig
 	if not r then
 		return
@@ -497,9 +577,14 @@ meleeSwing.OnClientEvent:Connect(function(userId, _origin, _dir, _range, arc, we
 	if userId ~= player.UserId then
 		return
 	end
-	if weaponId == "Sword" then
+	if Weapons.baseOf(weaponId) == "Sword" then
+		local def = Weapons.ById[weaponId]
 		if arc == 360 then
-			play("spin", 0.35)
+			play("spin", if def and def.Fx then SwingCombo.spinDuration(userId) else 0.35)
+		elseif def and def.Fx then
+			-- Arma con estilo anime: combo de 3 tajos (paso y duración los lleva SwingCombo)
+			anim.step = SwingCombo.step(userId)
+			play("anime", SwingCombo.duration(userId, anim.step))
 		else
 			play("slash", 0.22)
 		end
@@ -552,7 +637,7 @@ combatText.OnClientEvent:Connect(function(events)
 	if typeof(events) ~= "table" or player:GetAttribute("InMatch") ~= true then
 		return
 	end
-	local color = SPARK[player:GetAttribute("Weapon") or "Bow"] or SPARK.Bow
+	local color = SPARK[Weapons.baseOf(player:GetAttribute("Weapon") or "Bow")] or SPARK.Bow
 	for _, e in events do
 		if (e.k == "hit" or e.k == "crit") and typeof(e.p) == "Vector3" then
 			sparks(e.p + Vector3.new(0, 1, 0), color, e.k == "crit")

@@ -6,7 +6,7 @@ Roguelite de acción cooperativo para Roblox (1 a 4 jugadores), inspirado en las
 
 ## Qué hay hoy
 
-- **Lobby** seguro con interfaz propia: equipo con quién está listo, capítulos con desbloqueo, botón **JUGAR**, cuenta regresiva de 5 s y accesos a inventario, equipamiento y tienda (Inventario, Equipo y Talentos activos; Tienda pendiente).
+- **Lobby** seguro con interfaz propia: equipo con quién está listo, capítulos con desbloqueo, botón **JUGAR**, cuenta regresiva de 5 s y accesos a Equipo, Talentos, Stats, Arma, **Tienda** y **Misiones**.
 - **Ciclo de partida** controlado por el servidor: `LOBBY → PREPARING → STARTING → PLAYING → RESULTS → RETURNING`.
 - **3 capítulos**: Bosque Maldito (disponible), Ruinas Perdidas y Fortaleza Demoníaca (se desbloquean ganando el anterior).
 - **Perfil guardado** (DataStore): capítulos desbloqueados, récords, estadísticas y monedas: oro 💰, gemas 💎 y piedras de mejora 🔷.
@@ -227,13 +227,84 @@ Con espada o puños, las habilidades de flechas que vengan de runas se convierte
 
 **Registro de partidas** (`RunLog`, `Config.RunLog`). Al terminar cada partida anota una fila por jugador: capítulo, resultado, oleadas, duración, jugadores, bajas, daño, caídas, oro/gemas/piedras ganados, XP de cuenta y la build (puntos de talento, poder de equipo, runas, habilidades y objetos). Sale en la Salida como `[RunLog] ...` y se guarda en un DataStore aparte (`RunLog_v1`, una clave por día, sin tocar los perfiles). El botón **Resumen de partidas** del panel F2 (o `require(game.ServerScriptService.Server.RunLog).report(7)` en la barra de comandos del servidor) imprime promedios por capítulo de los últimos 7 días: % de victorias, oleadas, duración, oro, XP, bajas, DPS y caídas. Con esos números se ajustan costos y botín.
 
+## Economía: misiones, tienda y balance
+
+Todo se gana jugando (sin Robux; las cajas también se pueden pagar con Robux si se crean los Developer Products, ver abajo).
+
+**Cuánto da una partida** (estimado con `Waves.buildQueue` y las tablas de botín, victoria completa de 10 oleadas):
+
+| Capítulo | Bajas | Oro | Gemas | Piedras |
+|---|---|---|---|---|
+| 1 · Bosque Maldito | ~780 | ~1.600 | ~45 | ~19 |
+| 2 · Ruinas Perdidas | ~750 | ~2.750 | ~46 | ~20 |
+| 3 · Fortaleza Demoníaca | ~730 | ~4.500 | ~50 | ~22 |
+
+Perder da el oro de las oleadas superadas y el botín juntado, sin el premio de victoria.
+
+**Misiones** (`Shared/Missions.lua`, `MissionService`; botón **📜 Misiones** del lobby, con un aviso rojo cuando hay para cobrar). Cada jugador recibe 3 diarias (se renuevan a las 00:00 UTC, las 21:00 de Argentina) y 3 semanales (los lunes 00:00 UTC), sorteadas de una lista de 8 cada una. Siempre son las mismas en ese período aunque cambie de servidor. El progreso lo cuenta el servidor al terminar cada partida, ganada o perdida (abandonar no cuenta), y al abrir cajas. Se cobran a mano y, si el período termina sin cobrarlas, se pierden.
+- Las 3 diarias dan en promedio **~770 oro y ~6 gemas**, más o menos media victoria del capítulo 1.
+- Las 3 semanales dan **~6.000 oro, ~60 gemas** y a veces piedras, unas 2 victorias del capítulo 2.
+
+**Tienda** (`Shared/ShopDefs.lua`, `ShopService`; botón **💰 Tienda**). Todo con monedas del juego:
+- **4 ofertas de equipo por día**, distintas para cada jugador. Cada una se compra una vez. Precios:
+
+  | Rareza | Precio |
+  |---|---|
+  | Común | 150 oro |
+  | Poco común | 350 oro |
+  | Rara | 800 oro |
+  | Épica | 1.800 oro |
+  | Legendaria | 90 gemas |
+
+  Las míticas no se venden: se ganan jugando.
+- **Cambios con límite diario:** 10 gemas por 400 oro (5 por día) y 300 oro por 5 piedras (5 por día).
+- **Cofre de runas:** el mismo de Runas (60 gemas).
+
+**Precios de referencia** (cuántas victorias del capítulo 2 hacen falta, contando las misiones):
+
+| Qué | Costo | Victorias del capítulo 2 |
+|---|---|---|
+| Caja Common | 100 | — |
+| Caja Rare | 500 | — |
+| Caja Epic | 1.500 | ~½ |
+| Caja Legendary | 5.000 | ~2 |
+| Caja de armas | 10.000 | ~3–4 |
+| Caja Secret | 15.000 | ~5 |
+
+Un jugador activo (2 victorias por día más las misiones) junta unos **7.000 oro por día y ~50.000 por semana**. Con eso, en promedio:
+- una mascota épica sale en ~1 semana;
+- una legendaria, en 3 a 6 semanas.
+
+**Cómo recalibrar con datos reales.** Hoy el registro tiene solo partidas de prueba, así que estos números son un modelo. Cuando haya jugadores:
+1. Abrí el panel **F2 › Resumen de partidas**. Muestra, por capítulo: % de victorias, duración, oro (y oro por minuto), gemas, piedras, bajas y DPS de los últimos 7 días.
+2. Compará el oro por partida real con la tabla de arriba. Si es bastante menor (por ejemplo, porque casi nadie gana), bajá los precios de `Crates.lua` y `ShopDefs.lua` en la misma proporción, o subí las metas y los premios de `Missions.lua`.
+3. Las misiones deberían ser alrededor del 25% del oro diario de alguien que juega 2 partidas. Si con el oro por minuto se completan demasiado rápido, subí `Target`.
+
+**Bono de daño de las mascotas** (`Config.Crates.PetDamageBonus`, revisado y sin cambios). Va de +2% (Common) a +20% (Secret) y multiplica el daño como el equipo. Para comparar:
+- el equipo tiene un tope de +30% de daño;
+- cada punto de talento de daño da +3% o +4%;
+- la runa Furia da +2% por nivel.
+
+Qué tan difícil es conseguir cada mascota (costo esperado por la mejor caja):
+
+| Mascota | Rareza | Bono | Costo esperado |
+|---|---|---|---|
+| Gallina | Común | +2% | ~560 oro |
+| Zorro | Poco común | +4% | ~3.300 oro |
+| Lobo de Hielo | Rara | +6% | ~12.500 oro |
+| Pantera Sombría | Épica | +9% | ~50.000 oro |
+| Fénix | Legendaria | +12% | ~170.000 oro |
+| Gato Cósmico | Secreta | +20% | ~30.000.000 oro |
+
+Hasta Legendaria es una meta razonable jugando. El +20% de la Secreta es prácticamente inalcanzable con oro, así que solo pesa si la caja Secret se vende por Robux: ahí sería una ventaja pagada de +20% de daño. Si eso preocupa, hay dos opciones: no ponerle `ProductId` a la caja Secret, o bajar Secret a +14%.
+
 ## Cajas (crates)
 
 Al este del lobby hay una puerta a la **plaza volcánica**: una plataforma por caja. Acercate y apretá **E** ("Ver cajas") para abrir el menú; **OPEN** compra y abre. Para probar en Studio te da 25.000 monedas una vez (`Config.Crates.TestGold`); también está el +5000 oro del panel F2.
 
 **Cambiar precios y probabilidades:** `src/shared/Crates.lua`. Cada caja tiene `Price` y una lista `Prizes` con `{ Prize = "Id", Chance = % }`. Las Chance pueden no sumar 100 (se reparten en proporción), pero la prueba `test_crates` avisa si no suman 100 para que lo que ves en DROP RATES sea exacto. Una caja nueva suma su plataforma sola.
 
-**Cambiar o agregar premios:** `src/shared/CrateItems.lua`. Cada premio tiene `Id` (no lo cambies una vez publicado: el inventario guardado lo usa), `Name`, `Rarity` (Common, Uncommon, Rare, Epic, Legendary, Mythic, Secret), `Kind` (Unit, Pet, Character) y `Look` (colores y accesorios del modelo de bloques). Después ponelo en la tabla de alguna caja.
+**Cambiar o agregar premios:** `src/shared/CrateItems.lua`. Cada premio tiene `Id` (no lo cambies una vez publicado: el inventario guardado lo usa), `Name`, `Rarity` (Common, Uncommon, Rare, Epic, Legendary, Mythic, Secret), `Kind` (Unit, Pet, Character, o Weapon para armas especiales) y `Look` (colores y accesorios del modelo de bloques). Después ponelo en la tabla de alguna caja.
 
 **Tus propios modelos:** creá en Studio `ReplicatedStorage > CrateAssets > Prizes` y meté un Model con el `Id` exacto del premio, mirando hacia -Z y con el pivote en los pies. Se usa en el índice y en la animación; se le borran los scripts. Lo mismo para los cofres en `CrateAssets > Crates` con el Id de la caja.
 

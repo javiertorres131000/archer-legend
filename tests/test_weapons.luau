@@ -39,6 +39,30 @@ test("elegir: valida id, listo, partida y frecuencia; guarda y publica", functio
 	assert(stats.weapon == "Sword")
 end)
 
+test("arma especial: solo con su premio; juega como su base con sus números", function()
+	M.advance(1)
+	data.Crates.Owned.FrostKatana = nil
+	local ok, msg = WeaponService.select(p, "FrostKatana")
+	assert(not ok and string.find(msg, "Caja"), "dejó elegir sin tenerla")
+	data.Crates.Owned.FrostKatana = 1
+	M.advance(1)
+	assert(WeaponService.select(p, "FrostKatana"))
+	assert(data.Weapon == "FrostKatana" and p:GetAttribute("Weapon") == "FrostKatana")
+	local stats = PlayerData.newStats(); WeaponService.apply(p, stats)
+	assert(stats.weapon == "Sword" and stats.weaponId == "FrostKatana", "stats: " .. tostring(stats.weapon) .. "/" .. tostring(stats.weaponId))
+	-- Si pierde el premio, usa la base (no queda trabado en un arma que no tiene)
+	data.Crates.Owned.FrostKatana = nil
+	stats = PlayerData.newStats(); WeaponService.apply(p, stats)
+	assert(stats.weapon == "Sword" and stats.weaponId == "Sword")
+	WeaponService.publish(p)
+	assert(data.Weapon == "Sword" and p:GetAttribute("Weapon") == "Sword")
+	-- Las comunes no tienen Prize ni Base
+	for _, id in { "Bow", "Sword", "Fists" } do
+		assert(not Weapons.isSpecial(id) and Weapons.baseOf(id) == id)
+	end
+	assert(Weapons.isSpecial("FrostKatana"))
+end)
+
 test("perfil: arma inválida vuelve al arco, válida se conserva", function()
 	assert(Profiles.reconcile({ Weapon = "Lanzallamas" }).Weapon == "Bow")
 	assert(Profiles.reconcile({ Weapon = 5 }).Weapon == "Bow")

@@ -378,13 +378,13 @@ local countdownScale = make("UIScale", { Parent = countdownLabel })
 local soonRow = make("Frame", {
 	AnchorPoint = Vector2.new(0, 1),
 	Position = UDim2.new(0, 40, 1, -48),
-	Size = UDim2.new(0, 5 * 84 + 4 * 12, 0, 84),
+	Size = UDim2.new(0, 6 * 70 + 5 * 9, 0, 84), -- 6 botones en el ancho donde entraban 5
 	BackgroundTransparency = 1,
 	Parent = content,
 }, {
 	make("UIListLayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, 12),
+		Padding = UDim.new(0, 9),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}),
 })
@@ -400,18 +400,19 @@ local soonTip = text({
 	Parent = content,
 })
 -- Acción de cada botón: abrir equipo (el inventario y las runas son pestañas de Equipo),
--- abrir talentos o (tienda) próximamente
+-- abrir talentos, stats, arma, tienda o misiones (la tienda y las misiones son pestañas de ShopUI)
 local lobbyButtons = {
 	{ Icons.Equipment, "Equipo", "Equipment" },
 	{ "⭐", "Talentos", "Talents" },
 	{ "📊", "Stats", "Stats" },
 	{ "⚔️", "Arma", "Weapon" },
-	{ Icons.Shop, "Tienda", nil },
+	{ Icons.Shop, "Tienda", "Shop" },
+	{ "📜", "Misiones", "Missions" },
 }
 for i, item in lobbyButtons do
 	local action = item[3]
 	local b = make("TextButton", {
-		Size = UDim2.new(0, 84, 0, 84),
+		Size = UDim2.new(0, 70, 0, 84),
 		BackgroundColor3 = Colors.Panel,
 		BackgroundTransparency = 0.15,
 		AutoButtonColor = false,
@@ -429,6 +430,29 @@ for i, item in lobbyButtons do
 		TextColor3 = if action then Colors.GoldBright else Colors.Locked,
 		Parent = b,
 	})
+	if action == "Missions" then
+		-- Aviso con la cantidad de misiones completas sin cobrar
+		local badge = make("TextLabel", {
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, 6, 0, -6),
+			Size = UDim2.fromOffset(26, 26),
+			BackgroundColor3 = Colors.Danger,
+			Font = Fonts.Bold,
+			TextSize = 15,
+			TextColor3 = Color3.new(1, 1, 1),
+			Text = "",
+			Visible = false,
+			ZIndex = 3,
+			Parent = b,
+		}, { Theme.corner(13) })
+		local function updateBadge()
+			local n = player:GetAttribute("MissionsClaimable") or 0
+			badge.Visible = n > 0
+			badge.Text = tostring(n)
+		end
+		player:GetAttributeChangedSignal("MissionsClaimable"):Connect(updateBadge)
+		updateBadge()
+	end
 	local function showTip()
 		soonTip.Text = if action then "Abrir " .. item[2] else Icons.Locked .. "  " .. item[2] .. ": próximamente"
 	end
@@ -443,6 +467,10 @@ for i, item in lobbyButtons do
 			playerGui:SetAttribute("StatsOpen", true)
 		elseif action == "Weapon" then
 			playerGui:SetAttribute("WeaponOpen", true)
+		elseif action == "Shop" then
+			playerGui:SetAttribute("ShopOpen", "Tienda")
+		elseif action == "Missions" then
+			playerGui:SetAttribute("ShopOpen", "Misiones")
 		else
 			showTip()
 		end

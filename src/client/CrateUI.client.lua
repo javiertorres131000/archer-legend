@@ -47,7 +47,7 @@ local DANGER = C(255, 90, 90)
 local GOLD = C(255, 205, 70)
 local ROBUX = C(0, 176, 111) -- verde de Roblox
 local W, H = 940, 700 -- tamaño base del panel (después se escala a la pantalla)
-local KIND_NAMES = { Unit = "Unidad", Pet = "Mascota", Character = "Personaje" }
+local KIND_NAMES = { Unit = "Unidad", Pet = "Mascota", Character = "Personaje", Weapon = "Arma" }
 
 local function make(className: string, props: { [string]: any }, parent: Instance?): any
 	local inst = Instance.new(className)
@@ -297,17 +297,23 @@ local cards: { Card } = {}
 local selectedId = Crates.List[1].Id
 local busy = false
 
+-- Con más cajas de las que entran a lo ancho (164 px cada una), la fila se achica entera
+local CARD_W, CARD_GAP = 164, 14
+local rowNeeded = #Crates.List * CARD_W + (#Crates.List - 1) * CARD_GAP
+local rowScale = math.min(1, (W - 40) / rowNeeded)
 local cardRow = make("Frame", {
 	Name = "Cards",
-	Position = UDim2.fromOffset(0, 8),
-	Size = UDim2.new(1, 0, 0, 280),
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 8),
+	Size = UDim2.new(1 / rowScale, 0, 0, 280),
 	BackgroundTransparency = 1,
 }, shopPage)
+make("UIScale", { Scale = rowScale }, cardRow)
 make("UIListLayout", {
 	FillDirection = Enum.FillDirection.Horizontal,
 	HorizontalAlignment = Enum.HorizontalAlignment.Center,
 	VerticalAlignment = Enum.VerticalAlignment.Center,
-	Padding = UDim.new(0, 14),
+	Padding = UDim.new(0, CARD_GAP),
 	SortOrder = Enum.SortOrder.LayoutOrder,
 }, cardRow)
 
@@ -338,7 +344,7 @@ for i, crate in Crates.List do
 	local button = make("TextButton", {
 		Name = crate.Id,
 		LayoutOrder = i,
-		Size = UDim2.fromOffset(164, 266),
+		Size = UDim2.fromOffset(CARD_W, 266),
 		BackgroundColor3 = CARD,
 		AutoButtonColor = false,
 		Text = "",
@@ -740,12 +746,12 @@ local function buildIndex()
 			TextColor3 = rarity.Color,
 		})
 		make("UITextSizeConstraint", { MaxTextSize = 11 }, kindLine)
-		if prize.Kind == "Pet" then
+		if prize.Kind == "Pet" or prize.Kind == "Weapon" then
 			label(frame, {
 				Position = UDim2.fromOffset(4, 147),
 				Size = UDim2.new(1, -8, 0, 12),
 				Font = Enum.Font.GothamBold,
-				Text = petBonusText(prize),
+				Text = if prize.Kind == "Weapon" then "Arma especial" else petBonusText(prize),
 				TextSize = 11,
 				TextColor3 = C(255, 215, 120),
 			})
@@ -832,10 +838,12 @@ local function refreshIndex()
 	indexHeader.Text = string.format('Colección  <font color="#ffcd46">%d / %d</font>     Cajas abiertas  <font color="#ffcd46">%d</font>', have, #entries, openedCount)
 	local pet = CrateItems.ById[equippedIn("Pet")]
 	local char = CrateItems.ById[equippedIn("Character")]
+	local weapon = CrateItems.ById[equippedIn("Weapon")]
 	equippedLine.Text = string.format(
-		'Mascota: <font color="#f2eee8">%s</font>     Personaje: <font color="#f2eee8">%s</font>',
+		'Mascota: <font color="#f2eee8">%s</font>     Personaje: <font color="#f2eee8">%s</font>%s',
 		if pet then pet.Name .. " (" .. petBonusText(pet) .. ")" else "ninguna",
-		if char then char.Name else "tu avatar"
+		if char then char.Name else "tu avatar",
+		if weapon then '     Arma: <font color="#f2eee8">' .. weapon.Name .. "</font>" else ""
 	)
 end
 
@@ -1058,6 +1066,11 @@ player:GetAttributeChangedSignal("EquippedPet"):Connect(function()
 	end
 end)
 player:GetAttributeChangedSignal("EquippedCharacter"):Connect(function()
+	if indexPage.Visible then
+		refreshIndex()
+	end
+end)
+player:GetAttributeChangedSignal("EquippedWeapon"):Connect(function()
 	if indexPage.Visible then
 		refreshIndex()
 	end
