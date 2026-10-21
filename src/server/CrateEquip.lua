@@ -187,16 +187,20 @@ function CrateEquip.refreshLook(player: Player)
 		if not current then
 			originals[player] = humanoid:GetAppliedDescription()
 		end
-		if type(current) == "string" and CrateLooks.has(current) then
-			-- Sacar el traje detallado: piezas y material de la piel
-			CrateLooks.removeFromCharacter(character)
-		end
 		local old = character:FindFirstChild("CrateLook")
 		if old then
 			old:Destroy()
 		end
 		local original = originals[player]
 		local prize = if id then CrateItems.ById[id] else nil
+		-- Un traje detallado cambia el material de la piel: volver al de siempre
+		if type(current) == "string" and CrateLooks.has(current) then
+			for _, d in character:GetChildren() do
+				if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then
+					d.Material = Enum.Material.Plastic
+				end
+			end
+		end
 		if not id then
 			if original then
 				humanoid:ApplyDescriptionAsync(original)
@@ -206,6 +210,14 @@ function CrateEquip.refreshLook(player: Player)
 			humanoid:ApplyDescriptionAsync(blockyDescription(original, prize.Look))
 			if CrateLooks.has(id) then
 				CrateLooks.applyToCharacter(id, character) -- traje detallado (CrateLooks)
+				local head = character:FindFirstChild("Head")
+				if head then
+					for _, d in head:GetChildren() do
+						if d:IsA("Decal") then
+							d.Transparency = 1 -- la cara la ponen las piezas del traje
+						end
+					end
+				end
 			else
 				attachParts(character, id)
 			end

@@ -306,11 +306,17 @@ Al este del lobby hay una puerta a la **plaza volcánica**: una plataforma por c
 
 **Cambiar o agregar premios:** `src/shared/CrateItems.lua`. Cada premio tiene `Id` (no lo cambies una vez publicado: el inventario guardado lo usa), `Name`, `Rarity` (Common, Uncommon, Rare, Epic, Legendary, Mythic, Secret), `Kind` (Unit, Pet, Character, o Weapon para armas especiales) y `Look` (colores y accesorios del modelo de bloques). Después ponelo en la tabla de alguna caja.
 
+**Trajes detallados:** `src/shared/CrateLooks.lua`. Un premio de personaje con entrada ahí se ve con ese traje en tu avatar, en el Index y en la animación (ejemplo: `FireDemon`). Cada pieza dice a qué parte del cuerpo va (`Torso`, `Head`, `LeftArm`...), tamaño, color, material y posición, con medidas de cuerpo clásico (sirven los morphs R6 adaptando los números).
+
 **Tus propios modelos:** creá en Studio `ReplicatedStorage > CrateAssets > Prizes` y meté un Model con el `Id` exacto del premio, mirando hacia -Z y con el pivote en los pies. Se usa en el índice y en la animación; se le borran los scripts. Lo mismo para los cofres en `CrateAssets > Crates` con el Id de la caja.
 
 **Sistema:** `Config.Crates`: moneda (`Currency`, el oro), nombre de la columna de leaderstats, límite entre aperturas, distancia a la plataforma, monedas de prueba, tamaño de la plaza, luz volcánica y tiempos de la animación (temblor, giro de cámara, vueltas y velocidad de la ruleta). Sonidos en `Shared/Sounds.lua` (`Crate*`).
 
 **Antes de publicar:** dejá `TestGoldOnlyInStudio = true` (o `TestGold = 0`).
+
+**Cofres y huevos:** en `src/shared/Crates.lua` cada entrada tiene `Type`: `"Crate"` (cofre de skins: personajes y unidades) o `"Egg"` (huevo de mascotas). Cada tipo tiene su fila en la plaza, su pestaña en el menú (Skin Crates / Pet Eggs) y su animación. Un cofre no puede dar mascotas ni un huevo skins (la prueba lo revisa).
+
+**Cómo se paga cada caja:** `PayWith` en `src/shared/Crates.lua`. Hoy Common (100), Rare (500) y Epic (25.000) se abren con monedas del juego; Legendary y Secret solo con Robux. Para cambiar una caja de forma de pago, cambiá `PayWith` ("Coins" o "Robux").
 
 **Vender cajas por Robux:**
 1. Publicá el juego y andá al [Creator Dashboard](https://create.roblox.com/dashboard/creations) › tu experiencia › **Monetization › Developer Products › Create a Developer Product**. Creá uno por caja (por ejemplo "Rare Crate") con su precio en Robux.

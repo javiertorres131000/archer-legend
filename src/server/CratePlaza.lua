@@ -12,10 +12,12 @@
 -- Dónde va cada cosa: Shared/CratePlazaLayout.lua. Solo escenario: nada acá tiene lógica.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MarketplaceService = game:GetService("MarketplaceService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Crates = require(Shared:WaitForChild("Crates"))
 local CrateModels = require(Shared:WaitForChild("CrateModels"))
+local CrateItems = require(Shared:WaitForChild("CrateItems"))
 local CratePlazaLayout = require(Shared:WaitForChild("CratePlazaLayout"))
 
 local C = Color3.fromRGB
@@ -127,8 +129,11 @@ local function station(parent: Instance, crate: Crates.Crate, top: CFrame, radiu
 	glow.Transparency = 0.88
 	glow.CastShadow = false
 	-- El cofre flotando (el cliente lo hace subir, bajar y girar)
-	local chest = CrateModels.crate(crate)
+	local chest = if Crates.isEgg(crate) then CrateModels.egg(crate) else CrateModels.crate(crate)
 	chest.Name = "Display"
+	if Crates.isEgg(crate) and (chest :: any).ScaleTo then
+		chest:ScaleTo(1.4) -- los huevos son más chicos que los cofres
+	end
 	chest:SetAttribute("CrateDisplay", true)
 	chest:PivotTo(top * CFrame.new(0, 1.1, 0))
 	chest.Parent = model
@@ -142,7 +147,7 @@ local function station(parent: Instance, crate: Crates.Crate, top: CFrame, radiu
 	anchor.Transparency = 1
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "CratePrompt"
-	prompt.ActionText = "Ver cajas"
+	prompt.ActionText = if Crates.isEgg(crate) then "Ver huevos" else "Ver cajas"
 	prompt.ObjectText = crate.Name
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = radius + 6
@@ -151,9 +156,24 @@ local function station(parent: Instance, crate: Crates.Crate, top: CFrame, radiu
 	prompt:SetAttribute("CrateId", crate.Id)
 	prompt.Parent = anchor
 	local billboard = sign(anchor, Vector3.new(0, 5.2, 0), UDim2.fromScale(11, 4.2), 90) -- en studs: se achica con la distancia
-	label(billboard, string.upper(crate.Name), crate.Color, UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.56), Enum.Font.GothamBlack)
-	local price = label(billboard, "💰 " .. Crates.formatPrice(crate.Price), C(255, 215, 90), UDim2.fromScale(0, 0.58), UDim2.fromScale(1, 0.42), Enum.Font.GothamBold)
+	label(billboard, CrateItems.upper(crate.Name), crate.Color, UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.56), Enum.Font.GothamBlack)
+	local robux = Crates.paysWithRobux(crate)
+	local priceText = if robux then "R$ ..." else "💰 " .. Crates.formatPrice(crate.Price)
+	local price = label(billboard, priceText, if robux then C(80, 230, 150) else C(255, 215, 90), UDim2.fromScale(0, 0.58), UDim2.fromScale(1, 0.42), Enum.Font.GothamBold)
 	price.Name = "Price"
+	if robux then
+		-- El precio en Robux está en el Developer Product (se cambia en el Creator Dashboard)
+		task.spawn(function()
+			if crate.ProductId <= 0 then
+				price.Text = "R$ · Pronto"
+				return
+			end
+			local ok, info = pcall(function()
+				return MarketplaceService:GetProductInfo(crate.ProductId, Enum.InfoType.Product)
+			end)
+			price.Text = if ok and type(info) == "table" and type(info.PriceInRobux) == "number" then "R$ " .. Crates.formatPrice(info.PriceInRobux) else "R$"
+		end)
+	end
 	model.Parent = parent
 end
 
@@ -183,7 +203,7 @@ function CratePlaza.build(): Folder?
 		crack(decor, rng, start, rng:NextInteger(3, 6))
 	end
 	-- Charcos de lava
-	for _, spot in { Vector3.new(-half.X + 12, 0, -half.Z + 12), Vector3.new(-half.X + 14, 0, half.Z - 12), Vector3.new(half.X - 8, 0, half.Z - 6) } do
+	for _, spot in { Vector3.new(4, 0, half.Z - 10), Vector3.new(-half.X + 14, 0, half.Z - 12), Vector3.new(half.X - 8, 0, half.Z - 6) } do
 		local d = rng:NextNumber(7, 10)
 		local pos = c + spot
 		local rim = part(decor, "PoolRim", Vector3.new(0.4, d + 2, d + 2), CFrame.new(pos + Vector3.new(0, 0.15, 0)) * CFrame.Angles(0, 0, math.rad(90)), ROCK_DARK, Enum.Material.Basalt)
@@ -236,14 +256,17 @@ function CratePlaza.build(): Folder?
 	stations.Parent = folder
 	for i, s in layout.Stations do
 		station(stations, Crates.ById[s.Id], s.Top, cfg.StationRadius)
-		-- Antorchas a los costados (una entre cada par de plataformas y en las puntas)
+		-- Antorchas a los costados (una entre cada par de plataformas de la fila y en las puntas)
 		local ground = s.Top * CFrame.new(0, -CratePlazaLayout.PlatformHeight, 0)
-		local back = ground.Position + Vector3.new(2, 0, 0)
+		local look = s.Top.LookVector
+		local along = Vector3.new(look.Z, 0, -look.X) -- dirección de la fila
+		local back = ground.Position - Vector3.new(look.X, 0, look.Z) * 2
 		local gap = cfg.StationSpacing / 2
-		CrateModels.torch(stations, CFrame.new(back + Vector3.new(0, 0, -gap)), 7)
-		if i == #layout.Stations then
-			CrateModels.torch(stations, CFrame.new(back + Vector3.new(0, 0, gap)), 7)
+		local prev = layout.Stations[i - 1]
+		if not prev or prev.Type ~= s.Type then
+			CrateModels.torch(stations, CFrame.new(back - along * gap), 7)
 		end
+		CrateModels.torch(stations, CFrame.new(back + along * gap), 7)
 	end
 
 	folder.Parent = workspace

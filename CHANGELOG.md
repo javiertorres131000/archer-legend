@@ -1,5 +1,20 @@
 # Cambios
 
+## 2026-10-21 · Skin Demonio Ígneo con mallas, y unión de fase2 con detalles
+
+- **Demonio Ígneo con modelos 3D** (`Shared/CrateLooks.lua`): el traje ahora son 12 mallas (máscara, torso, capa, alas, hombreras, brazales, grebas y taparrabos) con textura, brillo de lava, relieve y rugosidad. Viven en el place (`ReplicatedStorage/CrateAssets/Looks/FireDemon`); las fuentes están en `src/assets/demon`.
+  - Campos nuevos de las piezas: `Mesh`, `Glow`, `Fx` (`Flames`, `Embers` y `Smoke`), `Sway`.
+- **`LavaSkinFx`** (cliente, nuevo):
+  - El brillo late.
+  - Las alas aletean suave y se abren al saltar, y la capa se balancea.
+  - Pisadas de lava, aura en el piso, estela en el dash y explosión de brasas al equiparlo.
+- Panel F2: **Darme y equipar Demonio Ígneo**.
+- **Unión con fase2:** las cajas dan solo personajes y los huevos, solo mascotas.
+  - Los premios nuevos de fase2 se repartieron así: Escudero, Pirata, Druida, Valquiria y Caballero del Vacío a las cajas; Búho a los huevos.
+  - Conejo queda como mascota Common.
+  - La caja de armas es un cofre de monedas (10.000).
+  - La fila de cofres de la tienda se achica sola si no entran.
+
 ## 2026-10-21 · Élites con cofre, momentos horda, metas de equipo y maestría por arma
 
 - **Élites** (`Server/WaveEvents.lua`, `Config.Events.Elite`): desde la oleada 2, algunos enemigos comunes salen potenciados: más grandes, con aura violeta, ×7 de vida y un rasgo (Veloz, Blindado, Furioso o Gigante) en su cartel. Dan más XP y al morir sueltan un cofre (Rara o mejor). Más élites cuanto más avanzada la oleada.
@@ -104,6 +119,29 @@ Ya no son un cambio de color de los de escarcha: cada arma tiene formas y compor
 - **RunLog:** el resumen suma oro por minuto, gemas y piedras promedio por capítulo.
 - **README › Economía:** ingresos por capítulo, precios de referencia, cómo recalibrar con RunLog y el análisis del bono de las mascotas, que queda igual (+2% a +20%; el riesgo es vender la caja Secret por Robux).
 - Pruebas nuevas: `test_missions.luau` y `test_shop.luau`. `test_crates` prueba que la caja de armas no repite.
+## 2026-10-21 · Huevos de mascotas
+
+- **Cofres = solo skins:** los 5 cofres (Common → Secret) ya no dan mascotas; sus probabilidades se repartieron entre personajes y unidades (cada uno suma 100%).
+- **4 huevos de mascotas** (`Type = "Egg"` en `Shared/Crates.lua`): Common Egg (150), Rare Egg (750) y Epic Egg (20.000) con monedas; Mythic Egg solo con Robux. Fila propia de plataformas contra el muro sur de la plaza (más ancha: 100 studs), con el huevo flotando, antorchas, cartel y prompt "Ver huevos".
+- **9 mascotas nuevas:** Perrito, Gatito, Conejo, Cerdito, Loro, Slime de Lava, Unicornio, Dragoncito y Dragón de Tormenta (accesorios nuevos: orejas largas, hocico, cuerno, cuernos).
+- **Huevo ornamentado** (`CrateModels.egg`): cáscara, bandas de neón, zigzag dorado, gemas y corona, del color de cada huevo.
+- **Animación de huevo** (`EggCinematic`, nueva, a pantalla completa): el huevo se sacude cada vez más con destellos; si viene Epic o mejor, "!! RARE SIGNAL DETECTED !!" (desde Legendary, rayos y arcoíris); se rompe con flash y pedazos; rendija de luz → columna con rayos en estrella y la silueta de la mascota; reveal con fondo de su rareza, anillos y la mascota a color; bono de daño y "Continue".
+- **Menú:** pestañas Skin Crates / Pet Eggs / Index; el prompt de un huevo abre la pestaña de huevos. `CrateItems.upper` respeta acentos en mayúsculas (DRAGÓN).
+- Pruebas: `test_crates` (24): cofres solo skins, huevos solo mascotas, todo premio sale de alguna caja, abrir un huevo (26/26 archivos OK). Probado en Studio: plaza, menú, huevo real con monedas, reveal y vuelta, sin errores.
+
+## 2026-10-21 · Trajes detallados: Demonio Ígneo
+
+- **`Shared/CrateLooks.lua`** (nuevo): trajes de premios de personaje como datos (piezas por segmento del cuerpo, color y material de piel, brasas). Se aplican al avatar R15 al equiparlo (cada pieza se suelda al segmento que le toca, así acompaña la animación) y al modelo de bloques del Index y de la animación de apertura.
+- **Demonio Ígneo:** primer traje, del diseño de Codex (morph R6) pasado a datos y adaptado a R15: coraza con grietas de lava y núcleo que brilla, placa central, hombreras, brazales con borde de lava, grebas, cuernos con punta de lava, alas de cristal, ojos y máscara, y brasas. La cara de Roblox se oculta; al desequipar vuelve la piel normal.
+- Pruebas: `test_crates` valida los trajes (22). Probado en Studio: avatar, vista previa del Index y sin errores.
+
+## 2026-10-21 · Cajas de monedas y cajas de Robux
+
+- Cada caja se paga de una sola forma (`PayWith` en `Shared/Crates.lua`): **Common (100), Rare (500) y Epic (25.000)** con monedas del juego; **Legendary y Secret solo con Robux** (sin precio en monedas).
+- El servidor rechaza abrir una caja de Robux con monedas y vender por Robux una de monedas. Sin `ProductId`, la caja de Robux se ve con "Pronto" (tarjeta y cartel de la plaza) y no se puede comprar.
+- El precio en Robux se lee del Developer Product (`GetProductInfo`) en la tarjeta y en el cartel de la plaza.
+- `Config.Crates.TestGold` sube a 30.000 (alcanza para probar la Epic en Studio).
+- Pruebas: `test_crates` (21) actualizado; probado en Studio.
 
 ## 2026-10-20 · Cajas con Robux y premios equipables
 

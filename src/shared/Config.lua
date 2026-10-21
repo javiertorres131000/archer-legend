@@ -388,11 +388,11 @@ Config.Crates = {
 	},
 	-- Monedas para probar: se dan UNA vez por perfil. Con OnlyInStudio = true, solo en Studio.
 	-- Antes de publicar: TestGold = 0 (o dejá OnlyInStudio en true).
-	TestGold = 25000,
+	TestGold = 30000,
 	TestGoldOnlyInStudio = true,
 	-- Plaza: pegada al muro este del lobby, con una puerta en ese muro
 	Plaza = {
-		Size = Vector3.new(80, 1, 96), -- ancho (X) x alto x largo (Z)
+		Size = Vector3.new(100, 1, 96), -- ancho (X) x alto x largo (Z)
 		DoorZ = 12, -- dónde está la puerta en el muro del lobby (corrida en Z desde el centro)
 		DoorWidth = 14,
 		StationSpacing = 15, -- distancia entre plataformas (con 6 cajas, más de 16 se sale de la plaza)

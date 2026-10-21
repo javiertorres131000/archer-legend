@@ -3,7 +3,7 @@
 -- Ubicación: StarterPlayer > StarterPlayerScripts > Client > CrateUI
 -- Menú "CRATES" de la plaza volcánica. Se abre con el ProximityPrompt de cualquier plataforma
 -- (con esa caja ya elegida). Dos pestañas:
---   · Shop Crates: una tarjeta por caja (cofre que gira con el brillo de su color, nombre,
+--   · Skin Crates / Pet Eggs: cofres de skins y huevos de mascotas (Crates.lua, Type). Una tarjeta por caja (cofre que gira con el brillo de su color, nombre,
 --     precio y OPEN) y abajo los DROP RATES de la caja elegida (barra proporcional y %).
 --   · Index: todos los premios; los que todavía no tenés se ven como silueta.
 -- Solo muestra y pide: OPEN manda ("Open", Id) a Remotes.CrateRequest y el servidor decide
@@ -27,6 +27,22 @@ local Crates = require(Shared:WaitForChild("Crates"))
 local CrateItems = require(Shared:WaitForChild("CrateItems"))
 local CrateModels = require(Shared:WaitForChild("CrateModels"))
 local CrateCinematic = require(script.Parent:WaitForChild("CrateCinematic"))
+local EggCinematic = require(script.Parent:WaitForChild("EggCinematic"))
+
+-- ¿Hay alguna animación de apertura en curso?
+local function anyPlaying(): boolean
+	return CrateCinematic.isPlaying() or EggCinematic.isPlaying()
+end
+
+-- Cofres: animación de la arena; huevos: animación del huevo
+local function playOpening(crate: Crates.Crate, result: { [string]: any }, onDone: () -> ())
+	local r = { Prize = result.Prize, Count = result.Count, New = result.New == true }
+	if Crates.isEgg(crate) then
+		EggCinematic.play(crate, r, onDone)
+	else
+		CrateCinematic.play(crate, r, onDone)
+	end
+end
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local request = remotes:WaitForChild("CrateRequest") :: RemoteFunction
 local crateOpened = remotes:WaitForChild("CrateOpened") :: RemoteEvent
@@ -46,7 +62,7 @@ local ACCENT = C(255, 128, 50)
 local DANGER = C(255, 90, 90)
 local GOLD = C(255, 205, 70)
 local ROBUX = C(0, 176, 111) -- verde de Roblox
-local W, H = 940, 700 -- tamaño base del panel (después se escala a la pantalla)
+local W, H = 940, 660 -- tamaño base del panel (después se escala a la pantalla)
 local KIND_NAMES = { Unit = "Unidad", Pet = "Mascota", Character = "Personaje", Weapon = "Arma" }
 
 local function make(className: string, props: { [string]: any }, parent: Instance?): any
@@ -194,7 +210,7 @@ stroke(title, C(90, 20, 0), 1.5, 0.3).ApplyStrokeMode = Enum.ApplyStrokeMode.Con
 local tabBar = make("Frame", {
 	Name = "Tabs",
 	Position = UDim2.fromOffset(250, 18),
-	Size = UDim2.fromOffset(330, 38),
+	Size = UDim2.fromOffset(420, 38),
 	BackgroundColor3 = C(10, 9, 14),
 	BorderSizePixel = 0,
 }, panel)
@@ -203,11 +219,11 @@ stroke(tabBar, WHITE, 1, 0.9)
 make("UIPadding", { PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4), PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4) }, tabBar)
 make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, tabBar)
 local tabButtons: { [string]: TextButton } = {}
-for order, tab in { { "Shop", "Shop Crates" }, { "Index", "Index" } } do
+for order, tab in { { "Shop", "Skin Crates" }, { "Eggs", "Pet Eggs" }, { "Index", "Index" } } do
 	local b = make("TextButton", {
 		Name = tab[1],
 		LayoutOrder = order,
-		Size = UDim2.new(0.5, -2, 1, 0),
+		Size = UDim2.new(1 / 3, -3, 1, 0),
 		BackgroundColor3 = ACCENT,
 		BackgroundTransparency = 1,
 		AutoButtonColor = false,
@@ -294,28 +310,47 @@ type Card = {
 }
 
 local cards: { Card } = {}
-local selectedId = Crates.List[1].Id
+local robuxPrices: { [string]: string } = {} -- precio en Robux de cada caja (lo dice Roblox)
 local busy = false
+-- Pestaña de compra actual ("Crate" cofres de skins | "Egg" huevos) y lo elegido en cada una
+local shopType = "Crate"
+local lastSelected: { [string]: string } = {}
+for _, crate in Crates.List do
+	lastSelected[crate.Type] = lastSelected[crate.Type] or crate.Id
+end
+local selectedId = lastSelected.Crate
 
--- Con más cajas de las que entran a lo ancho (164 px cada una), la fila se achica entera
+-- Una fila por tipo (cofres y huevos). Si una fila tiene más cajas de las que entran a lo ancho
+-- (CARD_W px cada una), se achica entera
 local CARD_W, CARD_GAP = 164, 14
-local rowNeeded = #Crates.List * CARD_W + (#Crates.List - 1) * CARD_GAP
-local rowScale = math.min(1, (W - 40) / rowNeeded)
-local cardRow = make("Frame", {
-	Name = "Cards",
-	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 8),
-	Size = UDim2.new(1 / rowScale, 0, 0, 280),
-	BackgroundTransparency = 1,
-}, shopPage)
-make("UIScale", { Scale = rowScale }, cardRow)
-make("UIListLayout", {
-	FillDirection = Enum.FillDirection.Horizontal,
-	HorizontalAlignment = Enum.HorizontalAlignment.Center,
-	VerticalAlignment = Enum.VerticalAlignment.Center,
-	Padding = UDim.new(0, CARD_GAP),
-	SortOrder = Enum.SortOrder.LayoutOrder,
-}, cardRow)
+local rows: { [string]: Frame } = {}
+for _, info in { { "Crate", "Cards" }, { "Egg", "Eggs" } } do
+	local count = 0
+	for _, c in Crates.List do
+		if (c.Type or "Crate") == info[1] then
+			count += 1
+		end
+	end
+	local needed = count * CARD_W + math.max(0, count - 1) * CARD_GAP
+	local scale = math.min(1, (W - 40) / math.max(needed, 1))
+	local row = make("Frame", {
+		Name = info[2],
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 8),
+		Size = UDim2.new(1 / scale, 0, 0, 240),
+		BackgroundTransparency = 1,
+		Visible = info[1] == "Crate",
+	}, shopPage) :: Frame
+	make("UIScale", { Scale = scale }, row)
+	make("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Padding = UDim.new(0, CARD_GAP),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}, row)
+	rows[info[1]] = row
+end
 
 local message = label(shopPage, {
 	AnchorPoint = Vector2.new(0.5, 1),
@@ -336,6 +371,10 @@ local function select(id: string)
 		return
 	end
 	selectedId = id
+	local crate = Crates.ById[id]
+	if crate then
+		lastSelected[crate.Type] = id
+	end
 	refreshCards()
 	refreshRates()
 end
@@ -344,12 +383,12 @@ for i, crate in Crates.List do
 	local button = make("TextButton", {
 		Name = crate.Id,
 		LayoutOrder = i,
-		Size = UDim2.fromOffset(CARD_W, 266),
+		Size = UDim2.fromOffset(CARD_W, 228),
 		BackgroundColor3 = CARD,
 		AutoButtonColor = false,
 		Text = "",
 		BorderSizePixel = 0,
-	}, cardRow) :: TextButton
+	}, rows[crate.Type] or rows.Crate) :: TextButton
 	corner(button, UDim.new(0, 14))
 	local cardStroke = stroke(button, crate.Color, 1.5, 0.55)
 	local cardScale = make("UIScale", {}, button) :: UIScale
@@ -367,7 +406,7 @@ for i, crate in Crates.List do
 		corner(glow, UDim.new(1, 0))
 		table.insert(glows, glow)
 	end
-	local chest = CrateModels.crate(crate)
+	local chest = if Crates.isEgg(crate) then CrateModels.egg(crate) else CrateModels.crate(crate)
 	local _, cam, focus = viewport(button, chest, UDim2.fromOffset(150, 116), UDim2.new(0.5, 0, 0, 8), 13, 1.8)
 	label(button, {
 		Position = UDim2.fromOffset(0, 124),
@@ -389,15 +428,18 @@ for i, crate in Crates.List do
 		Padding = UDim.new(0, 6),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}, priceRow)
-	coin(priceRow, 17).LayoutOrder = 1
+	local paysRobux = Crates.paysWithRobux(crate)
+	local coinIcon = coin(priceRow, 17)
+	coinIcon.LayoutOrder = 1
+	coinIcon.Visible = not paysRobux
 	local price = label(priceRow, {
 		LayoutOrder = 2,
 		Size = UDim2.fromOffset(0, 22),
 		AutomaticSize = Enum.AutomaticSize.X,
 		Font = Enum.Font.GothamBlack,
-		Text = Crates.formatPrice(crate.Price),
+		Text = if paysRobux then "R$ ..." else Crates.formatPrice(crate.Price),
 		TextSize = 17,
-		TextColor3 = GOLD,
+		TextColor3 = if paysRobux then C(90, 230, 160) else GOLD,
 	})
 	local open = make("TextButton", {
 		Name = "Open",
@@ -410,16 +452,17 @@ for i, crate in Crates.List do
 		Text = "OPEN",
 		TextSize = 18,
 		TextColor3 = C(20, 16, 22),
+		Visible = not paysRobux, -- las cajas de Robux solo tienen el botón R$
 	}, button) :: TextButton
 	corner(open, UDim.new(0, 10))
 	make("UIGradient", { Color = ColorSequence.new(WHITE, C(185, 180, 190)), Rotation = 90 }, open)
 	local openScale = make("UIScale", {}, open) :: UIScale
-	-- Abrir con Robux (solo si la caja tiene ProductId y Roblox lo permite en tu país)
+	-- Cajas de Robux: el botón R$ va en el lugar de OPEN
 	local robux = make("TextButton", {
 		Name = "Robux",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 222),
-		Size = UDim2.fromOffset(132, 32),
+		Position = UDim2.new(0.5, 0, 0, 180),
+		Size = UDim2.fromOffset(132, 36),
 		BackgroundColor3 = ROBUX,
 		AutoButtonColor = false,
 		Font = Enum.Font.GothamBlack,
@@ -431,15 +474,16 @@ for i, crate in Crates.List do
 	corner(robux, UDim.new(0, 10))
 	make("UIGradient", { Color = ColorSequence.new(WHITE, C(190, 200, 195)), Rotation = 90 }, robux)
 	local robuxScale = make("UIScale", {}, robux) :: UIScale
-	if crate.ProductId > 0 then
+	if paysRobux and crate.ProductId > 0 then
 		task.spawn(function()
 			local ok, info = pcall(function()
 				return MarketplaceService:GetProductInfo(crate.ProductId, Enum.InfoType.Product)
 			end)
 			if ok and type(info) == "table" and type(info.PriceInRobux) == "number" then
-				robux.Text = "R$ " .. Crates.formatPrice(info.PriceInRobux)
-			else
-				robux.Text = "R$"
+				robuxPrices[crate.Id] = Crates.formatPrice(info.PriceInRobux)
+			end
+			if gui.Enabled then
+				refreshCards()
 			end
 		end)
 	end
@@ -503,12 +547,25 @@ function refreshCards()
 		for g, glow in card.glows do
 			tween(glow, 0.2, { BackgroundTransparency = (if selected then 0.82 else 0.93) - g * 0.04 })
 		end
-		local affordable = gold >= card.crate.Price
-		card.price.TextColor3 = if affordable then GOLD else DANGER
-		card.open.AutoButtonColor = false
-		card.open.BackgroundColor3 = if busy then C(90, 90, 100) else card.crate.Color
-		card.open.Text = if busy then "..." else "OPEN"
-		card.robux.Visible = Config.Crates.RobuxEnabled and card.crate.ProductId > 0 and player:GetAttribute("PaidCratesAllowed") == true
+		local crate = card.crate
+		if Crates.paysWithRobux(crate) then
+			-- R$: precio de Roblox; "PRONTO" sin producto; bloqueado donde Roblox no lo permite
+			local price = robuxPrices[crate.Id]
+			local ready = Config.Crates.RobuxEnabled and crate.ProductId > 0
+			local allowed = player:GetAttribute("PaidCratesAllowed") == true
+			card.price.Text = if not ready then "Pronto" elseif price then "R$ " .. price else "R$ ..."
+			card.robux.Visible = true
+			card.robux.Text = if busy then "..." elseif not ready then "PRONTO" elseif not allowed then "NO DISPONIBLE" else "R$ " .. (price or "")
+			card.robux.TextSize = if ready and allowed then 18 else 14
+			card.robux.BackgroundColor3 = if ready and allowed and not busy then ROBUX else C(90, 90, 100)
+		else
+			local affordable = gold >= crate.Price
+			card.price.TextColor3 = if affordable then GOLD else DANGER
+			card.open.AutoButtonColor = false
+			card.open.BackgroundColor3 = if busy then C(90, 90, 100) else crate.Color
+			card.open.Text = if busy then "..." else "OPEN"
+			card.robux.Visible = false
+		end
 	end
 end
 
@@ -516,8 +573,8 @@ end
 -- Shop: DROP RATES
 ---------------------------------------------------------------------
 local rates = make("Frame", {
-	Position = UDim2.fromOffset(24, 300),
-	Size = UDim2.new(1, -48, 1, -338),
+	Position = UDim2.fromOffset(24, 262),
+	Size = UDim2.new(1, -48, 1, -300),
 	BackgroundColor3 = C(11, 10, 15),
 	BorderSizePixel = 0,
 }, shopPage)
@@ -871,8 +928,20 @@ local function showTab(tab: string)
 		local on = id == tab
 		tween(b, 0.15, { BackgroundTransparency = if on then 0 else 1, TextColor3 = if on then C(30, 14, 6) else MUTED })
 	end
-	shopPage.Visible = tab == "Shop"
+	shopPage.Visible = tab == "Shop" or tab == "Eggs"
 	indexPage.Visible = tab == "Index"
+	if tab == "Shop" or tab == "Eggs" then
+		local wanted = if tab == "Eggs" then "Egg" else "Crate"
+		if shopType ~= wanted then
+			shopType = wanted
+			selectedId = lastSelected[wanted] or selectedId
+		end
+		for kind, row in rows do
+			row.Visible = kind == shopType
+		end
+		refreshCards()
+		refreshRates()
+	end
 	if tab == "Index" then
 		refreshIndex()
 		task.spawn(fetchCollection)
@@ -925,17 +994,18 @@ local function closeMenu(instant: boolean?)
 end
 
 local function openMenu(crateId: string?)
-	if CrateCinematic.isPlaying() or player:GetAttribute("InMatch") == true then
+	if anyPlaying() or player:GetAttribute("InMatch") == true then
 		return
 	end
-	if crateId and Crates.ById[crateId] then
-		selectedId = crateId
+	local target = if crateId then Crates.ById[crateId] else nil
+	if target then
+		lastSelected[target.Type] = target.Id
+		shopType = target.Type
+		selectedId = target.Id
 	end
 	fit()
 	updateWallet()
-	refreshCards()
-	refreshRates()
-	showTab("Shop")
+	showTab(if shopType == "Egg" then "Eggs" else "Shop")
 	if isOpen then
 		return
 	end
@@ -1007,7 +1077,7 @@ local function nudge(crateId: string)
 end
 
 function requestOpen(crate: Crates.Crate)
-	if busy or CrateCinematic.isPlaying() then
+	if busy or anyPlaying() then
 		return
 	end
 	busy = true
@@ -1034,7 +1104,7 @@ function requestOpen(crate: Crates.Crate)
 	owned[res.Prize] = if type(res.Count) == "number" then res.Count else (owned[res.Prize] or 0) + 1
 	openedCount += 1
 	closeMenu(true)
-	CrateCinematic.play(crate, { Prize = res.Prize, Count = res.Count, New = res.New == true }, function()
+	playOpening(crate, res, function()
 		openMenu(crate.Id)
 	end)
 end
@@ -1083,7 +1153,15 @@ end)
 
 -- Comprar con Robux: el servidor valida y muestra la ventana de compra de Roblox
 function requestRobux(crate: Crates.Crate)
-	if busy or CrateCinematic.isPlaying() then
+	if busy or anyPlaying() then
+		return
+	end
+	if crate.ProductId <= 0 or not Config.Crates.RobuxEnabled then
+		showMessage("Esta caja todavía no está a la venta.")
+		return
+	end
+	if player:GetAttribute("PaidCratesAllowed") ~= true then
+		showMessage("Las cajas con Robux no están disponibles en tu región.")
 		return
 	end
 	busy = true
@@ -1104,7 +1182,7 @@ end
 -- Llega una caja pagada con Robux (con el recibo): animación apenas se pueda
 local paidQueue: { { [string]: any } } = {}
 local function playPaid()
-	if #paidQueue == 0 or CrateCinematic.isPlaying() or player:GetAttribute("InMatch") == true then
+	if #paidQueue == 0 or anyPlaying() or player:GetAttribute("InMatch") == true then
 		return
 	end
 	local res = table.remove(paidQueue, 1) :: { [string]: any }
@@ -1115,7 +1193,7 @@ local function playPaid()
 	owned[res.Prize] = if type(res.Count) == "number" then res.Count else (owned[res.Prize] or 0) + 1
 	openedCount += 1
 	closeMenu(true)
-	CrateCinematic.play(crate, { Prize = res.Prize, Count = res.Count, New = res.New == true }, function()
+	playOpening(crate, res, function()
 		if #paidQueue > 0 then
 			playPaid()
 		else
@@ -1201,7 +1279,7 @@ task.spawn(function()
 		collectDisplays(plaza)
 	end)
 	RunService.RenderStepped:Connect(function()
-		if #displays == 0 or player:GetAttribute("InMatch") == true or CrateCinematic.isPlaying() then
+		if #displays == 0 or player:GetAttribute("InMatch") == true or anyPlaying() then
 			return
 		end
 		local character = player.Character

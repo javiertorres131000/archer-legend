@@ -27,6 +27,7 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `Crates` | Las 5 cajas: precio, colores y tabla de premios con probabilidades; `rates`, `pick` (tirada ponderada) y formatos |
 | `CrateItems` | Rarezas de las cajas (Common → Secret) y los premios (tipo, rareza y aspecto) |
 | `CrateModels` | Piezas 3D con Parts: hexágonos, antorchas, cofres y premios de bloques (o modelos propios de `CrateAssets`) |
+| `CrateLooks` | Trajes detallados de premios de personaje (piezas por segmento): se aplican al avatar R15 y a las vistas previas |
 | `CratePlazaLayout` | Dónde va la plaza de las cajas y cada plataforma (servidor y cliente calculan igual) |
 | `UITheme` | Colores, tipografías, íconos y constructores de UI (fantasía oscura y dorado) |
 
@@ -98,6 +99,7 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `Dash` (cliente) | Teclado, mando, botón táctil y recarga visible |
 | `CrateUI` | Menú CRATES (Shop Crates / Index, DROP RATES); pide abrir y arranca la animación; hace flotar los cofres de la plaza |
 | `PetFollow` | Dibuja la mascota equipada de cada jugador siguiéndolo (solo visual) |
+| `EggCinematic` | Animación de abrir un huevo (pantalla completa): sacudón, "RARE SIGNAL", ruptura, columna de luz con silueta y reveal |
 | `CrateCinematic` | Animación de apertura en una arena local: caída, temblor, explosión, ruleta, reveal y limpieza |
 | `EnemyAnimator` | Aleteo de las alas de los modelos de enemigos voladores (solo en pantalla, desactiva la soldadura localmente) |
 | `GrabUI` | Pantalla de agarrado y forcejeo (ESPACIO / A / botón táctil), "¡AYUDA!" sobre el compañero agarrado y avisos de rescate |

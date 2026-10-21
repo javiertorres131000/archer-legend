@@ -12,6 +12,7 @@
 --   Look: colores y accesorios del modelo de bloques que arma CrateModels:
 --     Body / Accent / Skin / Pants: colores · Weapon: "Sword" | "Bow" | "Spear" | "Staff" | "Shield"
 --     Acc: lista de "Crown" | "Horns" | "Halo" | "Wings" | "WizardHat" | "Helmet" | "Cape" | "Ears" | "Aura"
+--          (mascotas, además: "LongEars" conejo · "Horn" cuerno de unicornio · "Snout" hocico de cerdo)
 --     Neon = true: el color Accent brilla · Shape (mascotas): "Slime" | "Bird" (sin esto, de 4 patas)
 -- Modelo propio: poné un Model con el Id exacto en ReplicatedStorage > CrateAssets > Prizes
 -- y se usa ese en vez del de bloques (mirando hacia -Z, como el resto del juego).
@@ -94,6 +95,14 @@ CrateItems.List = {
 	{ Id = "FrostKatana", Name = "Katana de Escarcha", Rarity = "Mythic", Kind = "Weapon", Weapon = "FrostKatana", Look = { Body = C(40, 55, 90), Accent = C(130, 215, 255), Neon = true, Acc = { "Aura" } } },
 	{ Id = "InfernoBlade", Name = "Hoja Infernal", Rarity = "Mythic", Kind = "Weapon", Weapon = "InfernoBlade", Look = { Body = C(40, 18, 14), Accent = C(255, 120, 40), Neon = true, Acc = { "Aura" } } },
 	{ Id = "CrimsonKatana", Name = "Katana Carmesí", Rarity = "Mythic", Kind = "Weapon", Weapon = "CrimsonKatana", Look = { Body = C(20, 12, 14), Accent = C(230, 20, 45), Neon = true, Acc = { "Aura" } } },
+	-- Mascotas que salen solo de los huevos (Crates.lua, Type = "Egg")
+	{ Id = "Puppy", Name = "Perrito", Rarity = "Common", Kind = "Pet", Look = { Body = C(196, 140, 90), Accent = C(245, 225, 200), Acc = { "Ears" } } },
+	{ Id = "Kitten", Name = "Gatito", Rarity = "Common", Kind = "Pet", Look = { Body = C(150, 150, 160), Accent = C(255, 190, 200), Acc = { "Ears" } } },
+	{ Id = "Piglet", Name = "Cerdito", Rarity = "Uncommon", Kind = "Pet", Look = { Body = C(255, 175, 190), Accent = C(240, 120, 150), Acc = { "Snout", "Ears" } } },
+	{ Id = "Parrot", Name = "Loro", Rarity = "Rare", Kind = "Pet", Look = { Body = C(40, 200, 90), Accent = C(255, 60, 40), Shape = "Bird" } },
+	{ Id = "LavaSlime", Name = "Slime de Lava", Rarity = "Rare", Kind = "Pet", Look = { Body = C(255, 110, 30), Accent = C(255, 220, 80), Shape = "Slime", Neon = true } },
+	{ Id = "Unicorn", Name = "Unicornio", Rarity = "Epic", Kind = "Pet", Look = { Body = C(255, 250, 255), Accent = C(220, 130, 255), Acc = { "Horn", "Ears", "Aura" }, Neon = true } },
+	{ Id = "StormDragon", Name = "Dragón de Tormenta", Rarity = "Mythic", Kind = "Pet", Look = { Body = C(30, 40, 90), Accent = C(90, 220, 255), Acc = { "Horns", "Wings", "Aura" }, Neon = true } },
 } :: { Prize }
 
 CrateItems.ById = {} :: { [string]: Prize }
@@ -109,6 +118,16 @@ function CrateItems.slotOf(prize: Prize): string
 		return "Weapon"
 	end
 	return if prize.Kind == "Pet" then "Pet" else "Character"
+end
+
+-- Mayúsculas que respetan los acentos (string.upper deja "Dragón" como "DRAGóN")
+local ACCENTS: { { string } } = { { "á", "Á" }, { "é", "É" }, { "í", "Í" }, { "ó", "Ó" }, { "ú", "Ú" }, { "ñ", "Ñ" }, { "ü", "Ü" } }
+function CrateItems.upper(s: string): string
+	local out = string.upper(s)
+	for _, pair in ACCENTS do
+		out = string.gsub(out, pair[1], pair[2])
+	end
+	return out
 end
 
 function CrateItems.rarity(id: string): Rarity
