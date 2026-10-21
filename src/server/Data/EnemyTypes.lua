@@ -1099,4 +1099,333 @@ T.EliteCaptain = { Name = "Capitán élite", Role = "Elite", Health = 260, Size 
  Color = C(235, 65, 120), ContactDamage = 22, XP = 8, Cost = 8, Move = { Type = "Keep", Speed = 10, Min = 10, Max = 18 },
  Attacks = { { Type = "Dash", Cooldown = { 4, 6 }, Range = 28, Telegraph = 1, Distance = 20, Speed = 35, Damage = 24 },
  { Type = "Shoot", Cooldown = { 3, 4 }, Range = 40, Count = 3, Spread = 35, Speed = 24, Damage = 15, Telegraph = 0.9 } } }
+---------------------------------------------------------------------
+-- ❄️ Capítulo 4 · Glaciar Eterno
+---------------------------------------------------------------------
+local FROST = C(150, 220, 255)
+local SAND = C(225, 190, 120)
+
+T.IceSlime = {
+	Name = "Slime de hielo",
+	Health = 90,
+	Size = 3,
+	Shape = "Ball",
+	Color = C(150, 215, 255),
+	ContactDamage = 14,
+	XP = 2,
+	Cost = 2,
+	Move = { Type = "Erratic", Speed = 16, Hop = { 0.4, 0.55 }, Pause = { 0.3, 0.6 }, Wobble = 45 },
+	-- Deja escarcha que lastima al pisarla
+	Trail = { Interval = 0.8, Radius = 2.4, Duration = 3, Dps = 8, Color = FROST },
+	OnDeath = { Split = { Type = "GreenSlime", Count = 2 } },
+}
+T.SnowWolf = {
+	Name = "Lobo de las nieves",
+	Health = 120,
+	Size = 3.2,
+	Color = C(235, 240, 250),
+	ContactDamage = 16,
+	XP = 3,
+	Cost = 3,
+	Move = { Type = "Chase", Speed = 13 },
+	Attacks = {
+		{ Type = "Dash", Cooldown = { 2.2, 3 }, Range = 30, Telegraph = 0.45, RepeatTelegraph = 0.35, Repeats = 1, Distance = { 20, 26 }, Speed = 65, Damage = 20 },
+	},
+}
+T.FrostBat = {
+	Name = "Murciélago escarcha",
+	Health = 60,
+	Size = 2.2,
+	Float = 4,
+	Color = C(140, 200, 255),
+	ContactDamage = 10,
+	XP = 2,
+	Cost = 2,
+	Move = { Type = "Erratic", Speed = 18, Hop = { 0.5, 0.8 }, Pause = { 0.1, 0.3 }, Wobble = 70 },
+	Attacks = {
+		{ Type = "Shoot", Cooldown = { 2.5, 3.5 }, Range = 40, Telegraph = 0.5, Count = 3, Spread = 30, Speed = 26, Damage = 12, Color = ICE },
+	},
+}
+T.IceMage = {
+	Name = "Mago de hielo",
+	Health = 110,
+	Size = 2.6,
+	Height = 4,
+	Color = C(90, 160, 240),
+	ContactDamage = 8,
+	XP = 3,
+	Cost = 3,
+	Move = { Type = "Keep", Speed = 8, Min = 18, Max = 30 },
+	Attacks = {
+		-- Carámbanos que caen en círculo alrededor tuyo
+		{ Type = "Area", Cooldown = { 3, 4 }, Range = 55, Telegraph = 0.6, Count = 4, Scatter = 6, Radius = 3, Delay = 1.1, Damage = 16, WarnColor = FROST },
+		{ Type = "Shoot", Cooldown = { 2, 3 }, Range = 45, Telegraph = 0.5, Count = 1, Speed = 34, Damage = 14, Size = 2, Color = ICE },
+	},
+}
+T.IceGolem = {
+	Name = "Gólem de hielo",
+	Role = "Blocker",
+	Health = 320,
+	Size = 4.4,
+	Height = 6,
+	Color = C(170, 220, 250),
+	ContactDamage = 22,
+	XP = 6,
+	Cost = 6,
+	Move = { Type = "Chase", Speed = 5 },
+	Attacks = {
+		{ Type = "Area", Target = "Self", Cooldown = { 4, 5.5 }, Range = 14, Telegraph = 0.8, Radius = 10, Delay = 0.8, Damage = 24, WarnColor = FROST,
+			Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.4, Count = 8, Speed = 22, Damage = 12, Color = ICE } },
+	},
+}
+T.Penguin = {
+	Name = "Pingüino bombardero",
+	Health = 50,
+	Size = 2.2,
+	Height = 2.8,
+	Color = C(40, 45, 60),
+	ContactDamage = 10,
+	XP = 2,
+	Cost = 2,
+	Move = { Type = "Chase", Speed = 10 },
+	Attacks = {
+		-- Se tira de panza hacia vos
+		{ Type = "Dash", Cooldown = { 2, 3 }, Range = 26, Telegraph = 0.6, Distance = { 22, 30 }, Speed = 50, Damage = 14 },
+	},
+}
+
+-- Mini jefe: Yeti
+T.Yeti = {
+	Name = "Yeti",
+	Boss = true,
+	Health = 2400,
+	Size = 6,
+	Height = 8,
+	Color = C(230, 235, 245),
+	ContactDamage = 22,
+	XP = 18,
+	Phases = {
+		{
+			Above = 0.5,
+			Rest = { 1, 1.5 },
+			Move = { Type = "Chase", Speed = 7 },
+			Attacks = {
+				{ Type = "Dash", Telegraph = 0.8, Distance = { 30, 40 }, Speed = 60, Damage = 26 },
+				-- Bolas de nieve gigantes
+				{ Type = "Shoot", Telegraph = 0.6, Count = 3, Spread = 40, Bursts = 2, BurstDelay = 0.5, Speed = 26, Damage = 18, Size = 3, Color = C(240, 245, 255) },
+			},
+		},
+		{
+			Above = 0,
+			Rest = { 0.7, 1.1 },
+			Move = { Type = "Chase", Speed = 9 },
+			Attacks = {
+				{ Type = "Dash", Telegraph = 0.6, RepeatTelegraph = 0.4, Repeats = 2, Distance = { 30, 40 }, Speed = 65, Damage = 26 },
+				{ Type = "Area", Target = "Self", Range = 16, Telegraph = 0.5, Radius = 12, Delay = 0.8, Damage = 24, WarnColor = FROST,
+					Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.4, Count = 12, Speed = 24, Damage = 14, Size = 2, Color = ICE } },
+				{ Type = "Summon", Telegraph = 0.7, Spawn = "SnowWolf", Count = 2, Max = 3 },
+			},
+		},
+	},
+}
+
+-- Jefe: Reina de Hielo
+T.FrostQueen = {
+	Name = "Reina de Hielo",
+	Boss = true,
+	Health = 7000,
+	Size = 6,
+	Height = 11,
+	Color = C(120, 200, 255),
+	ContactDamage = 24,
+	XP = 40,
+	Phases = {
+		{
+			Above = 0.5,
+			Rest = { 0.9, 1.4 },
+			Move = { Type = "Keep", Speed = 9, Min = 18, Max = 28 },
+			Attacks = {
+				{ Type = "Shoot", Pattern = "Radial", Telegraph = 0.6, Count = 14, Bursts = 2, BurstDelay = 0.5, Rotate = 13, Speed = 24, Damage = 15, Color = ICE },
+				{ Type = "Area", Telegraph = 0.5, Count = { 3, 4 }, FirstExact = true, Scatter = 8, Radius = 3.5, Delay = 1, Damage = 20, Bursts = 3, BurstDelay = 0.5, WarnColor = FROST },
+				{ Type = "Teleport", Telegraph = 0.5, Distance = { 16, 24 }, ChainRest = 0.3 },
+			},
+		},
+		{
+			Above = 0,
+			Rest = { 0.6, 1 },
+			Move = { Type = "Keep", Speed = 11, Min = 16, Max = 26 },
+			Attacks = {
+				{ Type = "Shoot", Pattern = "Radial", Telegraph = 0.5, Count = 18, Bursts = 3, BurstDelay = 0.4, Rotate = 10, Bounces = 1, Speed = 26, Damage = 15, Color = ICE },
+				-- Tormenta de hielo por toda la arena
+				{ Type = "Area", Target = "Random", Telegraph = 0.6, Count = 10, Radius = 3, Delay = 1.2, Damage = 20, Bursts = 2, BurstDelay = 0.6, WarnColor = FROST },
+				{ Type = "Summon", Telegraph = 0.7, Spawn = "IceSlime", Count = 3, Max = 5 },
+				{ Type = "Teleport", Telegraph = 0.4, Distance = { 16, 24 }, ChainRest = 0.2 },
+			},
+		},
+	},
+}
+
+---------------------------------------------------------------------
+-- 🏜️ Capítulo 5 · Desierto de los Reyes
+---------------------------------------------------------------------
+
+T.Scorpion = {
+	Name = "Escorpión",
+	Health = 110,
+	Size = 3,
+	Height = 2,
+	Color = C(200, 120, 50),
+	ContactDamage = 16,
+	XP = 3,
+	Cost = 3,
+	Move = { Type = "Chase", Speed = 11 },
+	Attacks = {
+		-- Aguijón: tres púas venenosas
+		{ Type = "Shoot", Cooldown = { 2.5, 3.5 }, Range = 30, Telegraph = 0.5, Count = 3, Spread = 25, Speed = 32, Damage = 14, Color = POISON },
+		{ Type = "Dash", Cooldown = { 4, 5 }, Range = 22, Telegraph = 0.6, Distance = { 16, 22 }, Speed = 55, Damage = 18 },
+	},
+}
+T.Mummy = {
+	Name = "Momia",
+	Role = "Blocker",
+	Health = 260,
+	Size = 2.6,
+	Height = 5.5,
+	Color = C(215, 200, 160),
+	ContactDamage = 20,
+	XP = 5,
+	Cost = 5,
+	Move = { Type = "Chase", Speed = 6 },
+	-- Deja vendas malditas
+	Trail = { Interval = 1, Radius = 2.2, Duration = 4, Dps = 8, Color = C(170, 140, 90) },
+}
+T.SandWorm = {
+	Name = "Gusano de arena",
+	Health = 150,
+	Size = 3.2,
+	Height = 4,
+	Color = C(210, 170, 100),
+	ContactDamage = 16,
+	XP = 4,
+	Cost = 4,
+	Move = { Type = "Still" },
+	Rest = 0.4,
+	Attacks = {
+		{ Type = "Burrow", Cooldown = { 3.5, 5 }, Telegraph = 0.5, Duration = { 1.2, 1.8 }, Emerge = { 6, 10 }, ChainRest = 0.2 },
+		{ Type = "Shoot", Pattern = "Radial", Cooldown = { 3, 4 }, Telegraph = 0.5, Count = 8, Speed = 22, Damage = 14, Color = SAND },
+	},
+}
+T.DesertArcher = {
+	Name = "Arquero del desierto",
+	Health = 90,
+	Size = 2.4,
+	Height = 5,
+	Color = C(190, 140, 70),
+	ContactDamage = 8,
+	XP = 3,
+	Cost = 3,
+	Move = { Type = "Keep", Speed = 9, Min = 20, Max = 34 },
+	Attacks = {
+		{ Type = "Shoot", Cooldown = { 1.8, 2.4 }, Range = 55, Telegraph = 0.5, Count = 1, Bursts = 3, BurstDelay = 0.2, Speed = 46, Damage = 12, Color = BONE },
+	},
+}
+T.SandSpirit = {
+	Name = "Espíritu de arena",
+	Health = 70,
+	Size = 2.6,
+	Float = 2,
+	Color = C(240, 210, 140),
+	ContactDamage = 12,
+	XP = 2,
+	Cost = 2,
+	Move = { Type = "Chase", Speed = 12 },
+	Attacks = {
+		{ Type = "Teleport", Cooldown = { 3, 4.5 }, Telegraph = 0.4, Distance = { 10, 16 }, ChainRest = 0.2 },
+		-- Remolino de arena bajo tus pies
+		{ Type = "Area", Cooldown = { 3, 4 }, Range = 40, Telegraph = 0.4, Count = 1, Radius = 4, Delay = 1, Damage = 16, Zone = { Duration = 2, Dps = 8 }, WarnColor = SAND },
+	},
+}
+T.Jackal = {
+	Name = "Chacal",
+	Health = 55,
+	Size = 2.4,
+	Color = C(180, 130, 80),
+	ContactDamage = 12,
+	XP = 2,
+	Cost = 2,
+	Move = { Type = "Chase", Speed = 14 },
+}
+
+-- Mini jefe: Gólem de arena
+T.SandGolem = {
+	Name = "Gólem de arena",
+	Boss = true,
+	Health = 2800,
+	Size = 7,
+	Height = 9,
+	Color = C(215, 180, 110),
+	ContactDamage = 22,
+	XP = 20,
+	Phases = {
+		{
+			Above = 0.5,
+			Rest = { 1, 1.5 },
+			Move = { Type = "Chase", Speed = 5 },
+			Attacks = {
+				{ Type = "Area", Target = "Self", Range = 16, Telegraph = 0.6, Radius = 12, Delay = 0.9, Damage = 24, WarnColor = SAND },
+				{ Type = "Shoot", Telegraph = 0.6, Count = 5, Spread = 60, Bursts = 2, BurstDelay = 0.5, Speed = 28, Damage = 15, Size = 2, Color = SAND },
+				{ Type = "Burrow", Telegraph = 0.6, Duration = { 1.2, 1.6 }, Emerge = { 6, 10 }, ChainRest = 0.3 },
+			},
+		},
+		{
+			Above = 0,
+			Rest = { 0.7, 1.1 },
+			Move = { Type = "Chase", Speed = 7 },
+			Attacks = {
+				{ Type = "Area", Target = "Random", Telegraph = 0.6, Count = 8, Radius = 3.5, Delay = 1.2, Damage = 18, Bursts = 2, BurstDelay = 0.7, Zone = { Duration = 2, Dps = 8 }, WarnColor = SAND },
+				{ Type = "Burrow", Telegraph = 0.5, Duration = { 1, 1.4 }, Emerge = { 4, 8 }, ChainRest = 0.2,
+					Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.3, Count = 14, Speed = 24, Damage = 14, Color = SAND } },
+				{ Type = "Summon", Telegraph = 0.7, Spawn = "Jackal", Count = 3, Max = 5 },
+			},
+		},
+	},
+}
+
+-- Jefe: Faraón Eterno
+T.Pharaoh = {
+	Name = "Faraón Eterno",
+	Boss = true,
+	Health = 9000,
+	Size = 6,
+	Height = 10,
+	Color = C(240, 190, 60),
+	ContactDamage = 26,
+	XP = 50,
+	Phases = {
+		{
+			Above = 0.5,
+			Rest = { 0.9, 1.4 },
+			Move = { Type = "Keep", Speed = 8, Min = 16, Max = 26 },
+			Attacks = {
+				-- Rayos del sol: abanico de proyectiles dorados
+				{ Type = "Shoot", Telegraph = 0.6, Count = 7, Spread = 90, Bursts = 3, BurstDelay = 0.4, Speed = 30, Damage = 16, Color = SPARK },
+				{ Type = "Summon", Telegraph = 0.7, Spawn = "Mummy", Count = 2, Max = 3 },
+				{ Type = "Teleport", Telegraph = 0.5, Distance = { 16, 24 }, ChainRest = 0.3 },
+			},
+		},
+		{
+			Above = 0,
+			Rest = { 0.6, 1 },
+			Move = { Type = "Keep", Speed = 10, Min = 14, Max = 24 },
+			Attacks = {
+				{ Type = "Shoot", Pattern = "Radial", Telegraph = 0.5, Count = 16, Bursts = 3, BurstDelay = 0.35, Rotate = 11, Speed = 26, Damage = 16, Color = SPARK },
+				-- Tormenta de arena: zonas que queman por toda la arena
+				{ Type = "Area", Target = "Random", Telegraph = 0.6, Count = 10, Radius = 3.5, Delay = 1.2, Damage = 20, Bursts = 2, BurstDelay = 0.6, Zone = { Duration = 3, Dps = 10 }, WarnColor = SAND },
+				{ Type = "Dash", Telegraph = 0.7, RepeatTelegraph = 0.4, Repeats = 2, Distance = { 30, 40 }, Speed = 65, Damage = 30 },
+				{ Type = "Summon", Telegraph = 0.7, Spawn = "Scorpion", Count = 2, Max = 4 },
+			},
+		},
+	},
+}
+
 return T

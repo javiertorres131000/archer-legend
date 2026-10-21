@@ -100,6 +100,22 @@ Weapons.List = {
 		Knockback = 2.2,
 		Description = "Espada especial: fuego en cada tajo. Más lenta que la Katana de Escarcha, pero cada golpe pega más y llega más lejos.",
 	},
+	{
+		Id = "CrimsonKatana",
+		Name = "Katana Carmesí",
+		Icon = "🩸",
+		Kind = "Melee",
+		Base = "Sword",
+		Prize = "CrimsonKatana",
+		Fx = "Crimson",
+		Tint = Color3.fromRGB(230, 20, 45),
+		DamageMult = 2.3,
+		IntervalMult = 1.25,
+		Range = 12.5,
+		Arc = 150,
+		Knockback = 2,
+		Description = "Espada especial: un aura carmesí te envuelve y cada remate explota en una esfera roja gigante.",
+	},
 }
 
 -- Qué dan las habilidades de flechas con un arma cuerpo a cuerpo

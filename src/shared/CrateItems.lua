@@ -93,6 +93,7 @@ CrateItems.List = {
 	-- metal de la empuñadura y Accent el color de la hoja (que brilla con Neon).
 	{ Id = "FrostKatana", Name = "Katana de Escarcha", Rarity = "Mythic", Kind = "Weapon", Weapon = "FrostKatana", Look = { Body = C(40, 55, 90), Accent = C(130, 215, 255), Neon = true, Acc = { "Aura" } } },
 	{ Id = "InfernoBlade", Name = "Hoja Infernal", Rarity = "Mythic", Kind = "Weapon", Weapon = "InfernoBlade", Look = { Body = C(40, 18, 14), Accent = C(255, 120, 40), Neon = true, Acc = { "Aura" } } },
+	{ Id = "CrimsonKatana", Name = "Katana Carmesí", Rarity = "Mythic", Kind = "Weapon", Weapon = "CrimsonKatana", Look = { Body = C(20, 12, 14), Accent = C(230, 20, 45), Neon = true, Acc = { "Aura" } } },
 } :: { Prize }
 
 CrateItems.ById = {} :: { [string]: Prize }

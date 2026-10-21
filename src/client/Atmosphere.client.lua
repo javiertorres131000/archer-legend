@@ -58,9 +58,74 @@ haze.Glare = 0
 haze.Haze = 1
 haze.Parent = Lighting
 
+local function currentChapter(): any
+	return Chapters[gameState:GetAttribute("Chapter") or 1]
+end
+
 local function chapterAccent(): Color3
-	local ch = Chapters[gameState:GetAttribute("Chapter") or 1]
+	local ch = currentChapter()
 	return ch and ch.Accent or Color3.new(1, 1, 1)
+end
+
+-- Clima del capítulo (Chapters › Lighting.Weather): partículas en una caja que sigue a la cámara
+local RunService = game:GetService("RunService")
+local weatherPart: Part? = nil
+local weatherConn: RBXScriptConnection? = nil
+
+local function setWeather(kind: string?)
+	if weatherConn then
+		weatherConn:Disconnect()
+		weatherConn = nil
+	end
+	if weatherPart then
+		weatherPart:Destroy()
+		weatherPart = nil
+	end
+	if not kind or low then
+		return
+	end
+	local part = Instance.new("Part")
+	part.Name = "Weather"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Transparency = 1
+	part.Size = Vector3.new(90, 1, 90)
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	e.LightInfluence = 1
+	if kind == "Snow" then
+		e.Color = ColorSequence.new(Color3.fromRGB(245, 250, 255))
+		e.Size = NumberSequence.new(0.35)
+		e.Rate = 140
+		e.Lifetime = NumberRange.new(5, 7)
+		e.Speed = NumberRange.new(6, 9)
+		e.EmissionDirection = Enum.NormalId.Bottom
+		e.SpreadAngle = Vector2.new(15, 15)
+		e.Acceleration = Vector3.new(2, 0, 1)
+		e.Transparency = NumberSequence.new(0.1)
+	else -- "Sand": ráfagas de arena casi horizontales
+		e.Color = ColorSequence.new(Color3.fromRGB(230, 195, 140))
+		e.Size = NumberSequence.new(0.25)
+		e.Rate = 180
+		e.Lifetime = NumberRange.new(2, 3)
+		e.Speed = NumberRange.new(25, 35)
+		e.EmissionDirection = Enum.NormalId.Right
+		e.SpreadAngle = Vector2.new(8, 25)
+		e.Acceleration = Vector3.new(0, -3, 0)
+		e.Transparency = NumberSequence.new(0.35)
+	end
+	e.Parent = part
+	part.Parent = workspace
+	weatherPart = part
+	weatherConn = RunService.RenderStepped:Connect(function()
+		local camera = workspace.CurrentCamera
+		if camera and weatherPart then
+			local p = camera.CFrame.Position
+			weatherPart.CFrame = CFrame.new(p.X - (if kind == "Sand" then 40 else 0), p.Y + 25, p.Z)
+		end
+	end)
 end
 
 local plaza = if Config.Crates.Enabled then CratePlazaLayout.get() else nil
@@ -115,6 +180,7 @@ local function apply()
 	volcanic = inVolcano()
 	swapSky(volcanic)
 	if volcanic then
+		setWeather(nil)
 		local info = TweenInfo.new(1.2)
 		haze.Parent = Lighting
 		bloom.Enabled = not low
@@ -160,17 +226,26 @@ local function apply()
 	local inMatch = player:GetAttribute("InMatch") == true
 	local info = TweenInfo.new(0.8)
 	if inMatch then
+		-- Luz propia del capítulo (Glaciar, Desierto...) o la de siempre
+		local ch = currentChapter()
+		local L = ch and ch.Lighting or {}
 		bloom.Enabled = not low
 		color.Enabled = true
-		TweenService:Create(haze, info, { Density = Fx.Haze }):Play()
+		if L.HazeColor then
+			haze.Color = L.HazeColor
+			haze.Decay = L.HazeColor:Lerp(Color3.new(0, 0, 0), 0.3)
+		end
+		TweenService:Create(haze, info, { Density = L.HazeDensity or Fx.Haze }):Play()
 		color.TintColor = Color3.new(1, 1, 1):Lerp(chapterAccent(), Fx.TintStrength)
 		TweenService:Create(Lighting, info, {
-			ClockTime = Fx.ArenaClockTime,
-			Ambient = Fx.ArenaAmbient,
-			OutdoorAmbient = Fx.ArenaAmbient,
-			Brightness = Fx.ArenaBrightness,
+			ClockTime = L.ClockTime or Fx.ArenaClockTime,
+			Ambient = L.Ambient or Fx.ArenaAmbient,
+			OutdoorAmbient = L.Ambient or Fx.ArenaAmbient,
+			Brightness = L.Brightness or Fx.ArenaBrightness,
 		}):Play()
+		setWeather(L.Weather)
 	else
+		setWeather(nil)
 		bloom.Enabled = false
 		color.Enabled = false
 		TweenService:Create(haze, info, { Density = 0 }):Play()

@@ -14,6 +14,9 @@
 --   · Impacto (tus golpes): llamarada, destello y líneas de velocidad; humo en los críticos.
 --   · Aura: llamas suaves saliendo de la hoja en primera persona y de la mano en tercera
 --     (también en tus compañeros que usan un arma con estilo).
+--   · Estilos con BodyAura (Carmesí): además, llamas envolviendo a todo el personaje.
+--   · Estilos con Burst (Carmesí): el Juicio y el remate del combo son una esfera gigante que
+--     crece y explota, con onda, llamas y la pantalla teñida un instante si estás cerca.
 --
 -- En calidad baja (FxQuality) hay menos partículas, menos anillos y sin aura en primera persona.
 
@@ -435,7 +438,111 @@ local function decalPart(style: any, texKey: string, cf: CFrame, size: number): 
 	return p, d
 end
 
+-- Esfera que crece y explota (estilos con Burst). big: el Juicio (más grande y con columna)
+local function sphereBurst(pos: Vector3, radius: number, style: any, big: boolean)
+	local ground = Vector3.new(pos.X, groundY(pos) + 0.6, pos.Z)
+	local R = math.max(radius, 4) * (if big then 1.1 else 0.75)
+	local center = ground + Vector3.new(0, R * 0.35, 0)
+	local function ball(color: Color3, material: Enum.Material, transparency: number): Part
+		local b = holder(CFrame.new(center))
+		b.Shape = Enum.PartType.Ball
+		b.Material = material
+		b.Color = color
+		b.Transparency = transparency
+		b.Size = Vector3.one
+		return b
+	end
+	-- Cáscara de energía, núcleo claro y un borde oscuro de contorno (look cel-shading)
+	local shell = ball(style.Light, Enum.Material.Neon, 0.25)
+	local core = ball(style.Core or Color3.new(1, 1, 1), Enum.Material.Neon, 0.1)
+	local rim = ball(style.Deep or style.Light, Enum.Material.ForceField, 0)
+	local grow = if big then 0.4 else 0.28
+	animate(grow + 0.35, function(t)
+		local g = math.clamp(t / (grow / (grow + 0.35)), 0, 1)
+		local fade = math.clamp((t - grow / (grow + 0.35)) / (1 - grow / (grow + 0.35)), 0, 1)
+		local s = R * 2 * (0.15 + 0.85 * easeOut(g)) * (1 + 0.15 * fade)
+		shell.Size = Vector3.one * s
+		rim.Size = Vector3.one * s * 1.06
+		core.Size = Vector3.one * s * (0.55 - 0.4 * fade)
+		shell.Transparency = 0.25 + 0.75 * fade
+		core.Transparency = 0.1 + 0.9 * fade
+		rim.Transparency = fade
+	end, function()
+		shell:Destroy()
+		core:Destroy()
+		rim:Destroy()
+	end)
+	-- Onda en el piso
+	local ring, ringDecal = decalPart(style, "Ring", CFrame.new(ground), R)
+	animate(0.55, function(t)
+		local s = R * (1 + 2.2 * easeOut(t))
+		ring.Size = Vector3.new(s, 0.05, s)
+		ringDecal.Transparency = t ^ 1.4
+	end, function()
+		ring:Destroy()
+	end)
+	if big then
+		local circle, circleDecal = decalPart(style, "Circle", CFrame.new(ground + Vector3.new(0, 0.02, 0)), R * 2.4)
+		animate(1, function(t, dt)
+			circle.CFrame *= CFrame.Angles(0, dt * 2, 0)
+			circleDecal.Transparency = math.clamp((t - 0.5) / 0.5, 0, 1)
+		end, function()
+			circle:Destroy()
+		end)
+	end
+	-- Llamas alrededor, humo, chispas y destello
+	local n = if low then 5 else (if big then 12 else 8)
+	for i = 1, n do
+		local a = i / n * TAU
+		burst(ground + Vector3.new(math.cos(a), 0.6, math.sin(a)) * R * 0.9, style, {
+			{ kind = "Flame", count = 1, scale = if big then 1.8 else 1.3 },
+		})
+	end
+	burst(center, style, {
+		{ kind = "Smoke", count = if big then 10 else 6, scale = 1.6 },
+		{ kind = "Speed", count = if big then 16 else 10, scale = 1.4 },
+		{ kind = "Star", count = 1, scale = if big then 3 else 2.2 },
+	})
+	local light = Instance.new("PointLight")
+	light.Color = style.Light
+	light.Range = R * 3
+	light.Brightness = 5
+	light.Parent = ring
+	-- Pantalla teñida si la explosión es cerca tuyo
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local camera = workspace.CurrentCamera
+	if root and camera and (root.Position - center).Magnitude <= R * 3 and not low then
+		local cc = Instance.new("ColorCorrectionEffect")
+		cc.TintColor = style.BurstTint or style.Light
+		cc.Saturation = 0.3
+		cc.Contrast = 0.25
+		cc.Parent = camera
+		animate(0.45, function(t)
+			cc.TintColor = (style.BurstTint or style.Light):Lerp(Color3.new(1, 1, 1), t)
+		end, function()
+			cc:Destroy()
+		end)
+	end
+end
+
+local meteor: (Vector3, number, any) -> ()
+local thornRing: (Vector3, number, any, number) -> ()
+
 local function judgment(pos: Vector3, radius: number, style: any)
+	if style.Variant == "Inferno" then
+		meteor(pos, radius, style)
+		return
+	end
+	if style.Burst then
+		sphereBurst(pos, radius, style, true)
+		if style.Variant == "Crimson" then
+			task.delay(0.2, function()
+				thornRing(pos, math.max(radius, 4) * 1.3, style, 14)
+			end)
+		end
+		return
+	end
 	local y = groundY(pos)
 	-- un poco por encima del piso para que el pasto alto no tape el círculo
 	local ground = Vector3.new(pos.X, y + 0.6, pos.Z)
@@ -507,10 +614,20 @@ local function judgment(pos: Vector3, radius: number, style: any)
 end
 
 -- Remate del combo (paso 3): la hoja pega contra el piso adelante: onda, llamas y humo
+local eruption: (Vector3, Vector3, number, any) -> ()
+
 local function finisher(origin: Vector3, dir: Vector3, range: number, style: any)
 	local flat = Vector3.new(dir.X, 0, dir.Z)
 	flat = if flat.Magnitude > 0.01 then flat.Unit else Vector3.zAxis
 	local at = origin + flat * math.max(range * 0.45, 3)
+	if style.Variant == "Inferno" then
+		eruption(origin, dir, range, style)
+		return
+	end
+	if style.Burst then
+		sphereBurst(at, range * 0.5, style, false)
+		return
+	end
 	local ground = Vector3.new(at.X, groundY(at) + 0.6, at.Z)
 	local R = math.max(range * 0.5, 4)
 	local ring, ringDecal = decalPart(style, "Ring", CFrame.new(ground), R * 0.6)
@@ -536,6 +653,230 @@ local function finisher(origin: Vector3, dir: Vector3, range: number, style: any
 end
 
 ---------------------------------------------------------------------
+-- Efectos propios de cada estilo (Variant en FxStyles): no son un cambio de color, cada arma
+-- tiene su forma de pegar.
+--   Inferno: el tajo deja fuego en el piso, el remate hace erupciones de fuego en línea, el
+--     torbellino levanta un tornado de fuego, el Juicio es un meteorito y cada golpe explota.
+--   Crimson: el tajo deja un corte en el aire que se rompe en esquirlas, los golpes marcan una
+--     X, el torbellino hace brotar espinas del piso y el Juicio suma un anillo de espinas.
+---------------------------------------------------------------------
+
+local function solidPart(size: Vector3, cf: CFrame, color: Color3, material: Enum.Material?): Part
+	local p = holder(cf)
+	p.Size = size
+	p.Color = color
+	p.Material = material or Enum.Material.Neon
+	p.Transparency = 0
+	return p
+end
+
+-- Inferno · fuego que queda en el piso a lo largo del tajo
+local function fireTrail(origin: Vector3, dir: Vector3, range: number, arc: number, style: any)
+	local flat = Vector3.new(dir.X, 0, dir.Z)
+	flat = if flat.Magnitude > 0.01 then flat.Unit else Vector3.zAxis
+	local half = math.rad(math.clamp(arc, 40, 200) / 2)
+	local n = if low then 3 else 6
+	for wave = 0, 1 do
+		task.delay(wave * 0.18, function()
+			for i = 0, n - 1 do
+				local a = -half + (i + 0.5) / n * 2 * half
+				local d = CFrame.Angles(0, a, 0):VectorToWorldSpace(flat)
+				local at = origin + d * range * 0.7
+				burst(Vector3.new(at.X, groundY(at) + 0.5, at.Z), style, {
+					{ kind = "Flame", count = 1, scale = 0.8 + 0.3 * wave },
+				})
+			end
+		end)
+	end
+end
+
+-- Inferno · columna de fuego (erupción / tornado)
+local function firePillar(ground: Vector3, height: number, width: number, dur: number, style: any, spin: number?)
+	local h = holder(CFrame.new(ground))
+	local col, a0, a1 = makeBeam(h, style, "Swirl", true)
+	local top = ground + Vector3.new(0, height, 0)
+	a0.WorldCFrame = CFrame.lookAt(ground, top)
+	a1.WorldCFrame = CFrame.lookAt(top, top + Vector3.yAxis)
+	col.TextureLength = height * 0.8
+	col.TextureSpeed = spin or 3
+	col.FaceCamera = true
+	animate(dur, function(t)
+		local rise = easeOut(math.clamp(t / 0.25, 0, 1))
+		a1.WorldCFrame = CFrame.lookAt(ground + Vector3.new(0, height * rise, 0), top + Vector3.yAxis)
+		col.Width0 = width * (1 - 0.3 * t)
+		col.Width1 = width * 0.55 * (1 - t)
+		col.Transparency = seq(math.clamp((t - 0.55) / 0.45, 0, 1))
+	end, function()
+		h:Destroy()
+	end)
+end
+
+function eruption(origin: Vector3, dir: Vector3, range: number, style: any)
+	local flat = Vector3.new(dir.X, 0, dir.Z)
+	flat = if flat.Magnitude > 0.01 then flat.Unit else Vector3.zAxis
+	local count = if low then 2 else 4
+	for i = 1, count do
+		task.delay(i * 0.06, function()
+			local at = origin + flat * (2 + range * 0.9 * i / count)
+			local ground = Vector3.new(at.X, groundY(at), at.Z)
+			firePillar(ground, 7 + i, 2.6 + i * 0.4, 0.5, style, 5)
+			burst(ground + Vector3.new(0, 1, 0), style, {
+				{ kind = "Star", count = 1, scale = 1.4 },
+				{ kind = "Smoke", count = 2, scale = 0.9 },
+			})
+		end)
+	end
+end
+
+function meteor(pos: Vector3, radius: number, style: any)
+	local ground = Vector3.new(pos.X, groundY(pos), pos.Z)
+	local R = math.max(radius, 4)
+	local from = ground + Vector3.new(-14, 46, -10)
+	local rock = solidPart(Vector3.one * 3.2, CFrame.new(from), style.Light)
+	rock.Shape = Enum.PartType.Ball
+	local shell = solidPart(Vector3.one * 4.2, CFrame.new(from), style.Deep or style.Light, Enum.Material.ForceField)
+	shell.Shape = Enum.PartType.Ball
+	local fall = 0.38
+	animate(fall, function(t)
+		local p = from:Lerp(ground + Vector3.new(0, 1.5, 0), t ^ 1.6)
+		rock.CFrame = CFrame.new(p)
+		shell.CFrame = CFrame.new(p)
+		if not low and math.random() < 0.6 then
+			burst(p, style, { { kind = "Flame", count = 1, scale = 1.1 } })
+		end
+	end, function()
+		rock:Destroy()
+		shell:Destroy()
+		-- impacto: cráter que queda, onda, explosión y columna corta
+		local crater, craterDecal = decalPart(style, "Circle", CFrame.new(ground + Vector3.new(0, 0.6, 0)), R * 2.2)
+		animate(1.6, function(t)
+			craterDecal.Transparency = math.clamp((t - 0.55) / 0.45, 0, 1)
+		end, function()
+			crater:Destroy()
+		end)
+		local ring, ringDecal = decalPart(style, "Ring", CFrame.new(ground + Vector3.new(0, 0.65, 0)), R)
+		animate(0.5, function(t)
+			local s = R * (1 + 2.4 * easeOut(t))
+			ring.Size = Vector3.new(s, 0.05, s)
+			ringDecal.Transparency = t ^ 1.3
+		end, function()
+			ring:Destroy()
+		end)
+		firePillar(ground, 12, R * 0.9, 0.55, style, 6)
+		local n = if low then 5 else 10
+		for i = 1, n do
+			local a = i / n * TAU
+			burst(ground + Vector3.new(math.cos(a), 0.6, math.sin(a)) * R * 0.8, style, { { kind = "Flame", count = 1, scale = 1.6 } })
+		end
+		burst(ground + Vector3.new(0, 1.5, 0), style, {
+			{ kind = "Star", count = 1, scale = 3.2 },
+			{ kind = "Smoke", count = 10, scale = 1.8 },
+			{ kind = "Speed", count = 8, scale = 0.9 },
+		})
+		local light = Instance.new("PointLight")
+		light.Color = style.Light
+		light.Range = R * 3
+		light.Brightness = 5
+		light.Parent = ring
+	end)
+end
+
+-- Crimson · corte en el aire que queda un instante y se rompe en esquirlas
+local function spaceCut(origin: Vector3, dir: Vector3, range: number, style: any, tilt: number)
+	local flat = Vector3.new(dir.X, 0, dir.Z)
+	flat = if flat.Magnitude > 0.01 then flat.Unit else Vector3.zAxis
+	local center = origin + flat * range * 0.55 + Vector3.new(0, 1.2, 0)
+	local len = range * 1.3
+	local cuts = {}
+	for i, ang in { tilt, tilt + (if tilt >= 0 then -35 else 35) } do
+		local cf = CFrame.lookAt(center, center + flat) * CFrame.Angles(0, 0, math.rad(ang)) * CFrame.Angles(0, math.rad(90), 0)
+		local glow = solidPart(Vector3.new(0.05, 0.42, len), cf, style.Light)
+		glow.Transparency = 0.15
+		local core = solidPart(Vector3.new(0.08, 0.14, len * 0.98), cf, Color3.new(0, 0, 0), Enum.Material.SmoothPlastic)
+		table.insert(cuts, { glow = glow, core = core, cf = cf, delay = (i - 1) * 0.05 })
+	end
+	for _, c in cuts do
+		-- se abre de golpe, queda y se rompe
+		animate(0.32 + c.delay, function(t)
+			local open = math.clamp(t / 0.15, 0, 1)
+			c.glow.Size = Vector3.new(0.05, 0.42 * (0.4 + 0.6 * open), len * easeOut(open))
+			c.core.Size = Vector3.new(0.08, 0.14, len * 0.98 * easeOut(open))
+		end, function()
+			local cf = c.cf
+			c.glow:Destroy()
+			c.core:Destroy()
+			local shards = if low then 4 else 9
+			for k = 1, shards do
+				local along = (k / (shards + 1) - 0.5) * len
+				local p = (cf * CFrame.new(0, 0, along)).Position
+				local shard = solidPart(Vector3.new(0.12, 0.5, 0.9), CFrame.new(p) * CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6), if k % 2 == 0 then style.Light else (style.Deep or style.Light))
+				local vel = Vector3.new(math.random() - 0.5, math.random() * 0.8, math.random() - 0.5).Unit * (6 + math.random() * 6)
+				animate(0.35, function(t, dt)
+					shard.CFrame = shard.CFrame + vel * dt
+					shard.Transparency = t
+					shard.Size = Vector3.new(0.12, 0.5, 0.9) * (1 - 0.6 * t)
+				end, function()
+					shard:Destroy()
+				end)
+			end
+		end)
+	end
+end
+
+-- Crimson · X marcada sobre el enemigo golpeado
+local function crossMark(pos: Vector3, style: any, crit: boolean)
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return
+	end
+	local face = CFrame.lookAt(pos, camera.CFrame.Position)
+	local size = if crit then 3.4 else 2.2
+	local bars = {}
+	for _, a in { 45, -45 } do
+		local b = solidPart(Vector3.new(0.22, size, 0.05), face * CFrame.Angles(0, 0, math.rad(a)), if crit then style.Core or style.Light else style.Light)
+		table.insert(bars, b)
+	end
+	animate(0.28, function(t)
+		for i, b in bars do
+			local grow = easeOut(math.clamp(t / 0.25, 0, 1))
+			b.Size = Vector3.new(0.22 * (1 - t), size * (0.3 + 0.7 * grow), 0.05)
+			b.Transparency = math.clamp((t - 0.4) / 0.6, 0, 1)
+		end
+	end, function()
+		for _, b in bars do
+			b:Destroy()
+		end
+	end)
+end
+
+-- Crimson · espinas que brotan del piso en círculo
+function thornRing(origin: Vector3, radius: number, style: any, count: number)
+	local n = if low then math.ceil(count / 2) else count
+	for i = 1, n do
+		local a = i / n * TAU + math.random() * 0.2
+		local at = origin + Vector3.new(math.cos(a), 0, math.sin(a)) * radius
+		local y = groundY(at)
+		local h = 3 + math.random() * 2.5
+		local lean = CFrame.Angles(math.rad(math.random(-15, 15)), 0, math.rad(math.random(-15, 15)))
+		local spike = solidPart(Vector3.new(0.7, h, 0.7), CFrame.new(at.X, y - h / 2, at.Z) * lean, style.Deep or style.Light, Enum.Material.SmoothPlastic)
+		local tip = solidPart(Vector3.new(0.45, h * 0.35, 0.45), CFrame.new(at.X, y - h * 0.1, at.Z) * lean, style.Light)
+		local base = spike.CFrame
+		local baseTip = tip.CFrame
+		task.delay(i * 0.015, function()
+			animate(0.55, function(t)
+				local up = if t < 0.2 then easeOut(t / 0.2) elseif t < 0.6 then 1 else 1 - (t - 0.6) / 0.4
+				spike.CFrame = base + Vector3.new(0, h * up, 0)
+				tip.CFrame = baseTip + Vector3.new(0, h * up, 0)
+			end, function()
+				spike:Destroy()
+				tip:Destroy()
+			end)
+		end)
+	end
+	burst(origin + Vector3.new(0, 1, 0), style, { { kind = "Star", count = 1, scale = 2 }, { kind = "Smoke", count = 4, scale = 1.2 } })
+end
+
+---------------------------------------------------------------------
 -- Impactos (tus golpes)
 ---------------------------------------------------------------------
 
@@ -558,6 +899,11 @@ combatText.OnClientEvent:Connect(function(events)
 			shown += 1
 			local crit = e.k == "crit"
 			local p = e.p + Vector3.new(0, 1, 0)
+			if style.Variant == "Crimson" then
+				crossMark(p, style, crit)
+			elseif style.Variant == "Inferno" then
+				burst(p, style, { { kind = "Star", count = 1, scale = if crit then 1.8 else 1.1 }, { kind = "Smoke", count = if crit then 3 else 1, scale = 0.8 } })
+			end
 			if crit then
 				burst(p, style, {
 					{ kind = "Flame", count = 2, scale = 0.9 },
@@ -599,12 +945,22 @@ meleeSwing.OnClientEvent:Connect(function(userId, origin, dir, range, arc, weapo
 	end
 	if arc == 360 then
 		vortex(if type(userId) == "number" then userId else 0, origin, range, style)
+		if style.Variant == "Inferno" then
+			firePillar(Vector3.new(origin.X, groundY(origin), origin.Z), 16, range * 0.55, 0.7, style, 8) -- tornado de fuego
+		elseif style.Variant == "Crimson" then
+			thornRing(origin, range * 0.75, style, 10)
+		end
 	else
 		-- El tajo sale cuando el arma termina de cargar el golpe (tiempos de SwingCombo)
 		local uid = if type(userId) == "number" then userId else 0
 		local step = SwingCombo.step(uid)
 		task.delay(SwingCombo.strikeDelay(uid, step), function()
 			slash(uid, origin, dir, range, if type(arc) == "number" then arc else 120, style)
+			if style.Variant == "Inferno" then
+				fireTrail(origin, dir, range, if type(arc) == "number" then arc else 120, style)
+			elseif style.Variant == "Crimson" then
+				spaceCut(origin, dir, range, style, SwingCombo.tilt(step) * SwingCombo.side(step))
+			end
 			if step == 3 then
 				finisher(origin, dir, range, style)
 			end
@@ -665,6 +1021,30 @@ local function setAura(part: BasePart?, style: any, scale: number, rate: number)
 	end
 end
 
+local BODY_AURA = "AnimeBodyAura"
+
+-- Llamas envolviendo a todo el personaje (estilos con BodyAura): torso y piernas
+local function setBodyAura(character: Model, style: any?)
+	for _, name in { "UpperTorso", "Torso", "LowerTorso", "LeftUpperLeg", "RightUpperLeg", "LeftUpperArm", "RightUpperArm" } do
+		local part = character:FindFirstChild(name) :: BasePart?
+		if part then
+			local current = part:FindFirstChild(BODY_AURA)
+			if style and not current then
+				local big = name == "UpperTorso" or name == "Torso"
+				local e = auraEmitter(part, style, if big then 2.2 else 1.4, if low then 4 else (if big then 26 else 12))
+				e.Name = BODY_AURA
+				e.Lifetime = NumberRange.new(0.4, 0.7)
+				e.Speed = NumberRange.new(1.5, 4)
+				e.SpreadAngle = Vector2.new(70, 70)
+				e.Acceleration = Vector3.new(0, 14, 0)
+				e.EmissionDirection = Enum.NormalId.Top
+			elseif not style and current then
+				current:Destroy()
+			end
+		end
+	end
+end
+
 local function handOf(character: Model): BasePart?
 	return (character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")) :: BasePart?
 end
@@ -685,6 +1065,17 @@ task.spawn(function()
 		for _, p in Players:GetPlayers() do
 			local character = p.Character
 			local hand = character and handOf(character)
+			if character then
+				-- Aura de cuerpo entero (no en tu propia primera persona: taparía la vista)
+				local bodyStyle = styleOf(p:GetAttribute("Weapon"))
+				if not (bodyStyle and bodyStyle.BodyAura) then
+					bodyStyle = nil
+				end
+				if p == player and player:GetAttribute("CameraView") == "FirstPerson" and player:GetAttribute("InMatch") == true then
+					bodyStyle = nil
+				end
+				setBodyAura(character, bodyStyle)
+			end
 			if hand then
 				local style = styleOf(p:GetAttribute("Weapon"))
 				local heldModel = character:FindFirstChild("HeldWeapon")

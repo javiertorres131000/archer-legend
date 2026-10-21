@@ -14,6 +14,7 @@ local StarterGui = game:GetService("StarterGui")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Chapters = require(Shared:WaitForChild("Chapters"))
+local Modes = require(Shared:WaitForChild("Modes"))
 local Theme = require(Shared:WaitForChild("UITheme"))
 local Currencies = require(Shared:WaitForChild("Currencies"))
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
@@ -261,17 +262,48 @@ local chapterHint = text({
 	TextXAlignment = Enum.TextXAlignment.Left,
 	Parent = chapterPanel,
 })
-local chapterList = make("Frame", {
+-- Capítulos y modos: lista con scroll (no entran todos a la vez)
+local chapterList = make("ScrollingFrame", {
 	Position = UDim2.new(0, 0, 0, 58),
 	Size = UDim2.new(1, 0, 1, -58),
 	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ScrollBarThickness = 6,
+	ScrollBarImageColor3 = Colors.GoldDark,
+	CanvasSize = UDim2.new(),
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	ScrollingDirection = Enum.ScrollingDirection.Y,
 	Parent = chapterPanel,
-}, { make("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }) })
+}, {
+	make("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+	make("UIPadding", { PaddingRight = UDim.new(0, 10) }),
+})
 
 type Card = { button: TextButton, stroke: UIStroke, lock: TextLabel, name: TextLabel, desc: TextLabel, record: TextLabel }
 local cards: { [string]: Card } = {}
 
+-- Capítulos y, abajo, los modos (Shared/Modes.lua): se eligen igual, por Id
+local entries: { { def: any, order: number, title: string } } = {}
 for i, ch in Chapters do
+	table.insert(entries, { def = ch, order = i, title = string.format("Capítulo %d · %s", i, ch.Name) })
+end
+text({
+	Size = UDim2.new(1, 0, 0, 24),
+	Text = "MODOS",
+	Font = Fonts.Heading,
+	TextSize = 16,
+	TextColor3 = Colors.GoldBright,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	LayoutOrder = 100,
+	Parent = chapterList,
+})
+for i, m in Modes.List do
+	table.insert(entries, { def = m, order = 100 + i, title = m.Name })
+end
+
+for _, entry in entries do
+	local ch = entry.def
+	local i = entry.order
 	local card = make("TextButton", {
 		Size = UDim2.new(1, 0, 0, 108),
 		BackgroundColor3 = Colors.PanelLight,
@@ -291,7 +323,7 @@ for i, ch in Chapters do
 	local name = text({
 		Position = UDim2.new(0, 54, 0, 0),
 		Size = UDim2.new(1, -54, 0, 26),
-		Text = string.format("Capítulo %d · %s", i, ch.Name),
+		Text = entry.title,
 		Font = Fonts.Heading,
 		TextSize = 18,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -378,13 +410,13 @@ local countdownScale = make("UIScale", { Parent = countdownLabel })
 local soonRow = make("Frame", {
 	AnchorPoint = Vector2.new(0, 1),
 	Position = UDim2.new(0, 40, 1, -48),
-	Size = UDim2.new(0, 6 * 70 + 5 * 9, 0, 84), -- 6 botones en el ancho donde entraban 5
+	Size = UDim2.new(0, 6 * 66 + 5 * 8, 0, 84), -- termina en x=476, antes de JUGAR (480 en el lienzo de 1280)
 	BackgroundTransparency = 1,
 	Parent = content,
 }, {
 	make("UIListLayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, 9),
+		Padding = UDim.new(0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}),
 })
@@ -412,7 +444,7 @@ local lobbyButtons = {
 for i, item in lobbyButtons do
 	local action = item[3]
 	local b = make("TextButton", {
-		Size = UDim2.new(0, 70, 0, 84),
+		Size = UDim2.new(0, 66, 0, 84),
 		BackgroundColor3 = Colors.Panel,
 		BackgroundTransparency = 0.15,
 		AutoButtonColor = false,
@@ -578,7 +610,8 @@ local function chapterName(id: string): string
 			return string.format("Capítulo %d · %s", i, ch.Name)
 		end
 	end
-	return id
+	local m = Modes.ById[id]
+	return if m then m.Name else id
 end
 
 local function refreshTeam()
@@ -647,6 +680,7 @@ local function refreshChapters()
 		end
 		card.record.Text = if not rec
 			then ""
+			elseif id == "tower" then string.format("Récord: piso %d", rec.best)
 			elseif rec.clears > 0 then string.format("✔ Ganado %d %s", rec.clears, if rec.clears == 1 then "vez" else "veces")
 			else string.format("Mejor: oleada %d/%d", rec.best, total)
 		local isUnlocked = unlocked[id] == true
@@ -658,12 +692,18 @@ local function refreshChapters()
 		card.name.TextColor3 = if isUnlocked then Colors.Text else Colors.Locked
 		card.button.Active = isLeader and isUnlocked
 		if not isUnlocked then
-			card.desc.Text = "Ganá el capítulo anterior para desbloquearlo."
+			card.desc.Text = if Modes.ById[id] then "Ganá el Capítulo 1 para desbloquearla." else "Ganá el capítulo anterior para desbloquearlo."
+		elseif id == "daily" then
+			card.desc.Text = "Hoy: " .. Modes.dailyText(Modes.day(os.time())) .. ". Premio extra la primera victoria del día."
 		else
 			for _, ch in Chapters do
 				if ch.Id == id then
 					card.desc.Text = ch.Description or ""
 				end
+			end
+			local m = Modes.ById[id]
+			if m then
+				card.desc.Text = m.Description
 			end
 		end
 	end

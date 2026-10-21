@@ -213,6 +213,47 @@ Props.fortress = function(parent: Instance, pos: Vector3, rng: Random)
 	end
 end
 
+Props.glacier = function(parent: Instance, pos: Vector3, rng: Random)
+	local kind = rng:NextInteger(1, 3)
+	if kind == 1 then -- cristal de hielo
+		local h = rng:NextNumber(4, 10)
+		local crystal = makePart(parent, "IceCrystal", Vector3.new(2, h, 2), CFrame.new(pos + Vector3.new(0, h / 2 - 0.5, 0)) * CFrame.Angles(rng:NextNumber(-0.3, 0.3), rng:NextNumber(0, math.pi), rng:NextNumber(-0.3, 0.3)) * CFrame.Angles(0, math.rad(45), 0), Color3.fromRGB(150, 210, 255), Enum.Material.Ice)
+		crystal.Transparency = 0.2
+	elseif kind == 2 then -- montículo de nieve
+		local s = rng:NextNumber(3, 6)
+		local mound = makePart(parent, "Snowdrift", Vector3.new(s * 1.4, s * 0.6, s), CFrame.new(pos + Vector3.new(0, s * 0.15, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0), Color3.fromRGB(240, 245, 250), Enum.Material.Snow)
+		mound.Shape = Enum.PartType.Ball
+	else -- pino nevado (bajo: no tapa la vista)
+		makePart(parent, "Trunk", Vector3.new(0.8, 2, 0.8), CFrame.new(pos + Vector3.new(0, 1, 0)), Color3.fromRGB(80, 55, 40), Enum.Material.Wood)
+		for i, w in { 4, 3, 1.8 } do
+			local cone = makePart(parent, "Pine", Vector3.new(w, 1.6, w), CFrame.new(pos + Vector3.new(0, 1.6 + i * 1.2, 0)) * CFrame.Angles(0, math.rad(45 * i), 0), Color3.fromRGB(40, 90, 70), Enum.Material.Grass)
+			cone.CanCollide = i == 1
+			local snow = makePart(parent, "PineSnow", Vector3.new(w * 0.8, 0.3, w * 0.8), CFrame.new(pos + Vector3.new(0, 2.5 + i * 1.2, 0)) * CFrame.Angles(0, math.rad(45 * i), 0), Color3.fromRGB(245, 250, 255), Enum.Material.Snow)
+			snow.CanCollide = false
+		end
+	end
+end
+
+Props.desert = function(parent: Instance, pos: Vector3, rng: Random)
+	local kind = rng:NextInteger(1, 4)
+	if kind == 1 then -- cactus
+		local h = rng:NextNumber(4, 7)
+		makePart(parent, "Cactus", Vector3.new(1.4, h, 1.4), CFrame.new(pos + Vector3.new(0, h / 2, 0)), Color3.fromRGB(70, 130, 60), Enum.Material.Grass)
+		local side = if rng:NextNumber() < 0.5 then 1 else -1
+		makePart(parent, "CactusArm", Vector3.new(2, 0.9, 0.9), CFrame.new(pos + Vector3.new(side * 1.1, h * 0.55, 0)), Color3.fromRGB(70, 130, 60), Enum.Material.Grass)
+		makePart(parent, "CactusArm", Vector3.new(0.9, 1.8, 0.9), CFrame.new(pos + Vector3.new(side * 1.7, h * 0.55 + 1.2, 0)), Color3.fromRGB(70, 130, 60), Enum.Material.Grass)
+	elseif kind == 2 then -- obelisco roto
+		local h = rng:NextNumber(5, 12)
+		makePart(parent, "Obelisk", Vector3.new(2.2, h, 2.2), CFrame.new(pos + Vector3.new(0, h / 2, 0)) * CFrame.Angles(rng:NextNumber(-0.12, 0.12), rng:NextNumber(0, math.pi), 0), Color3.fromRGB(210, 180, 120), Enum.Material.Sandstone)
+	elseif kind == 3 then -- calavera de bestia y huesos
+		makePart(parent, "Bone", Vector3.new(4, 0.6, 0.6), CFrame.new(pos + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0), Color3.fromRGB(240, 230, 205), Enum.Material.Slate)
+		makePart(parent, "Skull", Vector3.new(1.8, 1.4, 2.2), CFrame.new(pos + Vector3.new(1.5, 0.7, 0.5)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0), Color3.fromRGB(240, 230, 205), Enum.Material.Slate)
+	else -- roca de arenisca
+		local s = rng:NextNumber(3, 6)
+		makePart(parent, "Mesa", Vector3.new(s * 1.3, s * 0.8, s), CFrame.new(pos + Vector3.new(0, s * 0.35, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0), Color3.fromRGB(195, 140, 90), Enum.Material.Sandstone)
+	end
+end
+
 -- Variación de color por sala para que se note el cambio
 local function shade(color: Color3, rng: Random): Color3
 	local k = rng:NextNumber(0.8, 1.15)

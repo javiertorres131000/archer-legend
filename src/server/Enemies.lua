@@ -48,6 +48,9 @@ export type Enemy = {
 	visual: any, -- EnemyVisuals: modelo u ojos
 	farFor: number, -- segundos seguidos lejos de todos (para reubicarlo)
 	stunUntil: number?, -- aturdido (Uppercut): no se mueve ni pega hasta entonces
+	slowUntil: number?, -- frenado (Toque helado) hasta entonces
+	slowAmount: number?, -- cuánto lo frena (0.3 = 30% más lento)
+	vuln: number?, -- recibe este extra de daño de todos (Rompeguardias: 0.2 = +20%)
 	grabbing: Player?, -- jugador que tiene agarrado (Grab)
 	grabHits: { [Player]: number }?, -- daño recibido mientras agarra (quién lo salvó)
 	grabLockUntil: number?, -- no puede volver a agarrar hasta entonces
@@ -104,6 +107,25 @@ function Enemies.flyBob(enemy: Enemy, now: number): number
 	end
 	local phase = enemy.bobPhase or 0
 	return math.sin(now * (EnemyCfg.FlyBobSpeed or 2) + phase) * (EnemyCfg.FlyBob or 0)
+end
+
+-- Cómo se mueve el modelo en pantalla (EnemyAnimator, cliente):
+--   "Hop" a saltitos (los redondos que se mueven a saltitos: slimes) · "Fly" vuela · "Still" quieto (torres,
+--   plantas) · "Walk" camina (piernas y brazos, si el modelo los tiene)
+function Enemies.gaitOf(def: any): string
+	if def.Gait then
+		return def.Gait -- forzado en EnemyTypes
+	end
+	local move = def.Move or (def.Phases and def.Phases[1] and def.Phases[1].Move)
+	local kind = move and move.Type
+	if kind == "Erratic" and (def.Shape == "Ball" or string.find(def.Name or "", "Slime", 1, true)) then
+		return "Hop"
+	elseif (def.Float or 0) > 0 then
+		return "Fly"
+	elseif kind == "Still" or kind == nil then
+		return "Still"
+	end
+	return "Walk"
 end
 
 function Enemies.clampFlat(pos: Vector3, margin: number): Vector3
@@ -233,6 +255,7 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 	part.Name = typeId
 	part:SetAttribute("ThreatRole", def.Role or (if def.Boss then "Boss" else "Horde"))
 	if def.Role == "Elite" then part:SetAttribute("Elite", true) end
+	part:SetAttribute("Gait", Enemies.gaitOf(def)) -- cómo lo anima el cliente (EnemyAnimator)
 	if def.Shape == "Ball" then
 		part.Shape = Enum.PartType.Ball
 		part.Size = Vector3.one * size
@@ -345,6 +368,7 @@ function Enemies.damage(enemy: Enemy, amount: number, attacker: Player?, kind: s
 	if not enemy.alive or enemy.hidden or amount <= 0 then
 		return
 	end
+	amount *= 1 + (enemy.vuln or 0) -- Rompeguardias
 	local dealt = math.min(amount, enemy.health)
 	-- Mientras agarra a alguien: quién le pega (para saber quién lo salvó)
 	if enemy.grabbing and attacker and enemy.grabHits then
@@ -522,6 +546,12 @@ function Enemies.update(dt: number, targets: { PlayerData.Target }, now: number,
 			desired, facing, separate = pos, nil, false
 		else
 			desired, facing, separate = EnemyAI.step(e, dt, targets)
+			-- Frenado (Toque helado): recorre menos de lo que quería
+			if e.slowUntil and now < e.slowUntil then
+				desired = pos + (desired - pos) * (1 - math.clamp(e.slowAmount or 0, 0, 0.8))
+			else
+				e.slowAmount = 0
+			end
 		end
 
 		if separate then

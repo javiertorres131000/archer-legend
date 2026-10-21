@@ -402,6 +402,13 @@ player:GetAttributeChangedSignal("Synergy"):Connect(function()
 	end
 end)
 
+-- Segunda tanda de habilidades del arma (Config.Progression.SecondTierLevel)
+gameState:GetAttributeChangedSignal("SecondTier"):Connect(function()
+	if gameState:GetAttribute("SecondTier") == true and player:GetAttribute("InMatch") == true then
+		shout("¡NUEVA TANDA DE HABILIDADES!", Color3.fromRGB(255, 215, 90), false, "Tu arma ya puede sacar sus habilidades avanzadas")
+	end
+end)
+
 ---------------------------------------------------------------------
 -- Eventos
 ---------------------------------------------------------------------

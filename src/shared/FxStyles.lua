@@ -24,6 +24,12 @@
 --   Core   centro de la estela del arma (casi blanco)
 --   Deep   cola de la estela (oscuro)
 --   Flash  tinte de la pantalla después del "impact frame"
+--
+-- Rasgos opcionales del estilo (los dibuja AnimeFx):
+--   BodyAura = true  llamas del color del estilo envolviendo a todo el personaje
+--   Variant          efectos propios del arma además de los comunes: "Inferno" o "Crimson"
+--   Burst = true     el Juicio y el remate del combo son una esfera gigante que explota
+--                    (en vez de la columna), y la pantalla se tiñe (BurstTint)
 
 local FxStyles = {}
 
@@ -45,8 +51,32 @@ FxStyles.Styles = {
 			Speedline = "rbxassetid://80339343196939",
 		},
 	},
+	Crimson = {
+		Name = "Carmesí",
+		Variant = "Crimson", -- corte en el aire, X en cada golpe, espinas (AnimeFx)
+		Light = Color3.fromRGB(255, 40, 60),
+		Core = Color3.fromRGB(255, 220, 225),
+		Deep = Color3.fromRGB(90, 0, 12),
+		Flash = Color3.fromRGB(255, 120, 130),
+		BodyAura = true,
+		Burst = true,
+		BurstTint = Color3.fromRGB(255, 70, 80),
+		-- Texturas: python tools/gen_vfx_textures.py assets/vfx crimson (al_vfx_crimson_*.png)
+		-- Importar y pegar los IDs acá (vacío = respaldo de Roblox)
+		Textures = {
+			Flame = "",
+			Smoke = "",
+			Slash = "",
+			Swirl = "",
+			Ring = "",
+			Circle = "",
+			Star = "",
+			Speedline = "",
+		},
+	},
 	Inferno = {
 		Name = "Infierno",
+		Variant = "Inferno", -- fuego en el piso, erupciones, tornado, meteorito (AnimeFx)
 		Light = Color3.fromRGB(255, 120, 40),
 		Core = Color3.fromRGB(255, 246, 210),
 		Deep = Color3.fromRGB(170, 20, 10),

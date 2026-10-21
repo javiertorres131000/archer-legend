@@ -7,11 +7,14 @@
 --
 -- El cliente recibe la lista en el atributo "UnlockedChapters" del Player ("forest,ruins")
 -- y los récords en "ChapterRecords" ("forest=2/10": ganado 2 veces, mejor oleada 10).
+-- Los modos (Shared/Modes.lua) van en las mismas listas: "daily" siempre; "tower" cuando ganaste
+-- su capítulo Requires. Su récord también ("tower=0/37": piso 37).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Chapters = require(Shared:WaitForChild("Chapters"))
+local Modes = require(Shared:WaitForChild("Modes"))
 local Profiles = require(script.Parent.Profiles)
 
 local ChapterUnlocks = {}
@@ -29,12 +32,21 @@ local function publish(player: Player)
 			table.insert(ids, ch.Id)
 		end
 	end
+	for _, m in Modes.List do
+		if set[m.Id] then
+			table.insert(ids, m.Id)
+		end
+	end
 	player:SetAttribute("UnlockedChapters", table.concat(ids, ","))
 	-- Récords para el lobby: "forest=2/10,ruins=0/4" (veces ganado / mejor oleada)
 	local data = Profiles.get(player)
 	local records = {}
 	if data then
-		for _, ch in Chapters do
+		local all = table.clone(Chapters) :: { any }
+		for _, m in Modes.List do
+			table.insert(all, m)
+		end
+		for _, ch in all do
 			local rec = data.Chapters[ch.Id]
 			if rec and (rec.Clears > 0 or rec.BestWave > 0) then
 				table.insert(records, string.format("%s=%d/%d", ch.Id, rec.Clears, rec.BestWave))
@@ -57,6 +69,20 @@ function ChapterUnlocks.refresh(player: Player)
 		local rec = data and data.Chapters[ch.Id]
 		if ch.UnlockedByDefault or Config.Debug.UnlockAllChapters or (rec and rec.Unlocked) then
 			set[ch.Id] = true
+		end
+	end
+	-- Modos: sin Requires, siempre; con Requires, cuando ganaste ese capítulo (o ya tenés
+	-- desbloqueado el que venía después: así también funciona "Desbloquear capítulos" del F2)
+	for _, m in Modes.List do
+		local rec = m.Requires and data and data.Chapters[m.Requires]
+		local open = not m.Requires or Config.Debug.UnlockAllChapters or (rec ~= nil and rec.Clears > 0)
+		for _, ch in Chapters do
+			if m.Requires and ch.Requires == m.Requires and set[ch.Id] then
+				open = true
+			end
+		end
+		if open then
+			set[m.Id] = true
 		end
 	end
 	unlocked[player] = set
@@ -102,6 +128,11 @@ function ChapterUnlocks.onChapterCleared(player: Player, chapterId: string)
 			if rec then
 				rec.Unlocked = true
 			end
+		end
+	end
+	for _, m in Modes.List do
+		if m.Requires == chapterId then
+			set[m.Id] = true -- se calcula de las victorias (refresh): no hace falta guardarlo
 		end
 	end
 	publish(player)

@@ -1,5 +1,54 @@
 # Cambios
 
+## 2026-10-21 · Efectos propios para la Hoja Infernal y la Katana Carmesí
+
+Ya no son un cambio de color de los de escarcha: cada arma tiene formas y comportamientos propios.
+
+- **Texturas con forma propia** (`tools/vfx_shapes.py`, usado por `gen_vfx_textures.py`):
+  - Infernal: llamas con varias lenguas y brasas, humo negro iluminado desde abajo, tajo grueso con llamas en el borde, pared de fuego, anillo con púas, cráter de lava, explosión irregular y cometa.
+  - Carmesí: espinas que se quiebran, hilos de humo en espiral, tajo de navaja con núcleo negro, doble hélice, anillo de esquirlas, sigilo hexagonal, estrella de agujas y aguja.
+- **Comportamientos propios** (`AnimeFx`, campo `Variant` de `FxStyles`):
+  - Infernal: cada tajo deja fuego en el piso, el remate del combo levanta 4 columnas de fuego en línea, el torbellino suma un tornado de fuego, cada golpe explota y el Juicio es un meteorito que cae y deja un cráter.
+  - Carmesí: cada tajo deja un corte en el aire con núcleo negro que se rompe en esquirlas, cada golpe marca una X roja, el torbellino hace brotar un anillo de espinas y el Juicio suma un anillo de espinas grande a la esfera que explota.
+- Hay que reimportar las 8 texturas infernales (cambiaron de forma) e importar las 8 carmesí.
+
+## 2026-10-21 · Katana Carmesí
+
+- **Katana Carmesí** (`CrimsonKatana`, mítica, caja de armas): tercera arma especial, original.
+  - Hoja negra curva con el filo y las vetas rojas brillantes, guarda cuadrada con gema roja y atado rojo y negro (`tools/build_crimson_katana.luau`).
+  - Juega como espada: más pesada que la de escarcha y más rápida que la infernal.
+- **Estilo `Crimson`** (`FxStyles`): paleta roja con contorno casi negro (`tools/gen_vfx_textures.py`, 8 texturas en `assets/vfx`). Trae dos rasgos nuevos que dibuja `AnimeFx`:
+  - `BodyAura`: llamas carmesí envolviendo a todo el personaje, en el lobby y en partida, también vistas por los demás. Tu propia primera persona no las muestra, para no tapar la vista.
+  - `Burst`: el remate del combo y el Juicio son una esfera roja que crece y explota, con onda en el piso, llamas, humo y la pantalla teñida de rojo si estás cerca.
+- La caja de armas queda en 34/33/33 y sigue sin repetir.
+- Panel F2: botón **Todas las armas especiales** para probarlas sin abrir cajas.
+
+## 2026-10-21 · Glaciar y Desierto, Torre infinita, Desafío diario, 24 habilidades y modelos de enemigos
+
+- **Modelos de todos los enemigos** generados con IA en Studio (`ServerStorage/EnemyModels`, viven en el place), separados en partes para animarlos.
+- **Animaciones** (`EnemyAnimator`, cliente):
+  - Los que caminan balancean piernas y brazos según la velocidad.
+  - Los slimes se estiran, saltan en arco y se aplastan al caer con rebote; quietos, respiran.
+  - Lo decide el atributo `Gait` del servidor (`Enemies.gaitOf`).
+- **Habilidades:** 24 nuevas, 51 en total.
+  - 6 comunes: Vampirismo, Toque helado, Rayo en cadena, Escudo de maná, Reflejos y Cadáver explosivo.
+  - Una **segunda tanda de 6 por arma** (`Tier = 2`, desde el nivel 6, con aviso en el HUD), incluida una legendaria nueva por arma: Flecha fantasma, Danza de espadas y Puño del dragón.
+  - Efectos en `SkillEffects` (servidor) y `SkillVisuals` (cliente, `Remotes.SkillFx`). Los enemigos ahora pueden estar frenados (`slowUntil`) o vulnerables (`vuln`).
+- **Sinergias con bono:** las 14 de antes ahora dan un bono real y hay 15 nuevas (29). Se aplica una vez por partida y se ve en el cartel.
+- **Capítulos 4 y 5:** Glaciar Eterno y Desierto de los Reyes.
+  - 16 enemigos nuevos, 2 de ellos mini jefes y 2 jefes: Yeti, Reina de Hielo, Gólem de arena y Faraón Eterno.
+  - Terreno, decoración, luz y clima propios: nieve y arena.
+- **Modos** (`Shared/Modes.lua`):
+  - **Torre infinita:** pisos sin fin que cambian de ambientación cada 10, con jefes, récord y premios por hito.
+  - **Desafío diario:** ambientación y 2 modificadores por día, con premio la primera victoria del día.
+  - `Waves.setMode`, `Run.start(..., mode)` y `Rewards` (torre sin tope de pisos, premio diario).
+  - Perfil **versión 10** (`Modes.DailyWonDay`).
+- **Lobby:** la lista de capítulos tiene scroll y una sección MODOS. Los botones de abajo ya no se pisan con JUGAR.
+- Pruebas nuevas: `test_skills_t2.luau` y `test_modes.luau`. Probado en Studio:
+  - torre hasta el piso 11, con cambio a Ruinas;
+  - habilidades nuevas en partida (rayo, esquiva y onda cortante);
+  - sin errores en la consola.
+
 ## 2026-10-21 · Misiones, tienda, más premios y Hoja Infernal
 
 - **Misiones diarias y semanales** (`Shared/Missions.lua`, `MissionService`, `Remotes.MissionRequest`):

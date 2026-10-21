@@ -409,6 +409,7 @@ test("caja de armas: no repite, se elige como arma y no se abre si ya tenés tod
 	atStation(idx)
 	data.Crates.Owned.FrostKatana = nil
 	data.Crates.Owned.InfernoBlade = nil
+	data.Crates.Owned.CrimsonKatana = nil
 	data.Weapon = "Bow"
 	setGold(100000)
 	-- Sin la katana no se puede elegir (ni pidiéndola a mano)
@@ -425,11 +426,15 @@ test("caja de armas: no repite, se elige como arma y no se abre si ya tenés tod
 	eq(p:GetAttribute("OwnedWeapons"), "FrostKatana", "atributo OwnedWeapons")
 	M.advance(Cfg.OpenCooldown + 0.1)
 	r = open("Weapons")
-	CrateService._forceRoll(nil)
 	assert(r.Ok, tostring(r.Error))
 	eq(r.Prize, "InfernoBlade", "segunda arma")
 	eq(data.Crates.Owned.FrostKatana, 1, "no repitió")
 	eq(p:GetAttribute("OwnedWeapons"), "FrostKatana,InfernoBlade", "OwnedWeapons con las dos")
+	r = open("Weapons")
+	CrateService._forceRoll(nil)
+	assert(r.Ok, tostring(r.Error))
+	eq(r.Prize, "CrimsonKatana", "tercera arma")
+	eq(p:GetAttribute("OwnedWeapons"), "FrostKatana,InfernoBlade,CrimsonKatana", "OwnedWeapons con las tres")
 	-- Ya la tiene toda: no deja abrir de nuevo ni cobra
 	local gold = data.Currencies.Gold
 	local again = open("Weapons")

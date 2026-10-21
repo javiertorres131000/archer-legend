@@ -16,6 +16,7 @@ local Enemies = require(script.Parent.Enemies)
 local PlayerData = require(script.Parent.PlayerData)
 local PlayerLife = require(script.Parent.PlayerLife)
 local Weapons = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Weapons"))
+local SkillEffects = require(script.Parent.SkillEffects)
 
 local PlayerCfg = Config.Player
 local ProjCfg = Config.Projectile
@@ -36,6 +37,7 @@ type Projectile = {
 	bounces: number,
 	burn: boolean,
 	farDamage: number, -- Ojo del cazador: daño extra si el enemigo está lejos del dueño
+	source: string, -- "arrow" (flecha de arco) | "wave" (onda de la espada) · SkillEffects
 	hit: { [Enemies.Enemy]: boolean }, -- enemigos ya golpeados (no se repiten)
 }
 
@@ -118,6 +120,7 @@ end
 function Combat.init(r, arenaHalf: Vector3)
 	remotes = r
 	half = arenaHalf
+	SkillEffects.setRemotes(r)
 	if r.AttackRequest then
 		r.AttackRequest.OnServerEvent:Connect(Combat.setTrigger)
 	end
@@ -127,8 +130,14 @@ local function rotateFlat(dir: Vector3, degrees: number): Vector3
 	return CFrame.Angles(0, math.rad(degrees), 0):VectorToWorldSpace(dir)
 end
 
--- giant: Tiro cargado (flecha gigante: triple de daño y atraviesa todo)
-local function spawnProjectile(player: Player, stats: PlayerData.Stats, origin: Vector3, dir: Vector3, giant: boolean?)
+-- Opciones de un proyectil del jugador (habilidades): damage (en vez del daño normal), pierce,
+-- size (se ve más grande), wave (onda de la espada: no rebota ni explota), ghost (fantasma)
+export type ShotOptions = { damage: number?, pierce: number?, size: number?, wave: boolean?, ghost: boolean? }
+
+-- giant: Tiro cargado (flecha gigante: triple de daño y atraviesa todo). O una tabla de opciones.
+local function spawnProjectile(player: Player, stats: PlayerData.Stats, origin: Vector3, dir: Vector3, giant: any?)
+	local o: ShotOptions = if type(giant) == "table" then giant else {}
+	local isGiant = giant == true
 	nextId += 1
 	table.insert(projectiles, {
 		id = nextId,
@@ -136,20 +145,23 @@ local function spawnProjectile(player: Player, stats: PlayerData.Stats, origin: 
 		pos = origin,
 		dir = dir,
 		age = 0,
-		damage = stats.damage * (if giant then 3 else 1),
+		damage = o.damage or stats.damage * (if isGiant then 3 else 1),
 		critChance = stats.critChance,
 		critMultiplier = stats.critMultiplier,
-		pierce = if giant then 999 else stats.pierce,
-		bounces = if giant then 0 else stats.ricochet,
+		pierce = o.pierce or (if isGiant then 999 else stats.pierce),
+		bounces = if isGiant or o.wave or o.ghost then 0 else stats.ricochet,
 		burn = stats.burn,
 		farDamage = stats.farDamage or 0,
+		source = if o.wave then "wave" else "arrow",
 		hit = {},
 	})
-	remotes.ProjectileFired:FireAllClients(nextId, origin, dir, ProjCfg.Speed, ProjCfg.Lifetime, player.UserId, if giant then { size = 3 } else nil)
+	local style = if isGiant then { size = 3 } elseif o.size or o.wave or o.ghost then { size = o.size, wave = o.wave, ghost = o.ghost } else nil
+	remotes.ProjectileFired:FireAllClients(nextId, origin, dir, ProjCfg.Speed, ProjCfg.Lifetime, player.UserId, style)
 end
 
 -- Una "ráfaga": flechas paralelas al frente + pares diagonales.
-local function fireVolley(target: PlayerData.Target, dir: Vector3)
+-- echo: es la repetición del Disparo doble (no cuenta como otro disparo)
+local function fireVolley(target: PlayerData.Target, dir: Vector3, echo: boolean?)
 	local stats = target.state.stats
 	local origin = target.root.Position
 	local right = dir:Cross(Vector3.yAxis).Unit
@@ -174,10 +186,14 @@ local function fireVolley(target: PlayerData.Target, dir: Vector3)
 
 	-- Tiro cargado: cada N disparos, además, una flecha gigante
 	local state = target.state
+	if echo then
+		return
+	end
 	state.attacks = (state.attacks or 0) + 1
 	if (stats.chargedEvery or 0) > 0 and state.attacks % stats.chargedEvery == 0 then
 		spawnProjectile(target.player, stats, origin, dir, true)
 	end
+	SkillEffects.afterVolley(target, dir) -- disparo doble, anillo de flechas
 end
 
 -- Enemigo más cercano a tiro. En primera persona, solo los que están delante del jugador
@@ -234,6 +250,8 @@ function Combat.meleeSwing(t: PlayerData.Target, dir: Vector3, weapon: any, opts
 	local comboMult = 1 + math.min((state.combo or 0) * (stats.comboStep or 0), 0.5)
 	local damage = stats.damage * weapon.DamageMult * comboMult
 		* (1 + stats.frontArrows * bonus.FrontArrow + (stats.pierce + stats.ricochet) * bonus.PierceRicochet)
+	local baseDamage = damage
+	damage *= SkillEffects.swingMult(state) -- Contraataque
 	local origin = flat(t.root.Position)
 	local hits = 0
 	for _, e in table.clone(Enemies.list) do
@@ -256,8 +274,15 @@ function Combat.meleeSwing(t: PlayerData.Target, dir: Vector3, weapon: any, opts
 		if stats.burn then
 			Enemies.applyBurn(e, dealt * ProjCfg.BurnFraction * (1 + (stats.burnBonus or 0)), ProjCfg.BurnDuration, t.player)
 		end
+		dealt *= SkillEffects.hitMult(stats, e, "melee")
 		local crit = math.random() < stats.critChance
-		Enemies.damage(e, if crit then dealt * stats.critMultiplier else dealt, t.player, if crit then "crit" else "hit")
+		local amount = if crit then dealt * stats.critMultiplier else dealt
+		Enemies.damage(e, amount, t.player, if crit then "crit" else "hit")
+		-- Doble golpe (puños): pega otra vez
+		if e.alive and SkillEffects.doubleHit(stats) then
+			Enemies.damage(e, amount, t.player, if crit then "crit" else "hit")
+		end
+		SkillEffects.onHit(t.player, stats, e, amount, "melee", origin)
 		if not e.alive then
 			-- Sed de sangre
 			if (stats.healOnKill or 0) > 0 and t.humanoid.Health > 0 then
@@ -280,6 +305,7 @@ function Combat.meleeSwing(t: PlayerData.Target, dir: Vector3, weapon: any, opts
 	if remotes then
 		remotes.MeleeSwing:FireAllClients(t.player.UserId, t.root.Position, dir, range, arc, weapon.Id)
 	end
+	SkillEffects.afterSwing(t, dir, baseDamage) -- onda cortante, golpe sísmico
 	return hits
 end
 
@@ -362,8 +388,9 @@ local function updateAttacks(targets: { PlayerData.Target }, now: number)
 			continue
 		end
 		updatePowers(t, now)
+		SkillEffects.update(t, now) -- poderes de las habilidades nuevas
 		local weapon = Weapons.get(state.stats.weaponId or state.stats.weapon) -- especial: sus números
-		local interval = state.stats.attackInterval * weapon.IntervalMult
+		local interval = state.stats.attackInterval * weapon.IntervalMult * SkillEffects.intervalMult(t)
 		if now < (state.burstUntil or 0) then
 			interval /= 3 -- Ráfaga de mil puños
 		end
@@ -452,6 +479,11 @@ local function updateProjectiles(dt: number, allowDamage: boolean)
 			-- Crítico: se sortea en cada impacto
 			local crit = math.random() < p.critChance
 			local damage = if crit then p.damage * p.critMultiplier else p.damage
+			local ownerStats = PlayerData.get(p.owner)
+			local skillStats = ownerStats and ownerStats.stats
+			if skillStats then
+				damage *= SkillEffects.hitMult(skillStats, e, p.source) -- Primera sangre
+			end
 			-- Ojo del cazador: más daño si el enemigo está lejos del arquero
 			if p.farDamage > 0 then
 				local ownerRoot = p.owner.Character and p.owner.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -460,6 +492,9 @@ local function updateProjectiles(dt: number, allowDamage: boolean)
 				end
 			end
 			Enemies.damage(e, damage, p.owner, if crit then "crit" else "hit")
+			if skillStats then
+				SkillEffects.onHit(p.owner, skillStats, e, damage, p.source, p.pos)
+			end
 			-- Retroceso (los jefes no se mueven)
 			if e.alive and not e.isBoss then
 				Enemies.knockback(e, p.dir, Config.Frenzy.Knockback * (if crit then 2 else 1))
@@ -620,5 +655,8 @@ function Combat.clear()
 	table.clear(projectiles)
 	table.clear(enemyProjectiles)
 end
+
+-- Las habilidades nuevas disparan flechas y ondas con las mismas funciones (SkillEffects)
+SkillEffects.init(nil, Enemies, spawnProjectile, fireVolley)
 
 return Combat

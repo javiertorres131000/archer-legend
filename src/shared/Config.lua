@@ -37,6 +37,8 @@ Config.Map = {
 		forest = { Top = Enum.Material.Grass, Under = Enum.Material.Ground, Cliff = Enum.Material.Rock },
 		ruins = { Top = Enum.Material.Sandstone, Under = Enum.Material.Sandstone, Cliff = Enum.Material.Slate },
 		fortress = { Top = Enum.Material.Basalt, Under = Enum.Material.Basalt, Cliff = Enum.Material.CrackedLava },
+		glacier = { Top = Enum.Material.Snow, Under = Enum.Material.Glacier, Cliff = Enum.Material.Ice },
+		desert = { Top = Enum.Material.Sand, Under = Enum.Material.Sandstone, Cliff = Enum.Material.Sandstone },
 	},
 }
 
@@ -106,6 +108,13 @@ Config.Enemy = {
 	WingFlapAngle = 35, -- grados de aleteo hacia cada lado
 	WingFlapSpeed = 14, -- velocidad del aleteo (radianes por segundo, ~2 aleteos por segundo)
 	AnimateDistance = 150, -- más lejos que esto no se anima (rendimiento)
+	-- Caminar (modelos con piernas "left leg"/"right leg" y Gait = "Walk")
+	WalkSwing = 38, -- grados que se abre cada pierna a velocidad normal
+	WalkStride = 0.9, -- radianes de paso por stud recorrido (más = pasos más cortos y rápidos)
+	-- Saltitos (slimes, Gait = "Hop")
+	HopTime = 0.42, -- segundos de cada salto
+	HopHeight = 0.45, -- altura del salto, en alturas del modelo
+	HopSquash = 0.3, -- cuánto se aplasta y estira (0.3 = 30%)
 	ModelTint = 0.45, -- cuánto se tiñe el modelo con el color de su enemigo (0 = nada, 1 = todo)
 	Eyes = true, -- ojos en las figuras que no tienen modelo
 	-- Indicador brillante arriba de cada enemigo (EnemyMarkers, en el cliente): se ve a través de
@@ -189,6 +198,8 @@ Config.Rooms = {
 		forest = Enum.Material.Grass,
 		ruins = Enum.Material.Cobblestone,
 		fortress = Enum.Material.Basalt,
+		glacier = Enum.Material.Snow,
+		desert = Enum.Material.Sand,
 	},
 }
 
@@ -272,6 +283,9 @@ Config.Progression = {
 	-- Carta dorada sorpresa: con esta probabilidad, una de las cartas de la oferta viene dorada y
 	-- da 2 niveles de esa habilidad de una vez (solo en habilidades con lugar para 2 niveles más).
 	GoldenCardChance = 0.05,
+	-- Segunda tanda del mazo de cada arma (Skills con Tier = 2): sale desde este nivel de la
+	-- partida. Al llegar, el HUD avisa "¡Nueva tanda de habilidades!".
+	SecondTierLevel = 6,
 }
 
 -- Lobby y ciclo de partida (MatchManager)

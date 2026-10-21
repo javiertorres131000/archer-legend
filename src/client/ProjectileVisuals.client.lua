@@ -20,7 +20,7 @@ local localPlayer = Players.LocalPlayer
 local low = FxQuality.isLow()
 local lights = 0 -- luces en proyectiles enemigos (con muchas, cuesta rendimiento)
 local MAX_LIGHTS = 10
-local pools = { Arrow = {}, EnemyOrb = {} }
+local pools = { Arrow = {}, EnemyOrb = {}, Wave = {} }
 local MAX_POOL = if low then 40 else 100
 
 -- Estela de color detrás de la flecha (no en calidad baja)
@@ -135,7 +135,8 @@ end
 projectileFired.OnClientEvent:Connect(
 	function(id: number, origin: Vector3, dir: Vector3, speed: number, lifetime: number, ownerUserId: number, style)
 		local isEnemy = ownerUserId == 0 -- 0 = proyectil enemigo
-		local kind = if isEnemy then "EnemyOrb" else "Arrow"
+		local isWave = not isEnemy and style ~= nil and style.wave == true -- Onda cortante (espada)
+		local kind = if isEnemy then "EnemyOrb" elseif isWave then "Wave" else "Arrow"
 		local part = table.remove(pools[kind]) or Instance.new("Part")
 		part.Name = kind
 		part.Anchored = true
@@ -157,15 +158,28 @@ projectileFired.OnClientEvent:Connect(
 				light.Brightness = 2
 				light.Parent = part
 			end
+		elseif isWave then
+			-- Media luna de energía, ancha y plana
+			local scale = style.size or 3
+			part.Shape = Enum.PartType.Block
+			part.Size = Vector3.new(scale * 1.6, 0.3, 0.9)
+			part.Color = Color3.fromRGB(200, 235, 255)
+			part.Transparency = 0.15
+			if not low then
+				local trail = part:FindFirstChildOfClass("Trail")
+				if trail then trail.Enabled = true else addTrail(part, part.Color, 0.25) end
+			end
 		else
 			part.Shape = Enum.PartType.Block
+			part.Transparency = if style and style.ghost then 0.4 else 0
 			-- style.size: flecha gigante (Tiro cargado)
 			local scale = if style and style.size then style.size else 1
 			-- Vara de madera; las plumas dicen de quién es (dorado: tuya · azul: compañero · naranja: gigante)
 			part.Size = Vector3.new(0.1, 0.1, 2.2) * scale
 			part.Material = Enum.Material.Wood
 			part.Color = Color3.fromRGB(120, 80, 45)
-			local feather = if scale > 1 then Color3.fromRGB(255, 150, 60)
+			local feather = if style and style.ghost then Color3.fromRGB(190, 140, 255) -- Flecha fantasma
+				elseif scale > 1 then Color3.fromRGB(255, 150, 60)
 				elseif ownerUserId == localPlayer.UserId then Color3.fromRGB(255, 220, 110)
 				else Color3.fromRGB(150, 200, 255)
 			part.CFrame = CFrame.lookAt(origin, origin + dir)

@@ -27,6 +27,8 @@ local ChapterUnlocks = require(script.Parent.ChapterUnlocks)
 local TalentService = require(script.Parent.TalentService)
 local Run = require(script.Parent.Run)
 local RunLog = require(script.Parent.RunLog)
+local WeaponService = require(script.Parent.WeaponService)
+local Weapons = require(Shared:WaitForChild("Weapons"))
 
 local DebugCommands = {}
 
@@ -104,7 +106,7 @@ local Actions: { [string]: { label: string, match: boolean?, run: (Player) -> (b
 		return true, n .. " enemigos"
 	end },
 	Boss = { label = "Aparecer jefe", match = true, run = function(p)
-		local ch = Chapters[Run.chapterIndex()]
+		local ch = Run.currentChapter() -- capítulo, piso de la torre o desafío del día
 		local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if not ch or not ch.Boss or not root then
 			return false, "Sin jefe o sin personaje"
@@ -140,6 +142,23 @@ local Actions: { [string]: { label: string, match: boolean?, run: (Player) -> (b
 		humanoid.Health = humanoid.MaxHealth
 		return true, "Vida al máximo"
 	end },
+	-- Te da todas las armas especiales (como si salieran de la caja de armas) y queda guardado
+	Weapons = { label = "Todas las armas especiales", run = function(p)
+		local data = Profiles.get(p)
+		if not data then
+			return false, "Perfil sin cargar"
+		end
+		local n = 0
+		for _, w in Weapons.List do
+			if w.Prize and (data.Crates.Owned[w.Prize] or 0) <= 0 then
+				data.Crates.Owned[w.Prize] = 1
+				n += 1
+			end
+		end
+		WeaponService.publish(p)
+		Profiles.saveSoon(p)
+		return true, n .. " armas nuevas (elegilas en ⚔️ Arma)"
+	end },
 	-- Solo visual (no hace daño): para ver los efectos del arma sin esperar a que salgan
 	FxWhirl = { label = "Efecto: Torbellino", match = true, run = function(p)
 		local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -163,7 +182,7 @@ local Actions: { [string]: { label: string, match: boolean?, run: (Player) -> (b
 DebugCommands.Actions = Actions
 
 -- Orden en el panel
-DebugCommands.Order = { "Gold", "Gems", "Stones", "Levels", "Chapters", "Report", "SkipWave", "KillAll", "Boss", "LevelUp", "Item", "Heal", "FxWhirl", "FxJudgment" }
+DebugCommands.Order = { "Gold", "Gems", "Stones", "Levels", "Chapters", "Weapons", "Report", "SkipWave", "KillAll", "Boss", "LevelUp", "Item", "Heal", "FxWhirl", "FxJudgment" }
 
 function DebugCommands.run(player: Player, action: any): (boolean, string)
 	if not DebugCommands.allowed(player) then

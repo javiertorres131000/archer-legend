@@ -99,6 +99,9 @@ local Remotes = {
 	-- servidor -> todos: (userId, origen, dirección, alcance, arco en grados, Id del arma) golpe
 	-- cuerpo a cuerpo, para dibujarlo
 	MeleeSwing = event("MeleeSwing"),
+	-- servidor -> todos: (tipo, posición, a, b) efecto visual de una habilidad (SkillEffects):
+	-- "Chain", "Blast", "Wave", "Blades", "Dragon", "Shield", "Dodge". Lo dibuja SkillVisuals.
+	SkillFx = event("SkillFx"),
 }
 
 folder.Parent = ReplicatedStorage

@@ -9,9 +9,14 @@
 --   · Por cada jefe vencido: MiniBoss / Boss (oro y piedras de mejora).
 --   · Victoria: VictoryGold y VictoryGems; la primera vez, además FirstClearGems.
 --   · Abandonar (se van todos) no da nada; irse a mitad de partida tampoco.
+--   · Torre infinita (Endless): oro por piso superado y por jefe; la primera vez que llegás a
+--     cada piso múltiplo de 10, gemas, piedras y oro (Modes.towerMilestones). El récord es
+--     Chapters.tower.BestWave.
+--   · Desafío diario: lo normal del capítulo y, la primera victoria del día, Modes.Daily.Reward.
 
 local Profiles = require(script.Parent.Profiles)
 local Talents = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Talents"))
+local Modes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Modes"))
 
 export type Amounts = { [string]: number } -- Id de moneda -> cantidad
 export type RunInfo = {
@@ -29,6 +34,7 @@ export type Granted = {
 	levelsGained: number,
 	bestWaveBefore: number, -- mejor oleada en este capítulo antes de esta partida
 	newRecord: boolean, -- superó su mejor oleada
+	dailyBonus: boolean?, -- desafío diario: cobró el premio del día
 	account: AccountProgress,
 }
 
@@ -48,6 +54,12 @@ function Rewards.compute(chapter: any, info: RunInfo, firstClear: boolean): Amou
 		return amounts
 	end
 	local victory = info.result == "Victory"
+	if chapter.Endless then
+		-- Torre: sin tope de pisos; cada jefe (de cualquier ambientación) da lo mismo
+		add(amounts, "Gold", math.max(0, info.wavesCleared) * (r.GoldPerWave or 0))
+		add(amounts, "Gold", #info.bossesKilled * (r.BossGold or 0))
+		return amounts
+	end
 	local waves = math.clamp(info.wavesCleared, 0, chapter.Waves)
 	add(amounts, "Gold", waves * (r.GoldPerWave or 0))
 	for _, bossType in info.bossesKilled do
@@ -83,7 +95,8 @@ function Rewards.accountXP(chapter: any, info: RunInfo): number
 	end
 	return Talents.accountXP({
 		result = info.result,
-		wavesCleared = math.clamp(info.wavesCleared, 0, chapter.Waves or info.wavesCleared),
+		-- En la torre cuenta hasta 3 tramos (si no, la XP de cuenta se dispararía)
+		wavesCleared = math.clamp(info.wavesCleared, 0, if chapter.Endless then 30 else (chapter.Waves or info.wavesCleared)),
 		bosses = bosses,
 		miniBosses = minis,
 		kills = math.max(0, math.floor(info.kills)),
@@ -99,8 +112,26 @@ function Rewards.grant(player: Player, chapter: any, info: RunInfo): Granted?
 		return nil
 	end
 	local victory = info.result == "Victory"
-	local firstClear = victory and record.Clears == 0
+	local firstClear = victory and record.Clears == 0 and chapter.Mode == nil
 	local amounts = Rewards.compute(chapter, info, firstClear)
+	-- Torre: hitos (primera vez en cada piso múltiplo de 10)
+	if chapter.Endless then
+		for id, n in Modes.towerMilestones(record.BestWave, math.max(record.BestWave, info.wavesCleared)) do
+			add(amounts, id, n)
+		end
+	end
+	-- Desafío diario: premio extra la primera victoria del día
+	local dailyBonus = false
+	if chapter.Mode == "daily" and victory and data.Modes then
+		local today = Modes.day(os.time())
+		if data.Modes.DailyWonDay ~= today then
+			data.Modes.DailyWonDay = today
+			dailyBonus = true
+			for id, n in Modes.Daily.Reward do
+				add(amounts, id, n)
+			end
+		end
+	end
 	for id, n in amounts do
 		Profiles.addCurrency(player, id, n)
 	end
@@ -125,6 +156,7 @@ function Rewards.grant(player: Player, chapter: any, info: RunInfo): Granted?
 		levelsGained = levelsGained,
 		bestWaveBefore = bestWaveBefore,
 		newRecord = info.wavesCleared > bestWaveBefore,
+		dailyBonus = dailyBonus,
 		account = {
 			levelBefore = levelBefore,
 			xpBefore = xpBefore,

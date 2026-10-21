@@ -282,12 +282,18 @@ local function refreshWave()
 	local phase = gameState:GetAttribute("Phase")
 	local wave = gameState:GetAttribute("Wave") or 0
 	local total = gameState:GetAttribute("TotalWaves") or 0
-	local chapterTag = string.format("Cap. %d · %s", gameState:GetAttribute("Chapter") or 1, gameState:GetAttribute("ChapterName") or "")
+	local mode = gameState:GetAttribute("Mode") or ""
+	local chapterTag = if mode ~= ""
+		then (gameState:GetAttribute("ChapterName") or "") -- "Torre · Piso 12" / "Desafío diario · ..."
+		else string.format("Cap. %d · %s", gameState:GetAttribute("Chapter") or 1, gameState:GetAttribute("ChapterName") or "")
 	local party = gameState:GetAttribute("PartySize") or 1
 	if party > 1 then
 		chapterTag ..= string.format("  ·  %d jugadores", party)
 	end
-	if phase == "Wave" then
+	if phase == "Wave" and total == 0 then
+		-- Torre infinita: sin final
+		waveLabel.Text = string.format("%s  ·  Enemigos: %d", chapterTag, gameState:GetAttribute("EnemiesLeft") or 0)
+	elseif phase == "Wave" then
 		waveLabel.Text = string.format(
 			"%s  ·  Oleada %d/%d  ·  Enemigos: %d",
 			chapterTag,
@@ -621,7 +627,11 @@ skillGranted.OnClientEvent:Connect(function(skillId: string, stacks: number)
 		if first then
 			local a, b = Skills.ById[first.A], Skills.ById[first.B]
 			synergyCount += 1
-			player:SetAttribute("Synergy", string.format("%d|%s|%s + %s", synergyCount, first.Name, a and a.Name or first.A, b and b.Name or first.B))
+			local pair = string.format("%s + %s", a and a.Name or first.A, b and b.Name or first.B)
+			if first.Bonus then
+				pair ..= "  ·  " .. first.Bonus -- el bono lo aplica el servidor
+			end
+			player:SetAttribute("Synergy", string.format("%d|%s|%s", synergyCount, first.Name, pair))
 		end
 	end
 end)
@@ -1416,16 +1426,27 @@ runEnded.OnClientEvent:Connect(function(summary)
 	local victory = summary.result == "Victory"
 	resultTitle.Text = if victory then "¡Victoria!" else "Derrota"
 	resultTitle.TextColor3 = if victory then Color3.fromRGB(255, 215, 90) else Color3.fromRGB(255, 100, 100)
-	resultSub.Text = string.format(
-		"Capítulo %d · %s  ·  Oleada %d/%d  ·  Nivel %d  ·  Tiempo %s\n%s",
-		summary.chapter,
-		summary.chapterName,
-		summary.wave,
-		summary.totalWaves,
-		summary.level,
-		formatTime(summary.time),
-		summary.nextText
-	)
+	if summary.mode == "tower" then
+		resultTitle.Text = "Torre infinita"
+		resultTitle.TextColor3 = Color3.fromRGB(255, 215, 90)
+		resultSub.Text = string.format(
+			"Piso %d  ·  Nivel %d  ·  Tiempo %s\n%s",
+			summary.wavesCleared or 0,
+			summary.level,
+			formatTime(summary.time),
+			summary.nextText
+		)
+	else
+		resultSub.Text = string.format(
+			"%s  ·  Oleada %d/%d  ·  Nivel %d  ·  Tiempo %s\n%s",
+			if summary.mode == "daily" then summary.chapterName else string.format("Capítulo %d · %s", summary.chapter, summary.chapterName),
+			summary.wave,
+			summary.totalWaves,
+			summary.level,
+			formatTime(summary.time),
+			summary.nextText .. (if summary.dailyBonus then "  ·  ¡Premio del desafío diario!" else "")
+		)
+	end
 
 	for _, child in tableFrame:GetChildren() do
 		if child:IsA("Frame") then

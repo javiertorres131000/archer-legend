@@ -47,6 +47,34 @@ export type Stats = {
 	comboStep: number, -- daño extra por golpe seguido (0.05 = +5%)
 	uppercutEvery: number, -- cada cuántos golpes lanza y aturde (0 = nunca)
 	thousandFists: boolean, -- ráfaga de golpes cada tanto
+	-- Habilidades nuevas (efectos en SkillEffects)
+	lifeOnKill: number, -- vida por cada enemigo que matás (cualquier arma)
+	slowOnHit: number, -- frena al enemigo golpeado (0.3 = 30%)
+	chainChance: number, -- probabilidad de rayo en cadena por golpe
+	shieldInterval: number, -- escudo de maná: segundos de recarga (0 = sin escudo)
+	dodge: number, -- probabilidad de esquivar un golpe
+	explodeOnKill: number, -- explosión al matar (fracción del daño)
+	explodeRadius: number, -- radio de esa explosión
+	doubleShot: boolean, -- arco: cada disparo sale dos veces
+	explosiveArrow: number, -- arco: explosión al pegar (fracción del daño)
+	stillSpeed: number, -- arco: cadencia extra quieto (0.25 = +25%)
+	firstStrike: number, -- arco: daño extra a enemigos con la vida llena
+	ringEvery: number, -- arco: cada cuántos disparos sale el anillo de flechas (0 = nunca)
+	phantomArrow: boolean, -- arco: flecha fantasma cada tanto
+	phantomInterval: number, -- segundos entre flechas fantasma
+	slashWaveEvery: number, -- espada: cada cuántos tajos sale la onda (0 = nunca)
+	riposte: number, -- espada: daño extra del tajo después de recibir un golpe (1 = +100%)
+	damageTaken: number, -- multiplica el daño recibido (0.88 = -12%)
+	bleed: number, -- espada: sangrado (fracción del daño por segundo)
+	dashSlash: number, -- espada: daño al atravesar enemigos con el dash (0 = no)
+	bladeDance: boolean, -- espada: espadas que giran alrededor
+	shockEvery: number, -- puños: cada cuántos golpes tiembla el piso (0 = nunca)
+	shockRadius: number, -- puños: radio del golpe sísmico
+	armorBreak: number, -- puños: daño extra que recibe el enemigo por golpe
+	adrenaline: number, -- puños: cadencia extra con poca vida
+	doubleHit: number, -- puños: probabilidad de pegar dos veces
+	dragonFist: boolean, -- puños: puño del dragón cada tanto
+	synergies: { [string]: boolean }, -- sinergias ya activadas en la partida (Name -> true)
 	stacks: { [string]: number }, -- skillId -> veces elegida
 }
 
@@ -91,6 +119,14 @@ export type State = {
 	lastHitAt: number, -- os.clock() del último golpe que pegó
 	nextPower: number, -- próxima lluvia de flechas / juicio / ráfaga
 	burstUntil: number, -- ráfaga de mil puños activa hasta
+	-- SkillEffects
+	shieldReadyAt: number?, -- escudo de maná: listo desde (os.clock)
+	riposteReady: boolean?, -- contraataque: el próximo tajo pega más
+	nextPhantom: number?, -- próxima flecha fantasma
+	nextDance: number?, -- próximo corte de la danza de espadas
+	nextDragon: number?, -- próximo puño del dragón
+	dashSlashId: number?, -- dash en curso del Tajo veloz
+	dashHit: { [any]: boolean }?, -- enemigos ya cortados en este dash
 }
 
 export type Target = { player: Player, root: BasePart, humanoid: Humanoid, state: State }
@@ -153,6 +189,33 @@ function PlayerData.newStats(): Stats
 		comboStep = 0,
 		uppercutEvery = 0,
 		thousandFists = false,
+		lifeOnKill = 0,
+		slowOnHit = 0,
+		chainChance = 0,
+		shieldInterval = 0,
+		dodge = 0,
+		explodeOnKill = 0,
+		explodeRadius = 6,
+		doubleShot = false,
+		explosiveArrow = 0,
+		stillSpeed = 0,
+		firstStrike = 0,
+		ringEvery = 0,
+		phantomArrow = false,
+		phantomInterval = 3,
+		slashWaveEvery = 0,
+		riposte = 0,
+		damageTaken = 1,
+		bleed = 0,
+		dashSlash = 0,
+		bladeDance = false,
+		shockEvery = 0,
+		shockRadius = 8,
+		armorBreak = 0,
+		adrenaline = 0,
+		doubleHit = 0,
+		dragonFist = false,
+		synergies = {},
 		stacks = {},
 	}
 end
@@ -224,6 +287,11 @@ function PlayerData.resetStats()
 		state.lastHitAt = 0
 		state.nextPower = 0
 		state.burstUntil = 0
+		state.shieldReadyAt = nil
+		state.riposteReady = nil
+		state.nextPhantom = nil
+		state.nextDance = nil
+		state.nextDragon = nil
 		state.stats = PlayerData.newStats()
 		state.pendingOffers = 0
 		state.currentOffer = nil

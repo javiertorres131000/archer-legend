@@ -153,8 +153,9 @@ Crates.List = {
 		Color = C(110, 210, 255),
 		Dark = C(25, 45, 85),
 		Prizes = {
-			{ Prize = "FrostKatana", Chance = 50 },
-			{ Prize = "InfernoBlade", Chance = 50 },
+			{ Prize = "FrostKatana", Chance = 34 },
+			{ Prize = "InfernoBlade", Chance = 33 },
+			{ Prize = "CrimsonKatana", Chance = 33 },
 		},
 	},
 } :: { Crate }

@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Skills = require(Shared:WaitForChild("Skills"))
+local Synergies = require(Shared:WaitForChild("Synergies"))
 local PlayerData = require(script.Parent.PlayerData)
 
 local ProgCfg = Config.Progression
@@ -27,6 +28,8 @@ end
 
 local function publish()
 	gameState:SetAttribute("Level", level)
+	-- El HUD avisa una vez cuando se abre la segunda tanda de habilidades
+	gameState:SetAttribute("SecondTier", level >= (ProgCfg.SecondTierLevel or 6))
 	gameState:SetAttribute("XP", xp)
 	gameState:SetAttribute("XPNeeded", xpNeeded(level))
 end
@@ -44,7 +47,8 @@ local function rollChoices(stats: PlayerData.Stats): { string }
 	local deck = Skills.deckCount(stacks, stats.weapon)
 	local pool = {}
 	for _, def in Skills.List do
-		if (stacks[def.Id] or 0) < def.Max and Skills.forWeapon(def, stats.weapon) and deck >= (def.Requires or 0) then
+		local tierOk = (def.Tier or 1) < 2 or level >= (ProgCfg.SecondTierLevel or 6) -- segunda tanda
+		if (stacks[def.Id] or 0) < def.Max and Skills.forWeapon(def, stats.weapon) and deck >= (def.Requires or 0) and tierOk then
 			table.insert(pool, def)
 		end
 	end
@@ -112,6 +116,11 @@ local function grant(player: Player, skillId: string)
 	local stacks = (state.stats.stacks[skillId] or 0) + 1
 	state.stats.stacks[skillId] = stacks
 	def.Apply(state.stats)
+	-- Sinergias: el par completo da su bono una vez por partida
+	for _, syn in Synergies.completedBy(skillId, state.stats.stacks, state.stats.synergies) do
+		state.stats.synergies[syn.Name] = true
+		syn.Apply(state.stats)
+	end
 
 	local heal = def.Heal or 0
 	if def.HealFraction then

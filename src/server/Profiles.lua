@@ -62,6 +62,9 @@ export type MissionData = { Day: number, Daily: { MissionEntry }, Week: number, 
 -- Tienda (Shared/ShopDefs.lua): en qué día se compró, qué ofertas de ese día (por número) y
 -- cuántos cambios de cada tipo se hicieron ese día
 export type ShopData = { Day: number, Bought: { [string]: boolean }, Exchanges: { [string]: number } }
+-- Modos (Shared/Modes.lua): último día UTC en que ganó el desafío diario (premio una vez por día).
+-- La torre guarda su récord como un capítulo más: Chapters.tower.BestWave = piso más alto.
+export type ModesData = { DailyWonDay: number }
 export type Data = {
 	Inventory: { { Uid: string, Id: string, Rarity: string, Level: number } },
 	Equipment: { [string]: string },
@@ -77,6 +80,7 @@ export type Data = {
 	Crates: CrateData,
 	Missions: MissionData,
 	Shop: ShopData,
+	Modes: ModesData,
 	CreatedAt: number,
 	LastSeen: number,
 }
@@ -96,7 +100,7 @@ type Session = {
 
 local Profiles = {}
 
-Profiles.SCHEMA_VERSION = 9
+Profiles.SCHEMA_VERSION = 10
 
 -- Migraciones: Migrations[n] recibe los datos guardados con la versión n y devuelve los de n + 1.
 -- Para cambiar el formato: subí SCHEMA_VERSION y agregá la migración de la versión anterior.
@@ -124,6 +128,8 @@ Profiles.Migrations = {
 	[7] = function(data: any): any return data end,
 	-- 8 → 9: misiones y tienda. reconcile las crea vacías; se sube por lo mismo que en 2 → 3.
 	[8] = function(data: any): any return data end,
+	-- 9 → 10: modos (desafío diario ganado). reconcile lo crea; se sube por lo mismo que en 2 → 3.
+	[9] = function(data: any): any return data end,
 	-- 0 = guardado sin versión: lo que haya se aprovecha y se completa
 	[0] = function(data: any): any
 		return if type(data) == "table" then data else {}
@@ -176,6 +182,7 @@ function Profiles.defaultData(): Data
 		Crates = { Owned = {}, Opened = 0, TestGoldGiven = false, Equipped = {}, Receipts = {} },
 		Missions = { Day = -1, Daily = {}, Week = -1, Weekly = {} },
 		Shop = { Day = -1, Bought = {}, Exchanges = {} },
+		Modes = { DailyWonDay = -1 },
 		CreatedAt = serverTime(),
 		LastSeen = serverTime(),
 	}
@@ -361,6 +368,9 @@ function Profiles.reconcile(raw: any): Data
 				end
 			end
 		end
+	end
+	if type(raw.Modes) == "table" and type(raw.Modes.DailyWonDay) == "number" then
+		data.Modes.DailyWonDay = math.floor(raw.Modes.DailyWonDay)
 	end
 	data.CreatedAt = count(raw.CreatedAt) or data.CreatedAt
 	return data

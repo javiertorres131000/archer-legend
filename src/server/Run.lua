@@ -29,7 +29,9 @@ local WeaponService = require(script.Parent.WeaponService)
 local Dash = require(script.Parent.Dash)
 local Grab = require(script.Parent.Grab)
 local Ping = require(script.Parent.Ping)
+local SkillEffects = require(script.Parent.SkillEffects)
 local Rarities = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Rarities"))
+local Modes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Modes"))
 
 export type Result = "Victory" | "Defeat" | "Abandoned"
 
@@ -38,6 +40,7 @@ export type PlayerSummary = { name: string, kills: number, damage: number, reviv
 export type Summary = {
 	result: string,
 	chapter: number,
+	mode: string?, -- "tower" | "daily" | nil (Shared/Modes.lua)
 	chapterName: string,
 	nextText: string,
 	wave: number,
@@ -90,7 +93,7 @@ function Run.init()
 	-- Cofre abierto: botín para todos y, si está activado, una habilidad gratis para cada uno
 	Chests.init(Remotes.ChestOpened, Arena.Half, function(pos, _opener, rarity)
 		local participants = PlayerLife.participants()
-		local ch = Waves.chapterInfo(chapterIndex)
+		local ch = Waves.currentChapter()
 		local mult = ch.Rewards and ch.Rewards.LootMult or 1
 		local amounts = { Gold = math.floor(Config.Frenzy.ChestGold * mult * (0.8 + math.random() * 0.4) + 0.5) }
 		if math.random() < Config.Frenzy.ChestGemChance then
@@ -136,7 +139,10 @@ function Run.init()
 			end
 		end
 		if killed then
-			if active then ItemService.onKill(enemy, attacker, kind) end
+			if active then
+				ItemService.onKill(enemy, attacker, kind)
+				SkillEffects.onKill(attacker, enemy, kind, pos) -- vampirismo, cadáver explosivo
+			end
 			if not active then
 				Progression.addXP(enemy.xp)
 			else
@@ -151,7 +157,7 @@ function Run.init()
 				end
 				-- Botín (los invocados por un jefe no dan)
 				if not enemy.summoner then
-					local ch = Waves.chapterInfo(chapterIndex)
+					local ch = Waves.currentChapter()
 					local mult = ch.Rewards and ch.Rewards.LootMult or 1
 					if enemy.golden then
 						mult *= Config.Frenzy.GoldenLootMult
@@ -195,15 +201,26 @@ local function clearWorld()
 end
 
 -- Empieza una partida en el capítulo `index` con estos participantes.
-function Run.start(index: number, participants: { Player })
+-- mode (opcional, Shared/Modes.lua): "tower" (torre infinita) o "daily" (desafío del día).
+local runMode: string? = nil
+local runDay = 0
+function Run.start(index: number, participants: { Player }, mode: string?)
 	clearWorld()
 	chapterIndex = index
 	result = nil
 	lastPhase = "Waiting"
 	active = true
+	runMode = mode
+	runDay = Modes.day(os.time())
 	table.clear(bossesKilled)
 	Waves.setChapter(chapterIndex)
-	local ch = Waves.chapterInfo(chapterIndex)
+	if mode == "tower" then
+		Waves.setMode("tower")
+	elseif mode == "daily" then
+		Waves.setMode("daily", Modes.dailyChapter(runDay))
+	end
+	chapterIndex = Remotes.GameState:GetAttribute("Chapter") or chapterIndex
+	local ch = Waves.currentChapter()
 	roomIndex = 1
 	enteringUntil = nil
 	Arena.closeDoor()
@@ -218,6 +235,9 @@ function Run.start(index: number, participants: { Player })
 			Runes.apply(p, s.stats)
 			CrateEquip.apply(p, s.stats) -- mascota de las cajas
 			WeaponService.apply(p, s.stats)
+			if mode == "daily" then
+				Modes.applyDailyPlayer(s.stats, runDay) -- modificadores del día
+			end
 		end
 		p:SetAttribute("DashReadyAt", 0)
 	end
@@ -238,6 +258,20 @@ end
 
 function Run.chapterIndex(): number
 	return chapterIndex
+end
+
+-- Modo de la partida en curso (nil = capítulo normal) y el día del desafío
+function Run.mode(): string?
+	return runMode
+end
+
+function Run.day(): number
+	return runDay
+end
+
+-- Definición vigente (capítulo, piso de la torre o desafío del día)
+function Run.currentChapter()
+	return Waves.currentChapter()
 end
 
 -- Un frame de partida. Devuelve el resultado cuando termina (y nil mientras sigue).
@@ -310,6 +344,11 @@ function Run.step(dt: number): Result?
 			then CFrame.new(Ground.place(near.root.Position + Vector3.new(4, 0, 0), 3))
 			else Arena.spawnPoints(1)[1]
 		PlayerLife.onBreak(back)
+		-- Torre: al terminar un tramo, el piso siguiente es otra ambientación (mapa nuevo)
+		local per = Modes.Tower.FloorsPerTheme
+		if runMode == "tower" and Waves.current() % per == 0 then
+			Run.rebuildForFloor(Waves.current() + 1)
+		end
 		if Config.Waves.UseDoors then
 			Arena.openDoor()
 			doorOpenedAt = now
@@ -371,7 +410,7 @@ end
 function Run.wavesCleared(final: Result): number
 	local wave = Waves.current()
 	if final == "Victory" then
-		return Waves.chapterInfo(chapterIndex).Waves
+		return Waves.currentChapter().Waves
 	elseif Waves.phase() == "Break" then
 		return wave
 	end
@@ -396,9 +435,13 @@ function Run.summary(final: Result): Summary
 		return a.damage > b.damage
 	end)
 
-	local ch = Waves.chapterInfo(chapterIndex)
+	local ch = Waves.currentChapter()
 	local nextText
-	if final == "Victory" then
+	if runMode == "tower" then
+		nextText = string.format("Llegaste al piso %d de la torre", Run.wavesCleared(final))
+	elseif runMode == "daily" then
+		nextText = if final == "Victory" then "¡Desafío del día superado!" else "Mañana hay otro desafío (o intentalo de nuevo)"
+	elseif final == "Victory" then
 		local nextInfo = Waves.chapterInfo(chapterIndex + 1)
 		nextText = if nextInfo
 			then string.format("¡Desbloqueaste el Capítulo %d · %s!", chapterIndex + 1, nextInfo.Name)
@@ -410,11 +453,12 @@ function Run.summary(final: Result): Summary
 	return {
 		result = final,
 		chapter = chapterIndex,
-		chapterName = ch.Name,
+		chapterName = if runMode == "tower" then "Torre infinita" else ch.Name,
+		mode = runMode,
 		nextText = nextText,
 		wave = Waves.current(),
 		wavesCleared = Run.wavesCleared(final),
-		totalWaves = ch.Waves,
+		totalWaves = if ch.Endless then 0 else ch.Waves, -- 0: torre (sin final)
 		bossesKilled = table.clone(bossesKilled),
 		level = Progression.level(),
 		time = math.floor(Waves.elapsed()),
@@ -449,7 +493,7 @@ function Run.updateDoor(now: number, targets)
 		Combat.clear()
 		Hazards.clear()
 		roomIndex += 1
-		Arena.buildRoom(Waves.chapterInfo(chapterIndex), roomIndex)
+		Arena.buildRoom(Waves.currentChapter(), roomIndex)
 		Remotes.GameState:SetAttribute("RoomIndex", roomIndex)
 		Remotes.GameState:SetAttribute("DoorEnd", 0)
 		local points = Arena.spawnPoints(#targets)
@@ -460,6 +504,26 @@ function Run.updateDoor(now: number, targets)
 			end
 		end
 		enteringUntil = now + RoomCfg.EnterDelay
+	end
+end
+
+-- Torre: mapa nuevo con la ambientación del piso `floor` y el equipo de vuelta al centro
+function Run.rebuildForFloor(floor: number)
+	Combat.clear()
+	Hazards.clear()
+	Orbs.collectAll(PlayerData.getAliveTargets())
+	roomIndex += 1
+	local def = Modes.towerChapter(floor)
+	Arena.buildRoom(def, roomIndex)
+	Remotes.GameState:SetAttribute("RoomIndex", roomIndex)
+	Remotes.GameState:SetAttribute("Chapter", def.ThemeIndex)
+	local participants = PlayerLife.participants()
+	local points = Arena.spawnPoints(#participants)
+	for i, p in participants do
+		local character = p.Character
+		if character then
+			character:PivotTo(points[i])
+		end
 	end
 end
 

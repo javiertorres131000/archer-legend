@@ -5,7 +5,7 @@ Uso (desde la raíz del repo):
     python tools/gen_vfx_textures.py assets/vfx frost
     python tools/gen_vfx_textures.py assets/vfx frost flame,smoke   (solo algunas)
 
-Cada estilo es una paleta (PALETTES); las formas son las mismas. Para un arma nueva con otro
+Cada estilo es una paleta (PALETTES) y, si tiene, sus propias formas (tools/vfx_shapes.py). Para un arma nueva con otro
 color: agregá una paleta, generá, importá los PNG en Studio (Asset Manager › Import) y poné los
 IDs en src/shared/FxStyles.lua.
 """
@@ -37,6 +37,17 @@ PALETTES = {
         "smoke_fill": (48, 18, 14),
         "smoke_hi": (110, 44, 26),
         "smoke_line": (16, 4, 2),
+    },
+    # Katana Carmesí: energía roja intensa con contorno casi negro y centro rosado
+    "crimson": {
+        "outline": (24, 0, 4),
+        "deep": (110, 0, 14),
+        "body": (215, 10, 35),
+        "mid": (255, 70, 80),
+        "core": (255, 215, 220),
+        "smoke_fill": (30, 4, 8),
+        "smoke_hi": (85, 10, 20),
+        "smoke_line": (8, 0, 2),
     },
 }
 
@@ -282,6 +293,11 @@ def main():
         "flame": flame_flipbook, "smoke": smoke_flipbook, "slash": slash, "swirl": swirl,
         "ring": ring, "circle": magic_circle, "star": star, "speedline": speedline,
     }
+    # Formas propias del estilo (tools/vfx_shapes.py): fuego para inferno, filos para crimson.
+    # Los que no tienen formas propias usan las de siempre con su paleta.
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from vfx_shapes import SHAPES
+    jobs.update(SHAPES.get(style, {}))
     only = sys.argv[3].split(",") if len(sys.argv) > 3 else list(jobs)
     for name in only:
         im = jobs[name](pal)

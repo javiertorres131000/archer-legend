@@ -3,10 +3,15 @@
 -- Máquina de estados de la partida: Waiting -> Wave -> Break -> Wave ... y al final
 -- Victory o Defeat (los decide GameServer).
 -- Las oleadas se generan al azar a partir del capítulo actual (Data > Chapters).
+-- Modos (Shared/Modes.lua): con Waves.setMode la partida usa otra definición "de capítulo":
+--   · "tower": cambia en cada piso (Modes.towerChapter): sin victoria (Endless) y con LocalWave,
+--     el piso dentro de su tramo, para elegir enemigos, presupuesto y jefes.
+--   · "daily": el capítulo del día con sus modificadores (Modes.dailyChapter).
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local EnemyTypes = require(script.Parent.Data.EnemyTypes)
 local Chapters = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Chapters"))
+local Modes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Modes"))
 local Enemies = require(script.Parent.Enemies)
 local PlayerData = require(script.Parent.PlayerData)
 
@@ -26,15 +31,32 @@ local onWaveStart: ((number, Scale) -> ())? = nil
 local scale: Scale = Scaling[1] -- escalado vigente: se fija al empezar cada oleada
 
 local chapterIndex = 1
+local mode: string? = nil -- nil (capítulo normal) | "tower" | "daily"
+local modeDef: any = nil -- definición fija del modo (desafío diario)
 local phase = "Waiting"
-local wave = 0
 local spawnQueue: { string } = {}
 local spawnTimer = 0
 local phaseTimer = 0
 local runStart = 0
 
+local wave = 0
+local towerFloor, towerDef = 0, nil -- el piso de la torre se arma una vez y se guarda
 local function chapter()
+	if mode == "tower" then
+		local floor = math.max(1, wave)
+		if floor ~= towerFloor then
+			towerFloor, towerDef = floor, Modes.towerChapter(floor)
+		end
+		return towerDef
+	elseif modeDef then
+		return modeDef
+	end
 	return Chapters[chapterIndex]
+end
+
+-- Oleada "dentro del capítulo" (en la torre, el piso dentro de su tramo de 10)
+local function localWave(ch, n: number): number
+	return ch.LocalWave or n
 end
 
 local function setPhase(newPhase: string)
@@ -111,11 +133,14 @@ function Waves.buildQueue(ch, n: number, countMult: number?): { string }
 end
 
 local function healthMultFor(n: number): number
-	return chapter().HealthMult * (1 + (n - 1) * WavesCfg.HealthGrowth) * scale.Health * Config.Frenzy.EnemyHealthMult
+	local ch = chapter()
+	n = localWave(ch, n)
+	return ch.HealthMult * (1 + (n - 1) * WavesCfg.HealthGrowth) * scale.Health * Config.Frenzy.EnemyHealthMult
 end
 
 local function spawnInterval(n: number): number
 	local ch = chapter()
+	n = localWave(ch, n)
 	local t = if ch.Waves > 1 then (n - 1) / (ch.Waves - 1) else 0
 	return (ch.Interval[1] + (ch.Interval[2] - ch.Interval[1]) * t) * Config.Frenzy.SpawnIntervalMult
 end
@@ -144,7 +169,7 @@ function Waves.splitSides(total: number, sides: number): { number }
 end
 
 local function startWave(n: number, targets: { PlayerData.Target })
-	wave = n
+	wave = n -- antes de leer el capítulo: en la torre depende del piso
 	if runStart == 0 then
 		runStart = os.clock()
 	end
@@ -159,12 +184,17 @@ local function startWave(n: number, targets: { PlayerData.Target })
 		onWaveStart(partySize, scale)
 	end
 
-	spawnQueue = Waves.buildQueue(ch, n, scale.Count)
+	spawnQueue = Waves.buildQueue(ch, localWave(ch, n), scale.Count)
 	spawnTimer = 0
 	gameState:SetAttribute("Wave", n)
+	if mode == "tower" then
+		-- Ambientación del piso (luz y clima de los clientes, Atmosphere)
+		gameState:SetAttribute("Chapter", ch.ThemeIndex)
+		gameState:SetAttribute("ChapterName", ch.Name)
+	end
 
 	-- El jefe aparece antes de anunciar la oleada, así el HUD ya sabe su nombre.
-	local bossType = bossFor(ch, n)
+	local bossType = bossFor(ch, localWave(ch, n))
 	if bossType then
 		local half = Enemies.getHalf()
 		local pos = Enemies.findSpawnPosition(targets) or Vector3.new(0, 0, -half.Z * 0.6)
@@ -187,11 +217,36 @@ end
 
 function Waves.setChapter(index: number)
 	chapterIndex = math.clamp(index, 1, #Chapters)
+	mode = nil
+	modeDef = nil
 	local ch = chapter()
 	gameState:SetAttribute("Chapter", chapterIndex)
 	gameState:SetAttribute("ChapterName", ch.Name)
 	gameState:SetAttribute("TotalChapters", #Chapters)
 	gameState:SetAttribute("TotalWaves", ch.Waves)
+	gameState:SetAttribute("Mode", "")
+end
+
+-- Modo de juego (Shared/Modes.lua). def: la definición fija (desafío diario); en la torre se
+-- arma piso a piso. TotalWaves = 0 le dice al HUD que no hay final (muestra "Piso N").
+function Waves.setMode(newMode: string?, def: any?)
+	mode = newMode
+	modeDef = def
+	local ch = chapter()
+	chapterIndex = ch.ThemeIndex or chapterIndex
+	gameState:SetAttribute("Chapter", chapterIndex)
+	gameState:SetAttribute("ChapterName", ch.Name)
+	gameState:SetAttribute("TotalWaves", if ch.Endless then 0 else ch.Waves)
+	gameState:SetAttribute("Mode", newMode or "")
+end
+
+function Waves.mode(): string?
+	return mode
+end
+
+-- Definición vigente (capítulo, piso de la torre o desafío del día)
+function Waves.currentChapter()
+	return chapter()
 end
 
 function Waves.chapterCount(): number
@@ -269,7 +324,7 @@ function Waves.update(dt: number, targets: { PlayerData.Target }, frozen: boolea
 	local ch = chapter()
 
 	if phase == "Waiting" then
-		startWave(math.clamp(Config.Debug.StartWave, 1, ch.Waves), targets)
+		startWave(if ch.Endless then math.max(1, Config.Debug.StartWave) else math.clamp(Config.Debug.StartWave, 1, ch.Waves), targets)
 	elseif phase == "Wave" then
 		spawnTimer += dt
 		if #spawnQueue > 0 and spawnTimer >= spawnInterval(wave) and Enemies.aliveCount() < Config.Enemy.MaxAlive then
@@ -297,7 +352,7 @@ function Waves.update(dt: number, targets: { PlayerData.Target }, frozen: boolea
 		updateEnemiesLeft()
 
 		if #spawnQueue == 0 and Enemies.aliveCount() == 0 then
-			if wave >= ch.Waves then
+			if not ch.Endless and wave >= ch.Waves then
 				if onAllCleared then
 					onAllCleared()
 				end

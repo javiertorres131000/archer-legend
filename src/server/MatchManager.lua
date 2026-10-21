@@ -24,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Chapters = require(Shared:WaitForChild("Chapters"))
+local Modes = require(Shared:WaitForChild("Modes"))
 local Remotes = require(script.Parent.Remotes)
 local PlayerData = require(script.Parent.PlayerData)
 local PlayerLife = require(script.Parent.PlayerLife)
@@ -115,13 +116,21 @@ local function updateLeader()
 	gameState:SetAttribute("LeaderId", if leader then leader.UserId else 0)
 end
 
-local function chapterById(id: string): (any, number?)
+-- Capítulo (o modo: "tower", "daily") por Id. Devuelve su definición, el índice de la
+-- ambientación y el modo (nil si es un capítulo normal).
+local function chapterById(id: string): (any, number?, string?)
 	for i, ch in Chapters do
 		if ch.Id == id then
-			return ch, i
+			return ch, i, nil
 		end
 	end
-	return nil, nil
+	if id == "tower" then
+		return Modes.towerChapter(1), 1, "tower"
+	elseif id == "daily" then
+		local def = Modes.dailyChapter(Modes.day(os.time()))
+		return def, def.ThemeIndex, "daily"
+	end
+	return nil, nil, nil
 end
 
 local function setChapter(id: string)
@@ -200,7 +209,7 @@ local function startMatch()
 		return
 	end
 
-	local _, index = chapterById(selectedChapter)
+	local _, index, mode = chapterById(selectedChapter)
 	if not index or not ChapterUnlocks.partyCanPlay(participants, selectedChapter) then
 		for _, p in participants do
 			notify(p, "Ese capítulo no está disponible para todo el equipo.")
@@ -216,13 +225,13 @@ local function startMatch()
 	matchesStarted += 1
 	setState("PLAYING")
 	gameState:SetAttribute("CountdownEnd", 0)
-	Run.start(index, participants)
+	Run.start(index, participants, mode)
 end
 
 local function enterResults(result: Run.Result)
 	Run.finish(result)
 	local summary = Run.summary(result)
-	local chapter = chapterById(selectedChapter)
+	local chapter = Run.currentChapter() -- el piso de la torre o el desafío del día, si es un modo
 	setState("RESULTS")
 	gameState:SetAttribute("ResultsEnd", workspace:GetServerTimeNow() + MatchCfg.ResultsTime)
 	for _, p in PlayerLife.participants() do
@@ -244,7 +253,8 @@ local function enterResults(result: Run.Result)
 		personal.newRecord = granted ~= nil and granted.newRecord
 		personal.account = if granted then granted.account else nil -- barra "te faltan X"
 		personal.loot = if stats then table.clone(stats.runLoot) else {} -- botín juntado (ya cobrado)
-		if result == "Victory" then
+		personal.dailyBonus = granted ~= nil and granted.dailyBonus
+		if result == "Victory" and not Modes.isMode(selectedChapter) then
 			ChapterUnlocks.onChapterCleared(p, selectedChapter)
 		end
 		if personal.firstClear then
