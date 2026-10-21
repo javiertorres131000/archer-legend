@@ -15,6 +15,7 @@
 --   · Desafío diario: lo normal del capítulo y, la primera victoria del día, Modes.Daily.Reward.
 
 local Profiles = require(script.Parent.Profiles)
+local MasteryService = require(script.Parent.MasteryService)
 local Talents = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Talents"))
 local Modes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Modes"))
 
@@ -24,6 +25,7 @@ export type RunInfo = {
 	wavesCleared: number,
 	bossesKilled: { string }, -- tipos de enemigo jefe vencidos
 	kills: number, -- bajas de este jugador
+	weapon: string?, -- arma con que jugó (maestría); si falta, la elegida en el perfil
 }
 -- Progreso de la cuenta antes y después (para la barra "te faltan X" de los resultados)
 export type AccountProgress = { levelBefore: number, xpBefore: number, level: number, xp: number, needed: number }
@@ -36,6 +38,7 @@ export type Granted = {
 	newRecord: boolean, -- superó su mejor oleada
 	dailyBonus: boolean?, -- desafío diario: cobró el premio del día
 	account: AccountProgress,
+	mastery: MasteryService.Result?, -- maestría del arma (Shared/Mastery.lua)
 }
 
 local Rewards = {}
@@ -149,7 +152,14 @@ function Rewards.grant(player: Player, chapter: any, info: RunInfo): Granted?
 	local accountXP = Rewards.accountXP(chapter, info)
 	local levelBefore, xpBefore = data.Account.Level, data.Account.XP
 	local levelsGained = Profiles.addAccountXP(player, accountXP)
+	local mastery = MasteryService.grant(player, info.weapon or data.Weapon, {
+		result = info.result,
+		kills = info.kills,
+		wavesCleared = info.wavesCleared,
+		bosses = #info.bossesKilled,
+	})
 	return {
+		mastery = mastery,
 		amounts = amounts,
 		firstClear = firstClear,
 		accountXP = accountXP,

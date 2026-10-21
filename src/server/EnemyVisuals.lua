@@ -273,11 +273,11 @@ function EnemyVisuals.attach(enemy: any)
 	if not ok and EnemyCfg.Eyes then
 		addEyes(enemy, visual)
 	end
-	if enemy.golden and visual.model then
+	if (enemy.golden or enemy.elite) and visual.model then
 		local h = Instance.new("Highlight")
 		h.FillColor = enemy.color
 		h.OutlineColor = enemy.color
-		h.FillTransparency = 0.6
+		h.FillTransparency = if enemy.elite then 0.75 else 0.6
 		h.Parent = visual.model
 	end
 end

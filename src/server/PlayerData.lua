@@ -31,6 +31,8 @@ export type Stats = {
 	rerolls: number, -- cambios de cartas que quedan en esta partida
 	weapon: string, -- arma de la partida (Shared/Weapons.lua): "Bow" | "Sword" | "Fists" (las especiales, su Base)
 	weaponId: string?, -- el arma exacta si es especial ("FrostKatana"): sus números y efectos
+	lockedSkills: { [string]: boolean }?, -- habilidades con candado de maestría (no salen en las ofertas)
+	masteryLevel: number?, -- nivel de maestría del arma de la partida (Shared/Mastery.lua)
 	-- Habilidades de arco
 	backArrows: number, -- flechas hacia atrás
 	chargedEvery: number, -- cada cuántos disparos sale una flecha gigante (0 = nunca)
@@ -111,6 +113,7 @@ export type State = {
 	downs: number, -- veces que cayó
 	revives: number, -- compañeros que revivió
 	chests: number, -- cofres abiertos en la partida (del equipo: el botín es compartido; misiones)
+	teamGoals: number, -- metas de equipo cumplidas en la partida (WaveEvents)
 	runLoot: { [string]: number }, -- botín juntado en esta partida (ya está en el perfil)
 	lastHurt: number, -- os.clock() del último golpe recibido (pausa entre golpes)
 	-- Habilidades por arma (Combat)
@@ -301,6 +304,7 @@ function PlayerData.resetStats()
 		state.downs = 0
 		state.revives = 0
 		state.chests = 0
+		state.teamGoals = 0
 		table.clear(state.runLoot)
 	end
 end
@@ -336,6 +340,7 @@ function PlayerData.init(onAdded: (Player) -> (), onRemoving: (Player) -> ())
 			downs = 0,
 			revives = 0,
 			chests = 0,
+			teamGoals = 0,
 			runLoot = {},
 			lastHurt = -math.huge,
 		}

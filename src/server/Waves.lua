@@ -14,6 +14,7 @@ local Chapters = require(game:GetService("ReplicatedStorage"):WaitForChild("Shar
 local Modes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Modes"))
 local Enemies = require(script.Parent.Enemies)
 local PlayerData = require(script.Parent.PlayerData)
+local WaveEvents = require(script.Parent.WaveEvents)
 
 local WavesCfg = Config.Waves
 local Scaling = Config.Coop.Scaling
@@ -65,7 +66,7 @@ local function setPhase(newPhase: string)
 end
 
 local function updateEnemiesLeft()
-	gameState:SetAttribute("EnemiesLeft", #spawnQueue + Enemies.aliveCount())
+	gameState:SetAttribute("EnemiesLeft", #spawnQueue + Enemies.aliveCount() + WaveEvents.pending())
 end
 
 local function bossFor(ch, n: number): string?
@@ -200,6 +201,17 @@ local function startWave(n: number, targets: { PlayerData.Target })
 		local pos = Enemies.findSpawnPosition(targets) or Vector3.new(0, 0, -half.Z * 0.6)
 		Enemies.spawn(bossType, pos, { healthMult = ch.HealthMult * scale.Health, dmgMult = ch.DamageMult })
 	end
+	-- Élites, horda y meta de equipo de esta oleada
+	WaveEvents.onWaveStart({
+		wave = n,
+		localWave = localWave(ch, n),
+		chapter = ch,
+		queueSize = #spawnQueue,
+		countScale = scale.Count,
+		bossWave = bossType ~= nil,
+		healthMult = healthMultFor(n),
+		dmgMult = ch.DamageMult * Config.Frenzy.EnemyDamageMult,
+	})
 
 	setPhase("Wave")
 	updateEnemiesLeft()
@@ -287,6 +299,7 @@ end
 -- Termina la partida ("Victory" o "Defeat"). Desde acá no avanza más hasta Waves.reset().
 function Waves.finish(result: string)
 	table.clear(spawnQueue)
+	WaveEvents.reset()
 	setPhase(result)
 	updateEnemiesLeft()
 end
@@ -304,11 +317,13 @@ function Waves.debugSkip()
 		return
 	end
 	table.clear(spawnQueue)
+	WaveEvents.debugSkip()
 	Enemies.clear()
 	updateEnemiesLeft()
 end
 
 function Waves.reset()
+	WaveEvents.reset()
 	wave = 0
 	runStart = 0
 	table.clear(spawnQueue)
@@ -340,18 +355,26 @@ function Waves.update(dt: number, targets: { PlayerData.Target }, frozen: boolea
 					for i = 1, count do
 						local angle = i * 2.4
 						local offset = if i == 1 then Vector3.zero else Vector3.new(math.cos(angle), 0, math.sin(angle)) * 4
-						Enemies.spawn(table.remove(spawnQueue) :: string, pos + offset, {
+						local typeId = table.remove(spawnQueue) :: string
+						local affix = WaveEvents.takeElite(typeId, #spawnQueue + 1)
+						local enemy = Enemies.spawn(typeId, pos + offset, {
 							healthMult = healthMultFor(wave),
 							dmgMult = ch.DamageMult * Config.Frenzy.EnemyDamageMult,
-							golden = math.random() < Config.Frenzy.GoldenChance,
+							golden = affix == nil and math.random() < Config.Frenzy.GoldenChance,
+							elite = affix,
 						})
+						if enemy.elite then
+							WaveEvents.onEliteSpawned(enemy)
+						end
 					end
 				end
 			end
 		end
+		WaveEvents.update(dt, targets)
 		updateEnemiesLeft()
 
-		if #spawnQueue == 0 and Enemies.aliveCount() == 0 then
+		if #spawnQueue == 0 and Enemies.aliveCount() == 0 and WaveEvents.pending() == 0 then
+			WaveEvents.onWaveEnd()
 			if not ch.Endless and wave >= ch.Waves then
 				if onAllCleared then
 					onAllCleared()

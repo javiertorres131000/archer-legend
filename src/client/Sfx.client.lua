@@ -223,6 +223,38 @@ player:GetAttributeChangedSignal("Synergy"):Connect(function()
 	end
 end)
 
+-- Eventos de la oleada (Server/WaveEvents): élites, horda y metas de equipo
+gameState:GetAttributeChangedSignal("EliteAnnounce"):Connect(function()
+	play("Elite")
+end)
+gameState:GetAttributeChangedSignal("HordeState"):Connect(function()
+	local state = gameState:GetAttribute("HordeState")
+	if state == "active" then
+		play("Horde")
+	elseif state == "cleared" then
+		play("HordeClear")
+		arpeggio({ 1, 1.26, 1.5, 2, 2.52 })
+	end
+end)
+gameState:GetAttributeChangedSignal("GoalState"):Connect(function()
+	local state = gameState:GetAttribute("GoalState")
+	if state == "active" then
+		play("Goal")
+	elseif state == "done" then
+		play("GoalDone")
+		arpeggio({ 1, 1.5, 2, 2.52 })
+	elseif state == "failed" then
+		play("GoalFail")
+	end
+end)
+-- Subiste de nivel de maestría (lo marca el Hud al mostrar los resultados)
+player:GetAttributeChangedSignal("MasteryUp"):Connect(function()
+	play("MasteryUp")
+	task.delay(0.25, function()
+		arpeggio({ 1, 1.26, 1.5, 2, 2.52, 3 })
+	end)
+end)
+
 gameState:GetAttributeChangedSignal("DoorEnd"):Connect(function()
 	if (gameState:GetAttribute("DoorEnd") or 0) > 0 then
 		play("Door")

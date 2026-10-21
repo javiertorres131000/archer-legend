@@ -41,6 +41,7 @@ local Weapons = require(Shared:WaitForChild("Weapons"))
 local Rarities = require(Shared:WaitForChild("Rarities"))
 local CrateItems = require(Shared:WaitForChild("CrateItems"))
 local Missions = require(Shared:WaitForChild("Missions"))
+local Mastery = require(Shared:WaitForChild("Mastery"))
 local Cfg = Config.Profiles
 
 export type ChapterRecord = { Unlocked: boolean, Clears: number, BestWave: number }
@@ -65,6 +66,7 @@ export type ShopData = { Day: number, Bought: { [string]: boolean }, Exchanges: 
 -- Modos (Shared/Modes.lua): último día UTC en que ganó el desafío diario (premio una vez por día).
 -- La torre guarda su récord como un capítulo más: Chapters.tower.BestWave = piso más alto.
 export type ModesData = { DailyWonDay: number }
+-- Maestría por arma (Shared/Mastery.lua): XP total de cada familia ("Bow", "Sword", "Fists")
 export type Data = {
 	Inventory: { { Uid: string, Id: string, Rarity: string, Level: number } },
 	Equipment: { [string]: string },
@@ -81,6 +83,7 @@ export type Data = {
 	Missions: MissionData,
 	Shop: ShopData,
 	Modes: ModesData,
+	Mastery: { [string]: number },
 	CreatedAt: number,
 	LastSeen: number,
 }
@@ -100,7 +103,7 @@ type Session = {
 
 local Profiles = {}
 
-Profiles.SCHEMA_VERSION = 10
+Profiles.SCHEMA_VERSION = 11
 
 -- Migraciones: Migrations[n] recibe los datos guardados con la versión n y devuelve los de n + 1.
 -- Para cambiar el formato: subí SCHEMA_VERSION y agregá la migración de la versión anterior.
@@ -130,6 +133,22 @@ Profiles.Migrations = {
 	[8] = function(data: any): any return data end,
 	-- 9 → 10: modos (desafío diario ganado). reconcile lo crea; se sube por lo mismo que en 2 → 3.
 	[9] = function(data: any): any return data end,
+	-- 10 → 11: maestría por arma. Para no quitarle de golpe habilidades a quien ya jugaba, el
+	-- arma que tenía elegida arranca con la mitad de sus bajas de siempre como XP de maestría
+	-- (como mucho, hasta el nivel MigrationCapLevel).
+	[10] = function(data: any): any
+		if type(data) == "table" and type(data.Mastery) ~= "table" then
+			local kills = if type(data.Stats) == "table" and type(data.Stats.Kills) == "number" then data.Stats.Kills else 0
+			local def = Weapons.get(if type(data.Weapon) == "string" then data.Weapon else nil)
+			local family = def.Base or def.Id
+			data.Mastery = {}
+			if Mastery.isFamily(family) and kills > 0 then
+				local cap = Mastery.Levels[Mastery.MigrationCapLevel] or 0
+				data.Mastery[family] = math.min(math.floor(kills / 2), cap)
+			end
+		end
+		return data
+	end,
 	-- 0 = guardado sin versión: lo que haya se aprovecha y se completa
 	[0] = function(data: any): any
 		return if type(data) == "table" then data else {}
@@ -183,6 +202,7 @@ function Profiles.defaultData(): Data
 		Missions = { Day = -1, Daily = {}, Week = -1, Weekly = {} },
 		Shop = { Day = -1, Bought = {}, Exchanges = {} },
 		Modes = { DailyWonDay = -1 },
+		Mastery = {},
 		CreatedAt = serverTime(),
 		LastSeen = serverTime(),
 	}
@@ -371,6 +391,14 @@ function Profiles.reconcile(raw: any): Data
 	end
 	if type(raw.Modes) == "table" and type(raw.Modes.DailyWonDay) == "number" then
 		data.Modes.DailyWonDay = math.floor(raw.Modes.DailyWonDay)
+	end
+	if type(raw.Mastery) == "table" then
+		for family, xp in raw.Mastery do
+			local n = count(xp)
+			if Mastery.isFamily(family) and n then
+				data.Mastery[family] = math.min(n, Mastery.Levels[Mastery.MaxLevel] * 10)
+			end
+		end
 	end
 	data.CreatedAt = count(raw.CreatedAt) or data.CreatedAt
 	return data

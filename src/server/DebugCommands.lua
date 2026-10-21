@@ -29,6 +29,9 @@ local Run = require(script.Parent.Run)
 local RunLog = require(script.Parent.RunLog)
 local WeaponService = require(script.Parent.WeaponService)
 local Weapons = require(Shared:WaitForChild("Weapons"))
+local WaveEvents = require(script.Parent.WaveEvents)
+local MasteryService = require(script.Parent.MasteryService)
+local Mastery = require(Shared:WaitForChild("Mastery"))
 
 local DebugCommands = {}
 
@@ -168,6 +171,42 @@ local Actions: { [string]: { label: string, match: boolean?, run: (Player) -> (b
 		Remotes.MeleeSwing:FireAllClients(p.UserId, root.Position, root.CFrame.LookVector, 11, 360, p:GetAttribute("Weapon"))
 		return true, "Torbellino (solo visual)"
 	end },
+	Elite = { label = "Aparecer élite", match = true, run = function(p)
+		local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local ch = Run.currentChapter()
+		if not root or not ch then
+			return false, "Sin personaje"
+		end
+		local types = WaveEvents.hordeTypes(ch, Waves.current())
+		local affixes = Config.Events.Elite.Affixes
+		local look = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+		look = if look.Magnitude > 0.01 then look.Unit else Vector3.zAxis
+		local e = Enemies.spawn(types[2], root.Position + look * 20, { healthMult = ch.HealthMult, dmgMult = ch.DamageMult, elite = affixes[math.random(1, #affixes)] })
+		WaveEvents.onEliteSpawned(e)
+		return true, "Élite: " .. tostring(e.eliteName)
+	end },
+	Horde = { label = "Momento horda", match = true, run = function(_p)
+		WaveEvents.debugHorde(Run.currentChapter())
+		return true, "¡Horda!"
+	end },
+	Goal = { label = "Meta de equipo", match = true, run = function(_p)
+		WaveEvents.debugGoal(PlayerData.getAliveTargets())
+		local g = WaveEvents.goal()
+		return true, if g then g.text else "Sin meta"
+	end },
+	Mastery = { label = "+1 nivel de maestría (arma elegida)", run = function(p)
+		local data = Profiles.get(p)
+		if not data then
+			return false, "Perfil cargando"
+		end
+		local family = MasteryService.familyOf(data.Weapon)
+		local xp = data.Mastery[family] or 0
+		local level = Mastery.levelOf(xp)
+		data.Mastery[family] = Mastery.Levels[math.min(level + 1, Mastery.MaxLevel)]
+		MasteryService.publish(p)
+		Profiles.saveSoon(p)
+		return true, string.format("Maestría de %s: nivel %d", Mastery.FamilyNames[family], Mastery.levelOf(data.Mastery[family]))
+	end },
 	FxJudgment = { label = "Efecto: Juicio", match = true, run = function(p)
 		local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if not root then
@@ -182,7 +221,7 @@ local Actions: { [string]: { label: string, match: boolean?, run: (Player) -> (b
 DebugCommands.Actions = Actions
 
 -- Orden en el panel
-DebugCommands.Order = { "Gold", "Gems", "Stones", "Levels", "Chapters", "Weapons", "Report", "SkipWave", "KillAll", "Boss", "LevelUp", "Item", "Heal", "FxWhirl", "FxJudgment" }
+DebugCommands.Order = { "Gold", "Gems", "Stones", "Levels", "Chapters", "Weapons", "Report", "SkipWave", "KillAll", "Boss", "LevelUp", "Item", "Heal", "Elite", "Horde", "Goal", "Mastery", "FxWhirl", "FxJudgment" }
 
 function DebugCommands.run(player: Player, action: any): (boolean, string)
 	if not DebugCommands.allowed(player) then

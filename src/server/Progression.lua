@@ -48,7 +48,8 @@ local function rollChoices(stats: PlayerData.Stats): { string }
 	local pool = {}
 	for _, def in Skills.List do
 		local tierOk = (def.Tier or 1) < 2 or level >= (ProgCfg.SecondTierLevel or 6) -- segunda tanda
-		if (stacks[def.Id] or 0) < def.Max and Skills.forWeapon(def, stats.weapon) and deck >= (def.Requires or 0) and tierOk then
+		local unlocked = not (stats.lockedSkills and stats.lockedSkills[def.Id]) -- candado de maestría
+		if (stacks[def.Id] or 0) < def.Max and Skills.forWeapon(def, stats.weapon) and deck >= (def.Requires or 0) and tierOk and unlocked then
 			table.insert(pool, def)
 		end
 	end

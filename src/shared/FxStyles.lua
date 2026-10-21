@@ -64,14 +64,14 @@ FxStyles.Styles = {
 		-- Texturas: python tools/gen_vfx_textures.py assets/vfx crimson (al_vfx_crimson_*.png)
 		-- Importar y pegar los IDs acá (vacío = respaldo de Roblox)
 		Textures = {
-			Flame = "",
-			Smoke = "",
-			Slash = "",
-			Swirl = "",
-			Ring = "",
-			Circle = "",
-			Star = "",
-			Speedline = "",
+			Flame = "rbxassetid://133039051994113",
+			Smoke = "rbxassetid://90181675980509",
+			Slash = "rbxassetid://137584932484211",
+			Swirl = "rbxassetid://104988607568722",
+			Ring = "rbxassetid://124226132674962",
+			Circle = "rbxassetid://129268000435126",
+			Star = "rbxassetid://76345317036793",
+			Speedline = "rbxassetid://75109871365409",
 		},
 	},
 	Inferno = {
@@ -84,14 +84,14 @@ FxStyles.Styles = {
 		-- Generar con: python tools/gen_vfx_textures.py assets/vfx inferno
 		-- Importar assets/vfx/al_vfx_inferno_*.png y pegar los IDs acá (vacío = respaldo de Roblox)
 		Textures = {
-			Flame = "",
-			Smoke = "",
-			Slash = "",
-			Swirl = "",
-			Ring = "",
-			Circle = "",
-			Star = "",
-			Speedline = "",
+			Flame = "rbxassetid://97127521165865",
+			Smoke = "rbxassetid://101319356832860",
+			Slash = "rbxassetid://84481144734844",
+			Swirl = "rbxassetid://71956835929203",
+			Ring = "rbxassetid://130253882063503",
+			Circle = "rbxassetid://131135261441856",
+			Star = "rbxassetid://133584582915961",
+			Speedline = "rbxassetid://106288259281590",
 		},
 	},
 }

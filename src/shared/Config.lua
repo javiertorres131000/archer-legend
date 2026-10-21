@@ -186,6 +186,54 @@ Config.Frenzy = {
 	ComboWindow = 2.5,
 }
 
+-- Eventos de la oleada (ver Server/WaveEvents.lua): élites, momentos horda y metas de equipo
+Config.Events = {
+	-- Élites: enemigos comunes "potenciados" con un rasgo. Más grandes, con aura y cartel, y al
+	-- morir sueltan un cofre (de rareza EliteChestMinRarity o mejor).
+	Elite = {
+		FromWave = 2, -- desde esta oleada
+		PerWave = 1, -- cuántos por oleada...
+		ExtraEvery = 4, -- ...y uno más cada tantas oleadas (oleada 8: 1 + 2 = 3)
+		Max = 4,
+		HealthMult = 7,
+		DamageMult = 1.6,
+		SizeMult = 1.4,
+		ChestMinRarity = "Rare",
+		-- Rasgos: uno al azar por élite (el nombre sale en su cartel)
+		Affixes = {
+			{ Id = "Swift", Name = "Veloz", Speed = 1.55 },
+			{ Id = "Armored", Name = "Blindado", Health = 1.6, Speed = 0.85 },
+			{ Id = "Furious", Name = "Furioso", Damage = 1.7 },
+			{ Id = "Giant", Name = "Gigante", Health = 1.3, Size = 1.25 },
+		},
+	},
+	-- Momento horda: a mitad de oleada, una avalancha de enemigos débiles desde todos lados.
+	-- Superarla (matarlos a todos) da oro al equipo y un cofre.
+	Horde = {
+		FromWave = 3,
+		Chance = 0.45, -- probabilidad de que la oleada tenga horda (nunca en la de jefe)
+		StartAfter = { 8, 16 }, -- segundos después de empezar la oleada (al azar en el rango)
+		Count = 45, -- enemigos (× el escalado de cantidad por jugadores)
+		Burst = 9, -- cuántos salen juntos
+		BurstEvery = 0.35, -- segundos entre tandas
+		HealthMult = 0.45, -- son débiles: se mueren de un par de golpes
+		Distance = 26, -- a qué distancia del equipo aparecen (en anillo)
+		Gold = 60, -- premio por superarla (× el botín del capítulo), para cada uno
+		ChestRarity = "Rare", -- rareza mínima del cofre que suelta al final
+	},
+	-- Metas de equipo: una por oleada (desde FromWave). Si la cumplen, oro para todos y un cofre.
+	Goals = {
+		FromWave = 2,
+		Delay = 3, -- segundos después de empezar la oleada
+		Gold = 50, -- premio (× el botín del capítulo), para cada uno
+		GemChance = 0.35, -- y a veces gemas
+		ChestRarity = "Uncommon",
+		Kills = { Count = 70, Time = 30 }, -- "maten N entre todos en T s" (N × escalado por jugadores)
+		Elite = { Time = 25 }, -- "maten al élite marcado en T s"
+		Chests = { Count = 2 }, -- "abran N cofres en esta oleada"
+	},
+}
+
 -- Salas: cada oleada se juega en una sala con otra decoración (ver Arena.lua)
 Config.Rooms = {
 	DoorRadius = 7, -- tamaño de la zona dorada frente a la puerta

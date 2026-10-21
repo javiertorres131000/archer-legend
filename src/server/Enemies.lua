@@ -43,6 +43,11 @@ export type Enemy = {
 	summoner: any?, -- enemigo que lo invocó
 	isBoss: boolean,
 	golden: boolean, -- enemigo dorado: brilla y suelta mucho botín
+	elite: string?, -- élite (Config.Events.Elite): Id del rasgo; al morir suelta un cofre
+	eliteName: string?, -- nombre del rasgo ("Veloz")
+	speedMult: number?, -- multiplica cuánto camina (rasgo Veloz / Blindado)
+	horde: boolean?, -- parte de un momento horda (WaveEvents)
+	goalTarget: boolean?, -- el élite marcado de una meta de equipo
 	showBar: boolean,
 	ai: any, -- estado de EnemyAI
 	visual: any, -- EnemyVisuals: modelo u ojos
@@ -57,13 +62,16 @@ export type Enemy = {
 	bobPhase: number?, -- voladores: fase del vaivén (cada uno a su ritmo)
 }
 
-export type SpawnOptions = { healthMult: number?, dmgMult: number?, summoner: Enemy?, golden: boolean? }
+-- elite: un rasgo de Config.Events.Elite.Affixes (lo convierte en élite)
+export type SpawnOptions = { healthMult: number?, dmgMult: number?, summoner: Enemy?, golden: boolean?, elite: any?, horde: boolean? }
 
 -- (enemigo, quién pegó, daño real hecho, si murió, tipo de daño: "hit" | "burn")
 type DamageCallback = (Enemy, Player?, number, boolean, string) -> ()
 
 local Enemies = {}
 Enemies.list = {} :: { Enemy }
+
+local ELITE_COLOR = Color3.fromRGB(200, 110, 255) -- violeta (igual que su marca en el cliente)
 
 local half: Vector3 = Vector3.zero
 local folder: Folder
@@ -245,16 +253,26 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 	local golden = o.golden == true and not def.Boss
 	local healthMult = (o.healthMult or 1) * (if golden then Config.Frenzy.GoldenHealthMult else 1)
 	local dmgMult = o.dmgMult or 1
+	-- Élite: más vida, más daño, más grande, y su rasgo
+	local affix = if not def.Boss and not golden and type(o.elite) == "table" then o.elite else nil
+	local EliteCfg = Config.Events.Elite
+	local sizeMult = 1
+	if affix then
+		healthMult *= EliteCfg.HealthMult * (affix.Health or 1)
+		dmgMult *= EliteCfg.DamageMult * (affix.Damage or 1)
+		sizeMult = EliteCfg.SizeMult * (affix.Size or 1)
+	end
 
-	local size = def.Size or 3
-	local height = def.Height or size
+	local size = (def.Size or 3) * sizeMult
+	local height = (def.Height or def.Size or 3) * sizeMult
 	local baseY = height / 2 + (def.Float or 0)
 	local start = Enemies.clampFlat(pos, size / 2)
 
 	local part = Instance.new("Part")
 	part.Name = typeId
 	part:SetAttribute("ThreatRole", def.Role or (if def.Boss then "Boss" else "Horde"))
-	if def.Role == "Elite" then part:SetAttribute("Elite", true) end
+	if def.Role == "Elite" or affix then part:SetAttribute("Elite", true) end
+	if affix then part:SetAttribute("EliteAffix", affix.Name) end
 	part:SetAttribute("Gait", Enemies.gaitOf(def)) -- cómo lo anima el cliente (EnemyAnimator)
 	if def.Shape == "Ball" then
 		part.Shape = Enum.PartType.Ball
@@ -265,24 +283,32 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 	part.Anchored = true
 	part.CanCollide = false
 	part.CanTouch = false
-	local color = if golden then Color3.fromRGB(255, 200, 40) else def.Color
+	local color = if golden then Color3.fromRGB(255, 200, 40) elseif affix then ELITE_COLOR else def.Color
 	part.Color = color
 	part.Material = if def.Boss or golden then Enum.Material.Neon else Enum.Material.SmoothPlastic
 	part.CFrame = CFrame.new(start.X, Ground.y(start.X, start.Z) + baseY, start.Z)
 	local barGui, bar = createHealthBar(part, size, height)
-	local showBar = def.Boss == true or golden or def.Role == "Elite" or EnemyCfg.HealthBars == "All"
+	local showBar = def.Boss == true or golden or def.Role == "Elite" or affix ~= nil or EnemyCfg.HealthBars == "All"
 	barGui.Enabled = showBar
-	if def.Role == "Elite" then
+	if def.Role == "Elite" or affix then
 		local label = Instance.new("TextLabel")
 		label.BackgroundTransparency = 1
 		label.Position = UDim2.fromOffset(0, -18)
 		label.Size = UDim2.new(1, 0, 0, 18)
-		label.Text = "ÉLITE"
+		label.Text = if affix then "ÉLITE · " .. string.upper(affix.Name) else "ÉLITE"
 		label.Font = Enum.Font.GothamBold
 		label.TextSize = 12
 		label.TextColor3 = color
 		label.TextStrokeTransparency = 0
 		label.Parent = barGui
+	end
+	if affix then
+		part.Name = "Elite" .. typeId
+		local light = Instance.new("PointLight")
+		light.Color = ELITE_COLOR
+		light.Range = 12
+		light.Brightness = 2
+		light.Parent = part
 	end
 	if golden then
 		part.Name = "Golden" .. typeId
@@ -309,7 +335,7 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 		healthMult = healthMult,
 		dmgMult = dmgMult,
 		contactDamage = (def.ContactDamage or 0) * dmgMult,
-		xp = def.XP or 1,
+		xp = (def.XP or 1) * (if affix then 5 else 1), -- el élite da más XP
 		lastContact = 0,
 		barGui = barGui,
 		bar = bar,
@@ -321,6 +347,10 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 		summoner = o.summoner,
 		isBoss = def.Boss == true,
 		golden = golden,
+		elite = if affix then affix.Id else nil,
+		eliteName = if affix then affix.Name else nil,
+		speedMult = if affix then affix.Speed else nil,
+		horde = if o.horde then true else nil,
 		showBar = showBar,
 		ai = nil,
 		visual = nil,
@@ -546,6 +576,10 @@ function Enemies.update(dt: number, targets: { PlayerData.Target }, now: number,
 			desired, facing, separate = pos, nil, false
 		else
 			desired, facing, separate = EnemyAI.step(e, dt, targets)
+			-- Rasgo de élite: camina más rápido o más lento
+			if e.speedMult and e.speedMult ~= 1 and (desired - pos).Magnitude < 6 then
+				desired = pos + (desired - pos) * e.speedMult
+			end
 			-- Frenado (Toque helado): recorre menos de lo que quería
 			if e.slowUntil and now < e.slowUntil then
 				desired = pos + (desired - pos) * (1 - math.clamp(e.slowAmount or 0, 0, 0.8))

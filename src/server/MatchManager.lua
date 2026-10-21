@@ -244,6 +244,7 @@ local function enterResults(result: Run.Result)
 				wavesCleared = summary.wavesCleared,
 				bossesKilled = summary.bossesKilled,
 				kills = if stats then stats.kills else 0,
+				weapon = if stats then stats.stats.weaponId or stats.stats.weapon else nil,
 			})
 		personal.rewards = if granted then granted.amounts else nil -- nil: perfil sin cargar
 		personal.firstClear = granted ~= nil and granted.firstClear
@@ -254,6 +255,7 @@ local function enterResults(result: Run.Result)
 		personal.account = if granted then granted.account else nil -- barra "te faltan X"
 		personal.loot = if stats then table.clone(stats.runLoot) else {} -- botín juntado (ya cobrado)
 		personal.dailyBonus = granted ~= nil and granted.dailyBonus
+		personal.mastery = if granted then granted.mastery else nil -- maestría del arma
 		if result == "Victory" and not Modes.isMode(selectedChapter) then
 			ChapterUnlocks.onChapterCleared(p, selectedChapter)
 		end

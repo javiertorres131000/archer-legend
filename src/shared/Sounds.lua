@@ -44,6 +44,15 @@ Sounds.List = {
 	CrateWhoosh = { Id = "rbxasset://sounds/swordlunge.wav", Volume = 0.6, Pitch = 0.6, PitchVariation = 0, MinGap = 0 },
 	CrateReveal = { Id = "rbxasset://sounds/victory.wav", Volume = 0.7, Pitch = 1, PitchVariation = 0, MinGap = 0 },
 	CrateRevealBig = { Id = "rbxasset://sounds/HalloweenThunder.wav", Volume = 0.8, Pitch = 0.75, PitchVariation = 0, MinGap = 0 },
+	-- Eventos de la oleada (WaveEvents): aparece un élite, empieza y se supera la horda, meta
+	-- de equipo nueva, cumplida y fallida; subir de nivel de maestría (resultados)
+	Elite = { Id = "rbxasset://sounds/HalloweenThunder.wav", Volume = 0.5, Pitch = 1.4, PitchVariation = 0, MinGap = 0.5 },
+	Horde = { Id = "rbxasset://sounds/HalloweenThunder.wav", Volume = 0.8, Pitch = 0.7, PitchVariation = 0, MinGap = 1 },
+	HordeClear = { Id = "rbxasset://sounds/victory.wav", Volume = 0.6, Pitch = 1.1, PitchVariation = 0, MinGap = 1 },
+	Goal = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.5, Pitch = 0.9, PitchVariation = 0, MinGap = 0.5 },
+	GoalDone = { Id = "rbxasset://sounds/victory.wav", Volume = 0.55, Pitch = 1.3, PitchVariation = 0, MinGap = 0.5 },
+	GoalFail = { Id = "rbxasset://sounds/action_falling.ogg", Volume = 0.35, Pitch = 0.8, PitchVariation = 0, MinGap = 0.5 },
+	MasteryUp = { Id = "rbxasset://sounds/victory.wav", Volume = 0.7, Pitch = 0.9, PitchVariation = 0, MinGap = 1 },
 }
 
 return Sounds

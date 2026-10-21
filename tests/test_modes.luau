@@ -117,7 +117,7 @@ end)
 test("desafío diario: el premio extra se cobra una vez por día", function()
 	local p = M.addPlayer("Diario")
 	local data = Profiles.get(p)
-	local day = Modes.day(os.time())
+	local day = Modes.day(M.os.time()) -- el reloj de los módulos es el de mocks
 	local def = Modes.dailyChapter(day)
 	data.Modes.DailyWonDay = -1
 	local gems = data.Currencies.Gems

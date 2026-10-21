@@ -18,6 +18,7 @@ local Rarities = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("
 local Skills = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Skills"))
 local Currencies = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Currencies"))
 local Talents = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Talents"))
+local Mastery = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Mastery"))
 local Synergies = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Synergies"))
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local skillOffer = remotes:WaitForChild("SkillOffer") :: RemoteEvent
@@ -1063,7 +1064,7 @@ local resultSub = text({
 -- Tabla de jugadores: nombre · bajas · daño
 local tableFrame = make("Frame", {
 	Position = UDim2.new(0, 0, 0, 104),
-	Size = UDim2.new(1, 0, 1, -360),
+	Size = UDim2.new(1, 0, 1, -384),
 	BackgroundTransparency = 1,
 	ZIndex = 22,
 	Parent = panel,
@@ -1158,6 +1159,39 @@ local highlights = text({
 	Parent = panel,
 })
 local highlightsScale = make("UIScale", { Parent = highlights })
+
+-- Maestría del arma: "⭐ Maestría de Espada 4 (+620 XP) · 🔓 Danza de espadas"
+local masteryLabel = text({
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 0, 1, -252),
+	Size = UDim2.new(1, 0, 0, 22),
+	TextSize = 15,
+	TextWrapped = true,
+	RichText = true,
+	Font = Theme.Fonts.Bold,
+	TextColor3 = Color3.fromRGB(255, 220, 140),
+	ZIndex = 22,
+	Parent = panel,
+})
+
+local function showMastery(m: any)
+	if typeof(m) ~= "table" or type(m.family) ~= "string" then
+		masteryLabel.Text = ""
+		return
+	end
+	local name = Mastery.FamilyNames[m.family] or m.family
+	local up = (m.level or 1) > (m.levelBefore or 1)
+	local line = if up
+		then string.format("⭐ ¡Maestría de %s nivel %d! (+%d XP)", name, m.level, m.gained or 0)
+		else string.format("⭐ Maestría de %s %d · +%d XP%s", name, m.level or 1, m.gained or 0, if (m.needed or 0) > 0 then string.format(" (%d/%d)", m.into or 0, m.needed) else "")
+	if typeof(m.unlocked) == "table" and #m.unlocked > 0 then
+		line ..= "  ·  " .. table.concat(m.unlocked, "  ·  ")
+	end
+	masteryLabel.Text = line
+	if up then
+		player:SetAttribute("MasteryUp", workspace:GetServerTimeNow()) -- Sfx: fanfarria
+	end
+end
 
 -- Barra de la cuenta: "te faltan X XP para el próximo punto de talento"
 local accountBlock = make("Frame", {
@@ -1461,6 +1495,7 @@ runEnded.OnClientEvent:Connect(function(summary)
 	showRewards(summary.rewards, summary.firstClear == true, summary.loot, summary.accountXP, summary.levelsGained)
 	showHighlights(summary)
 	showAccount(summary.account, summary.levelsGained or 0)
+	showMastery(summary.mastery)
 
 	voted = false
 	againButton.Text = "Volver al lobby"

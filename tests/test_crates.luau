@@ -399,6 +399,12 @@ test("plaza: una plataforma por caja con prompt, cartel y cofre; puerta en el lo
 end)
 
 test("caja de armas: no repite, se elige como arma y no se abre si ya tenés todas", function()
+	-- El jugador de arriba salió en la prueba del perfil: vuelve a entrar
+	if not Profiles.get(p) then
+		p = M.addPlayer("Cajero2")
+		data = Profiles.get(p)
+		state = PlayerData.get(p)
+	end
 	state.inMatch = false
 	p:SetAttribute("Ready", false)
 	local idx
@@ -430,6 +436,7 @@ test("caja de armas: no repite, se elige como arma y no se abre si ya tenés tod
 	eq(r.Prize, "InfernoBlade", "segunda arma")
 	eq(data.Crates.Owned.FrostKatana, 1, "no repitió")
 	eq(p:GetAttribute("OwnedWeapons"), "FrostKatana,InfernoBlade", "OwnedWeapons con las dos")
+	M.advance(Cfg.OpenCooldown + 0.1)
 	r = open("Weapons")
 	CrateService._forceRoll(nil)
 	assert(r.Ok, tostring(r.Error))

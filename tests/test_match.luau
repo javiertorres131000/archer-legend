@@ -242,7 +242,7 @@ test("5. victoria, desbloqueo del capítulo 2 y regreso al lobby", function()
 	god[A] = nil
 	assert(t, "debería terminar")
 	eq(summaries[A].result, "Victory", "resultado")
-	eq(A:GetAttribute("UnlockedChapters"), "forest,ruins", "capítulo 2 desbloqueado")
+	eq(A:GetAttribute("UnlockedChapters"), "forest,ruins,tower,daily", "capítulo 2 desbloqueado (y los modos)")
 	-- Recompensas: 10 oleadas × 10 + mini-jefe 30 + jefe 60 + victoria 100 = 290 de oro;
 	-- gemas 5 + 50 por ser la primera victoria; piedras 1 + 2
 	local r = summaries[A].rewards
@@ -392,7 +392,7 @@ test("Ana vuelve a entrar otro día: conserva capítulos, monedas y récords", f
 	local Ana = M.addPlayer("Ana", A.UserId)
 	tick(0.5)
 	eq(Ana:GetAttribute("ProfileStatus"), "Ready", "perfil cargado")
-	eq(Ana:GetAttribute("UnlockedChapters"), "forest,ruins", "capítulos")
+	eq(Ana:GetAttribute("UnlockedChapters"), "forest,ruins,tower,daily", "capítulos")
 	assert(Ana:GetAttribute("Gems") >= 55, "gemas")
 	assert(string.find(Ana:GetAttribute("ChapterRecords"), "forest=1/10", 1, true), "récord")
 	M.removePlayer(Ana)

@@ -26,10 +26,12 @@ local Runes = require(script.Parent.Runes)
 local CrateEquip = require(script.Parent.CrateEquip)
 local StatsBreakdown = require(script.Parent.StatsBreakdown)
 local WeaponService = require(script.Parent.WeaponService)
+local MasteryService = require(script.Parent.MasteryService)
 local Dash = require(script.Parent.Dash)
 local Grab = require(script.Parent.Grab)
 local Ping = require(script.Parent.Ping)
 local SkillEffects = require(script.Parent.SkillEffects)
+local WaveEvents = require(script.Parent.WaveEvents)
 local Rarities = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Rarities"))
 local Modes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Modes"))
 
@@ -81,6 +83,7 @@ function Run.init()
 	TalentService.init(Remotes)
 	StatsBreakdown.init(Remotes)
 	WeaponService.init(Remotes)
+	MasteryService.init()
 	Runes.init(Remotes)
 	Arena.build()
 	Hazards.init()
@@ -117,6 +120,48 @@ function Run.init()
 		end
 	end)
 
+	-- Eventos de la oleada (élites, horda, metas): premios para todo el equipo
+	local function teamReward(gold: number, gemChance: number, chestRarity: string, at: Vector3?)
+		local participants = PlayerLife.participants()
+		local ch = Waves.currentChapter()
+		local mult = ch.Rewards and ch.Rewards.LootMult or 1
+		local amounts = { Gold = math.floor(gold * mult + 0.5) }
+		if math.random() < gemChance then
+			amounts.Gems = math.random(1, 3)
+		end
+		local targets = PlayerData.getAliveTargets()
+		local pos = at or (if #targets > 0 then targets[math.random(1, #targets)].root.Position else nil)
+		for player, got in Loot.grant(participants, amounts) do
+			CombatFeed.loot(player, pos or Vector3.zero, got)
+		end
+		if pos then
+			-- El cofre cae al lado (no encima: así se ve)
+			local angle = math.random() * math.pi * 2
+			Chests.dropAt(pos + Vector3.new(math.cos(angle), 0, math.sin(angle)) * 6, Chests.rollAtLeast(chestRarity))
+		end
+	end
+	WaveEvents.init(Remotes.GameState, {
+		onHordeCleared = function(pos)
+			local h = Config.Events.Horde
+			teamReward(h.Gold, 0, h.ChestRarity, pos)
+		end,
+		onGoalDone = function(_goal, pos)
+			local g = Config.Events.Goals
+			teamReward(g.Gold, g.GemChance, g.ChestRarity, pos)
+			for _, p in PlayerLife.participants() do
+				local s = PlayerData.get(p)
+				if s then
+					s.teamGoals = (s.teamGoals or 0) + 1
+				end
+			end
+		end,
+	})
+	Chests.onOpened(function(pos)
+		if active then
+			WaveEvents.onChestOpened(pos)
+		end
+	end)
+
 	-- Cada golpe suma a las estadísticas del jugador; cada muerte, XP y botín al equipo.
 	Enemies.onDamaged(function(enemy, attacker, dealt, killed, kind)
 		local pos = enemy.part.Position
@@ -142,6 +187,7 @@ function Run.init()
 			if active then
 				ItemService.onKill(enemy, attacker, kind)
 				SkillEffects.onKill(attacker, enemy, kind, pos) -- vampirismo, cadáver explosivo
+				WaveEvents.onKill(enemy, pos) -- élite: cofre; metas de equipo
 			end
 			if not active then
 				Progression.addXP(enemy.xp)
@@ -235,6 +281,7 @@ function Run.start(index: number, participants: { Player }, mode: string?)
 			Runes.apply(p, s.stats)
 			CrateEquip.apply(p, s.stats) -- mascota de las cajas
 			WeaponService.apply(p, s.stats)
+			MasteryService.apply(p, s.stats) -- bono y candados de la maestría del arma
 			if mode == "daily" then
 				Modes.applyDailyPlayer(s.stats, runDay) -- modificadores del día
 			end

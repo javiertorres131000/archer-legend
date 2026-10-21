@@ -1,5 +1,26 @@
 # Cambios
 
+## 2026-10-21 · Élites con cofre, momentos horda, metas de equipo y maestría por arma
+
+- **Élites** (`Server/WaveEvents.lua`, `Config.Events.Elite`): desde la oleada 2, algunos enemigos comunes salen potenciados: más grandes, con aura violeta, ×7 de vida y un rasgo (Veloz, Blindado, Furioso o Gigante) en su cartel. Dan más XP y al morir sueltan un cofre (Rara o mejor). Más élites cuanto más avanzada la oleada.
+- **Momentos horda** (`Config.Events.Horde`): desde la oleada 3, a veces a mitad de oleada llega una avalancha de enemigos débiles desde todos lados, con cartel, contador y borde rojo. La oleada no termina hasta superarla, y superarla da oro y un cofre al equipo. Nunca en la oleada del jefe.
+- **Metas de equipo** (`Config.Events.Goals`): una por oleada desde la 2, arriba al centro con progreso y tiempo.
+  - Maten N enemigos en 30 s.
+  - Maten al élite marcado en 25 s.
+  - Abran 2 cofres.
+  - Que nadie caiga.
+  - Cumplirla da oro (a veces gemas) y un cofre para todos.
+- **Maestría por arma** (`Shared/Mastery.lua`, `Server/MasteryService.lua`): por familia (arco, espada, puños; las especiales suman a su base).
+  - Se gana XP al terminar cada partida; 10 niveles.
+  - +2% de daño por nivel, más crítico en los niveles 5 y 10.
+  - Títulos Aprendiz, Experto y Maestro, con borde de color en la carta del arma.
+  - Se ve en el menú Arma y en los resultados de la partida.
+- **Habilidades con candado**: cada arma tiene 2 habilidades de la segunda tanda que piden maestría. Su épica pide nivel 3 y su legendaria nivel 5 (Anillo de flechas / Flecha fantasma, Tajo veloz / Danza de espadas, Golpe sísmico / Puño del dragón). Hasta entonces no salen en las ofertas y en el menú Arma aparecen con 🔒.
+- **Perfil versión 11**: guarda la maestría. Para no quitarle habilidades de golpe a quien ya jugaba, el arma elegida arranca con la mitad de sus bajas históricas como XP (como mucho, nivel 5).
+- **Sonidos nuevos** para élites, horda, metas y subir de maestría (`Shared/Sounds.lua`).
+- Panel F2: Aparecer élite, Momento horda, Meta de equipo y +1 nivel de maestría.
+- **Pruebas**: `tests/test_events.luau` (16 nuevas). Se arreglaron 3 pruebas viejas que habían quedado desactualizadas con los modos y la Katana Carmesí. Ahora pasan las 31.
+
 ## 2026-10-21 · Efectos propios para la Hoja Infernal y la Katana Carmesí
 
 Ya no son un cambio de color de los de escarcha: cada arma tiene formas y comportamientos propios.
