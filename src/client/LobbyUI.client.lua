@@ -378,7 +378,7 @@ local countdownScale = make("UIScale", { Parent = countdownLabel })
 local soonRow = make("Frame", {
 	AnchorPoint = Vector2.new(0, 1),
 	Position = UDim2.new(0, 40, 1, -48),
-	Size = UDim2.new(0, 4 * 84 + 3 * 12, 0, 84),
+	Size = UDim2.new(0, 5 * 84 + 4 * 12, 0, 84),
 	BackgroundTransparency = 1,
 	Parent = content,
 }, {
@@ -399,11 +399,13 @@ local soonTip = text({
 	TextXAlignment = Enum.TextXAlignment.Left,
 	Parent = content,
 })
--- Acción de cada botón: abrir inventario/equipo, abrir talentos o (tienda) próximamente
+-- Acción de cada botón: abrir equipo (el inventario y las runas son pestañas de Equipo),
+-- abrir talentos o (tienda) próximamente
 local lobbyButtons = {
-	{ Icons.Inventory, "Inventario", "Equipment" },
 	{ Icons.Equipment, "Equipo", "Equipment" },
 	{ "⭐", "Talentos", "Talents" },
+	{ "📊", "Stats", "Stats" },
+	{ "⚔️", "Arma", "Weapon" },
 	{ Icons.Shop, "Tienda", nil },
 }
 for i, item in lobbyButtons do
@@ -434,9 +436,13 @@ for i, item in lobbyButtons do
 	b.Activated:Connect(function()
 		local playerGui = player:WaitForChild("PlayerGui")
 		if action == "Equipment" then
-			playerGui:SetAttribute("EquipmentTab", item[2])
+			playerGui:SetAttribute("EquipmentTab", "Equipo")
 		elseif action == "Talents" then
 			playerGui:SetAttribute("TalentsOpen", true)
+		elseif action == "Stats" then
+			playerGui:SetAttribute("StatsOpen", true)
+		elseif action == "Weapon" then
+			playerGui:SetAttribute("WeaponOpen", true)
 		else
 			showTip()
 		end

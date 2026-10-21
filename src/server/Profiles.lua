@@ -36,20 +36,37 @@ local Currencies = require(Shared:WaitForChild("Currencies"))
 
 local EquipmentDefs = require(Shared:WaitForChild("EquipmentDefs"))
 local Talents = require(Shared:WaitForChild("Talents"))
+local RuneDefs = require(Shared:WaitForChild("RuneDefs"))
+local Weapons = require(Shared:WaitForChild("Weapons"))
 local Rarities = require(Shared:WaitForChild("Rarities"))
+local CrateItems = require(Shared:WaitForChild("CrateItems"))
 local Cfg = Config.Profiles
 
 export type ChapterRecord = { Unlocked: boolean, Clears: number, BestWave: number }
 export type Stats = { Runs: number, Victories: number, Kills: number, BossKills: number }
+-- Cajas: cuántos de cada premio tenés (Id de Shared/CrateItems.lua), cajas abiertas, si ya
+-- se dieron las monedas de prueba (Config.Crates.TestGold), lo equipado (un premio por espacio,
+-- CrateItems.Slots) y las últimas compras con Robux ya entregadas (PurchaseId de cada recibo)
+export type CrateData = {
+	Owned: { [string]: number },
+	Opened: number,
+	TestGoldGiven: boolean,
+	Equipped: { [string]: string },
+	Receipts: { string },
+}
 export type Data = {
 	Inventory: { { Uid: string, Id: string, Rarity: string, Level: number } },
 	Equipment: { [string]: string },
 	EquipmentInitialized: boolean,
 	Talents: { [string]: number }, -- árbol de talentos: Id del nodo -> rango (Shared/Talents.lua)
 	Account: { Level: number, XP: number }, -- nivel de cuenta: da los puntos del árbol
+	-- Runas: nivel de cada una que tenés y las especiales puestas ("" = espacio vacío)
+	Runes: { Owned: { [string]: number }, Active: { string } },
+	Weapon: string, -- arma elegida (Shared/Weapons.lua)
 	Currencies: { [string]: number },
 	Chapters: { [string]: ChapterRecord },
 	Stats: Stats,
+	Crates: CrateData,
 	CreatedAt: number,
 	LastSeen: number,
 }
@@ -69,7 +86,7 @@ type Session = {
 
 local Profiles = {}
 
-Profiles.SCHEMA_VERSION = 4
+Profiles.SCHEMA_VERSION = 8
 
 -- Migraciones: Migrations[n] recibe los datos guardados con la versión n y devuelve los de n + 1.
 -- Para cambiar el formato: subí SCHEMA_VERSION y agregá la migración de la versión anterior.
@@ -87,6 +104,14 @@ Profiles.Migrations = {
 		end
 		return data
 	end,
+	-- 4 → 5: runas. reconcile crea Runes vacío; se sube la versión por lo mismo que en 2 → 3.
+	[4] = function(data: any): any return data end,
+	-- 5 → 6: arma elegida. reconcile pone el arco; se sube la versión por lo mismo que en 2 → 3.
+	[5] = function(data: any): any return data end,
+	-- 6 → 7: cajas (premios conseguidos). reconcile crea Crates vacío; se sube por lo mismo que en 2 → 3.
+	[6] = function(data: any): any return data end,
+	-- 7 → 8: premios equipados y recibos de Robux. reconcile los completa; se sube por lo mismo.
+	[7] = function(data: any): any return data end,
 	-- 0 = guardado sin versión: lo que haya se aprovecha y se completa
 	[0] = function(data: any): any
 		return if type(data) == "table" then data else {}
@@ -131,9 +156,12 @@ function Profiles.defaultData(): Data
 		Inventory = {}, Equipment = {}, EquipmentInitialized = false,
 		Talents = {},
 		Account = { Level = 1, XP = 0 },
+		Runes = { Owned = {}, Active = table.create(RuneDefs.ActiveSlots, "") },
+		Weapon = Weapons.Default,
 		Currencies = currencies,
 		Chapters = {},
 		Stats = { Runs = 0, Victories = 0, Kills = 0, BossKills = 0 },
+		Crates = { Owned = {}, Opened = 0, TestGoldGiven = false, Equipped = {}, Receipts = {} },
 		CreatedAt = serverTime(),
 		LastSeen = serverTime(),
 	}
@@ -211,6 +239,62 @@ function Profiles.reconcile(raw: any): Data
 	-- árbol se vacía: los puntos se recuperan enteros para volver a repartirlos.
 	if Talents.spent(data.Talents) > Talents.pointsForLevel(data.Account.Level) then
 		data.Talents = {}
+	end
+	if type(raw.Runes) == "table" then
+		if type(raw.Runes.Owned) == "table" then
+			for id, level in raw.Runes.Owned do
+				local def = type(id) == "string" and RuneDefs.ById[id]
+				local n = count(level)
+				if def and n and n > 0 then
+					data.Runes.Owned[id] = if def.Kind == "Special" then 1 else math.min(n, RuneDefs.MaxLevel)
+				end
+			end
+		end
+		if type(raw.Runes.Active) == "table" then
+			local used = {}
+			for i = 1, RuneDefs.ActiveSlots do
+				local id = raw.Runes.Active[i]
+				local def = type(id) == "string" and RuneDefs.ById[id]
+				if def and def.Kind == "Special" and data.Runes.Owned[id] and not used[id] then
+					used[id] = true
+					data.Runes.Active[i] = id
+				end
+			end
+		end
+	end
+	-- Arma: solo una que exista
+	if type(raw.Weapon) == "string" and Weapons.ById[raw.Weapon] then
+		data.Weapon = raw.Weapon
+	end
+	-- Cajas: solo premios que existen
+	if type(raw.Crates) == "table" then
+		if type(raw.Crates.Owned) == "table" then
+			for id, n in raw.Crates.Owned do
+				local amount = count(n)
+				if type(id) == "string" and CrateItems.ById[id] and amount and amount > 0 then
+					data.Crates.Owned[id] = amount
+				end
+			end
+		end
+		data.Crates.Opened = count(raw.Crates.Opened) or 0
+		data.Crates.TestGoldGiven = raw.Crates.TestGoldGiven == true
+		-- Equipado: solo premios que tenés, cada uno en su espacio
+		if type(raw.Crates.Equipped) == "table" then
+			for _, slot in CrateItems.Slots do
+				local id = raw.Crates.Equipped[slot]
+				local prize = if type(id) == "string" then CrateItems.ById[id] else nil
+				if prize and CrateItems.slotOf(prize) == slot and data.Crates.Owned[id] then
+					data.Crates.Equipped[slot] = id
+				end
+			end
+		end
+		if type(raw.Crates.Receipts) == "table" then
+			for _, id in raw.Crates.Receipts do
+				if type(id) == "string" and #id <= 100 and #data.Crates.Receipts < 500 then
+					table.insert(data.Crates.Receipts, id)
+				end
+			end
+		end
 	end
 	data.CreatedAt = count(raw.CreatedAt) or data.CreatedAt
 	return data
@@ -489,6 +573,16 @@ function Profiles.load(player: Player)
 			return
 		end
 	end
+end
+
+-- Guarda ahora y ESPERA el resultado (true = quedó escrito en DataStore). Lo usan las compras
+-- con Robux: no se confirma un recibo hasta que lo que se entregó está guardado.
+function Profiles.saveNow(player: Player): boolean
+	local session = sessions[player]
+	if not session or not session.canSave then
+		return false
+	end
+	return save(session, false)
 end
 
 -- Guarda ahora, sin esperar (por ejemplo, al terminar una partida).

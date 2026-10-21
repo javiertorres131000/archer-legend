@@ -5,7 +5,7 @@ Cómo está armado el juego. Para jugar o probar, ver el [README](README.md).
 ## Principios
 
 - **El servidor manda.** Combate, daño, XP, habilidades, estados de vida y de partida se deciden en el servidor. Los clientes dibujan y piden.
-- **Una sola puerta por responsabilidad.** Un único módulo daña jugadores (`PlayerLife.damage`), un único módulo cambia el estado de la partida (`MatchManager`), un único módulo sabe qué capítulos tiene cada uno (`ChapterUnlocks`), un único módulo toca DataStore (`Profiles`).
+- **Una sola puerta por responsabilidad.** Un único módulo daña jugadores (`PlayerLife.damage`), un único módulo cambia el estado de la partida (`MatchManager`), un único módulo sabe qué capítulos tiene cada uno (`ChapterUnlocks`), un único módulo toca DataStore (`Profiles`), un único módulo procesa compras con Robux (`Receipts`).
 - **Contenido como datos.** Enemigos, jefes, capítulos, habilidades y balance viven en tablas (`Data/EnemyTypes`, `Chapters`, `Skills`, `Config`). Agregar contenido casi nunca requiere programar.
 - **Estado replicado por atributos.** El servidor publica estado en atributos (`GameState` y cada `Player`); los clientes los leen. Los RemoteEvents se usan para eventos puntuales (proyectiles, ofertas, resultados) y para pedidos del cliente.
 
@@ -24,6 +24,10 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `RunItems` | Diez objetos temporales, límites y efectos sobre stats |
 | `EquipmentDefs` | Seis espacios, dos conjuntos, costos, valor de reciclaje y topes de equipo |
 | `Talents` | Árbol de talentos: nodos, conexiones, posición, costos (puntos/oro/gemas), `check` compartido y XP de cuenta |
+| `Crates` | Las 5 cajas: precio, colores y tabla de premios con probabilidades; `rates`, `pick` (tirada ponderada) y formatos |
+| `CrateItems` | Rarezas de las cajas (Common → Secret) y los premios (tipo, rareza y aspecto) |
+| `CrateModels` | Piezas 3D con Parts: hexágonos, antorchas, cofres y premios de bloques (o modelos propios de `CrateAssets`) |
+| `CratePlazaLayout` | Dónde va la plaza de las cajas y cada plataforma (servidor y cliente calculan igual) |
 | `UITheme` | Colores, tipografías, íconos y constructores de UI (fantasía oscura y dorado) |
 
 ### Servidor (`src/server`)
@@ -43,20 +47,30 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `CombatFeed` ★ | Junta los números flotantes de cada jugador y los manda agrupados cada 0,1 s |
 | `ItemService` | Entrega de objetos temporales; aura, rayos y explosiones calculados en servidor |
 | `Equipment` | Inventario permanente, equipar, mejorar, fusionar, reciclar, botín y base de stats |
+| `EnemyVisuals` | Aspecto de los enemigos: modelo de `ServerStorage/EnemyModels` soldado a la caja (sin scripts) u ojos |
+| `WeaponService` | Arma elegida (perfil), validación en el lobby y `stats.weapon` al empezar |
+| `StatsBreakdown` | Desglose de stats por sistema (base, equipo, talentos, runas, ahora) para el panel |
+| `RunLog` | Registro de partidas: fila por jugador, DataStore aparte por día y resumen por capítulo |
+| `DebugCommands` | Comandos del panel de prueba; permiso: Studio o `Config.Debug.Admins` |
 | `TalentService` | Compra y reinicio validados del árbol (`TalentRequest`/`TalentState`) y aplicación al empezar |
 | `Dash` | Validación, recarga, protección e impulso con propiedad física del servidor |
+| `Grab` | Agarre del Atrapador: ancla al jugador, daño por tick, suelta por daño al agarrador / forcejeo (`Remotes.StruggleRequest`, con tope de frecuencia) / derribo / tiempo; anota quién lo salvó (atributos `Grabbed`, `GrabProgress`, `SavedBy`, `Rescued`) |
 | `PlayerData` | Stats, habilidades y estadísticas por jugador; `inMatch` |
 | `PlayerLife` ★ | Ciclo de vida: aparición (lobby o arena), daño, derribo, rescate, eliminación |
-| `Waves` | Genera y corre las oleadas del capítulo; escalado por jugadores |
+| `Waves` | Genera y corre las oleadas del capítulo; escalado por jugadores; cada aparición se reparte en varios lados alrededor de un jugador (`Enemies.findSpawnPositionAt`), a veces por su espalda |
 | `Enemies` / `EnemyAI` | Registro de enemigos y su cerebro por comportamientos |
-| `Combat` | Disparo automático (en primera persona, solo a lo que está delante), flechas del jugador y proyectiles enemigos |
+| `Combat` | Ataque del jugador: manual (`setTrigger` valida apretado + dirección desde `Remotes.AttackRequest`, con límite de mensajes; cadencia y daño en el servidor) o automático según `Config.Player.FireMode`; flechas del jugador y proyectiles enemigos |
 | `Hazards` | Avisos y zonas en el piso |
 | `Boss` | Publica la barra del jefe |
-| `Progression` | XP compartida, niveles y ofertas de habilidades (solo participantes) |
+| `Progression` | XP compartida, niveles y ofertas de habilidades (solo participantes); carta dorada (`offerGolden`: el servidor la elige y aplica la habilidad 2 veces) |
 | `Arena` | Bordes, piso de seguridad, arma el mapa (vía `MapBuilder`), puntos de aparición en el centro y la puerta (modo opcional) |
 | `MapBuilder` ★ | Terreno con relieve generado (lomas, mesetas con rampa, montañas) o pegado de un mapa hecho a mano; reparte la decoración |
 | `Ground` ★ | Altura del piso en una grilla interpolada (la usan enemigos, avisos, orbes, cofres y apariciones) |
-| `Remotes` | RemoteEvents y carpeta `GameState` |
+| `Remotes` | RemoteEvents, la RemoteFunction `CrateRequest` y carpeta `GameState` |
+| `CratePlaza` | Construye la plaza volcánica: piso, lava, muros, arco y una plataforma por caja con cofre, antorchas, cartel y ProximityPrompt |
+| `Receipts` | Único dueño de `MarketplaceService.ProcessReceipt`: cada sistema registra su Developer Product; confirma solo lo entregado y guardado |
+| `CrateEquip` | Premios equipados (mascota y personaje): validación, bono de daño de la mascota y aspecto del avatar con HumanoidDescription |
+| `CrateService` | Compra y apertura de cajas: valida todo, cobra, tira el premio y lo guarda en el perfil; leaderstats y monedas de prueba |
 | `Data/EnemyTypes` | Catálogo de 40 enemigos y jefes, con cinco roles nuevos |
 
 ★ = escrito en `--!strict`. Los módulos de IA y enemigos usan modo normal: sus tablas de ataques son muy variables y tiparlas no suma seguridad real (deuda técnica anotada).
@@ -70,15 +84,24 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `ScreenEffects` | Efectos de pantalla solo visuales (calculados en el cliente): alerta de amenazas fuera de la vista, destello rojo al recibir daño y sangre en los bordes según la vida |
 | `CameraController` | Tercera persona en el lobby; en la partida primera persona o cenital según `Config.Camera.Mode`; desde arriba siguiendo a un compañero si estás eliminado |
 | `CombatText` | Números flotantes (daño hecho y recibido, XP, botín) y monedas que vuelan al jugador. Solo visual |
-| `Juice` | Destello de golpes, explosiones, sacudón, combo y subida de nivel |
+| `Juice` | Destello de golpes, explosiones, sacudón, combo (atributos locales `Combo` y `BestCombo`), pausa de impacto (`HitStopUntil`, acercamiento y destello) y subida de nivel |
 | `Pickups` | Dibuja orbes de XP (y su vuelo al jugador) y adorna los cofres |
-| `Atmosphere` | Luz de día, bloom suave, bruma y tinte del capítulo |
-| `Sfx` | Sonidos (definidos en `Shared/Sounds.lua`), con mínimo de tiempo entre repeticiones |
+| `Atmosphere` | Luz de día, bloom suave, bruma y tinte del capítulo; luz y cielo volcánicos en la plaza de las cajas |
+| `Sfx` | Sonidos (definidos en `Shared/Sounds.lua`), con mínimo de tiempo entre repeticiones; nota ascendente por racha y redoble antes de una legendaria (`LegendaryReveal`) |
 | `ProjectileVisuals` | Dibuja los proyectiles; pools separados de flechas y balas enemigas |
 | `EquipmentUI` | Inventario, espacios, mejoras, confirmación de fusión y reciclaje |
+| `WeaponUI` / `MeleeVisuals` | Elegir arma en el lobby y dibujar los golpes cuerpo a cuerpo |
+| `StatsUI` | Panel de stats (lobby y Tab en partida) |
+| `DebugPanel` | Panel de prueba F2 (solo si el servidor marcó `DebugAllowed`) |
 | `TalentsUI` | Árbol de talentos del lobby: nodos, líneas, detalle (solo muestra y pide) |
 | `RewardsUI` / `RarityVisuals` | Avisos por rareza, arcoíris y lista de pasivos |
 | `Dash` (cliente) | Teclado, mando, botón táctil y recarga visible |
+| `CrateUI` | Menú CRATES (Shop Crates / Index, DROP RATES); pide abrir y arranca la animación; hace flotar los cofres de la plaza |
+| `PetFollow` | Dibuja la mascota equipada de cada jugador siguiéndolo (solo visual) |
+| `CrateCinematic` | Animación de apertura en una arena local: caída, temblor, explosión, ruleta, reveal y limpieza |
+| `EnemyAnimator` | Aleteo de las alas de los modelos de enemigos voladores (solo en pantalla, desactiva la soldadura localmente) |
+| `GrabUI` | Pantalla de agarrado y forcejeo (ESPACIO / A / botón táctil), "¡AYUDA!" sobre el compañero agarrado y avisos de rescate |
+| `AttackInput` | Ataque manual: click / R2 / botón ATACAR; manda apretado + dirección de la mira (o del mouse en cenital) al servidor |
 | `ItemEffects` | Efectos de pasivos con límite por calidad |
 | `Performance` | Diagnóstico optativo de FPS y presupuesto |
 

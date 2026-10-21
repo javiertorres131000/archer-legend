@@ -8,6 +8,7 @@
 --     En las dos el personaje mira hacia donde mira la cámara (el servidor apunta con eso).
 --   Arena, "TopDown"      → cenital fija desde arriba (mira hacia -Z)
 --   Eliminado             → desde arriba, siguiendo a un compañero en pie
+-- Apertura de cajas (atributo "Cinematic" del jugador): no toca la cámara.
 -- Derribado: la cámara sigue en tu personaje (para ver si viene alguien a revivirte).
 -- Mouse: en la arena (primera o tercera persona) no se ve el cursor, como en Megabonk: el mouse
 -- mueve la cámara y queda la mira. Vuelve a aparecer en el lobby y cuando hay un menú abierto
@@ -123,6 +124,7 @@ local function useRobloxCamera(mode: string)
 		resetShoulder()
 	end
 	current = mode
+	player:SetAttribute("CameraView", mode) -- lo usa WeaponFx (arma en primera persona)
 	if mode == "FirstPerson" then
 		player.CameraMaxZoomDistance = defaultMaxZoom
 		player.CameraMinZoomDistance = 0.5
@@ -165,6 +167,7 @@ local function syncCursor(inMatch: boolean, eliminated: boolean)
 		and CamCfg.Mode == "FirstPerson"
 		and not eliminated
 		and player:GetAttribute("CursorFree") ~= true
+		and player:GetAttribute("PanelCursor") ~= true -- panel de prueba (F2) abierto
 	if cursorShown == hide then
 		cursorShown = not hide
 		UserInputService.MouseIconEnabled = cursorShown
@@ -175,6 +178,11 @@ RunService:BindToRenderStep("ArqueroCamera", Enum.RenderPriority.Camera.Value + 
 	local inMatch = player:GetAttribute("InMatch") == true
 	local eliminated = player:GetAttribute("LifeState") == "ELIMINATED"
 	syncCursor(inMatch, eliminated)
+	-- Animación de apertura de cajas: la cámara la maneja CrateCinematic
+	if player:GetAttribute("Cinematic") == true then
+		current = ""
+		return
+	end
 
 	if not inMatch then
 		useRobloxCamera("Lobby")
@@ -194,6 +202,7 @@ RunService:BindToRenderStep("ArqueroCamera", Enum.RenderPriority.Camera.Value + 
 			resetShoulder()
 		end
 		current = "TopDown"
+		player:SetAttribute("CameraView", current)
 		player.CameraMode = Enum.CameraMode.Classic
 	end
 	camera.CameraType = Enum.CameraType.Scriptable

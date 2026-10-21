@@ -20,7 +20,17 @@ export type RunInfo = {
 	bossesKilled: { string }, -- tipos de enemigo jefe vencidos
 	kills: number, -- bajas de este jugador
 }
-export type Granted = { amounts: Amounts, firstClear: boolean, accountXP: number, levelsGained: number }
+-- Progreso de la cuenta antes y después (para la barra "te faltan X" de los resultados)
+export type AccountProgress = { levelBefore: number, xpBefore: number, level: number, xp: number, needed: number }
+export type Granted = {
+	amounts: Amounts,
+	firstClear: boolean,
+	accountXP: number,
+	levelsGained: number,
+	bestWaveBefore: number, -- mejor oleada en este capítulo antes de esta partida
+	newRecord: boolean, -- superó su mejor oleada
+	account: AccountProgress,
+}
 
 local Rewards = {}
 
@@ -99,14 +109,30 @@ function Rewards.grant(player: Player, chapter: any, info: RunInfo): Granted?
 	data.Stats.Runs += 1
 	data.Stats.Kills += math.max(0, math.floor(info.kills))
 	data.Stats.BossKills += #info.bossesKilled
+	local bestWaveBefore = record.BestWave
 	record.BestWave = math.max(record.BestWave, info.wavesCleared)
 	if victory then
 		data.Stats.Victories += 1
 		record.Clears += 1
 	end
 	local accountXP = Rewards.accountXP(chapter, info)
+	local levelBefore, xpBefore = data.Account.Level, data.Account.XP
 	local levelsGained = Profiles.addAccountXP(player, accountXP)
-	return { amounts = amounts, firstClear = firstClear, accountXP = accountXP, levelsGained = levelsGained }
+	return {
+		amounts = amounts,
+		firstClear = firstClear,
+		accountXP = accountXP,
+		levelsGained = levelsGained,
+		bestWaveBefore = bestWaveBefore,
+		newRecord = info.wavesCleared > bestWaveBefore,
+		account = {
+			levelBefore = levelBefore,
+			xpBefore = xpBefore,
+			level = data.Account.Level,
+			xp = data.Account.XP,
+			needed = Talents.xpNeeded(data.Account.Level),
+		},
+	}
 end
 
 return Rewards

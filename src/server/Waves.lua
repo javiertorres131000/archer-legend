@@ -120,6 +120,29 @@ local function spawnInterval(n: number): number
 	return (ch.Interval[1] + (ch.Interval[2] - ch.Interval[1]) * t) * Config.Frenzy.SpawnIntervalMult
 end
 
+-- Desde todos lados: ángulo base de la próxima aparición. A veces, la espalda del jugador;
+-- si no, va girando (ángulo áureo) para que cada aparición venga de otro lado.
+local sideRotation = math.random() * math.pi * 2
+local function nextSpawnAngle(anchor: PlayerData.Target): number
+	local cf = anchor.root.CFrame
+	local look = cf and PlayerData.flat(cf.LookVector)
+	if look and look.Magnitude > 0.01 and math.random() < (Config.Frenzy.BehindSpawnChance or 0) then
+		return math.atan2(-look.Z, -look.X) -- detrás
+	end
+	sideRotation = (sideRotation + 2.39996) % (math.pi * 2)
+	return sideRotation
+end
+
+-- Cuántos enemigos van a cada lado (reparto parejo; los primeros lados llevan el resto)
+function Waves.splitSides(total: number, sides: number): { number }
+	local n = math.max(1, math.min(sides, total))
+	local list = {}
+	for i = 1, n do
+		list[i] = total // n + (if i <= total % n then 1 else 0)
+	end
+	return list
+end
+
 local function startWave(n: number, targets: { PlayerData.Target })
 	wave = n
 	if runStart == 0 then
@@ -220,6 +243,16 @@ function Waves.nextWave(targets: { PlayerData.Target })
 	end
 end
 
+-- Panel de prueba: termina la oleada actual (sin enemigos por salir ni vivos).
+function Waves.debugSkip()
+	if phase ~= "Wave" then
+		return
+	end
+	table.clear(spawnQueue)
+	Enemies.clear()
+	updateEnemiesLeft()
+end
+
 function Waves.reset()
 	wave = 0
 	runStart = 0
@@ -240,18 +273,24 @@ function Waves.update(dt: number, targets: { PlayerData.Target }, frozen: boolea
 	elseif phase == "Wave" then
 		spawnTimer += dt
 		if #spawnQueue > 0 and spawnTimer >= spawnInterval(wave) and Enemies.aliveCount() < Config.Enemy.MaxAlive then
-			local pos = Enemies.findSpawnPosition(targets)
-			if pos then
-				spawnTimer = 0
-				-- Aparecen en grupo, alrededor del mismo punto
-				for i = 1, math.min(Config.Frenzy.SpawnGroup, #spawnQueue, Config.Enemy.MaxAlive - Enemies.aliveCount()) do
-					local angle = i * 2.4
-					local offset = if i == 1 then Vector3.zero else Vector3.new(math.cos(angle), 0, math.sin(angle)) * 4
-					Enemies.spawn(table.remove(spawnQueue) :: string, pos + offset, {
-						healthMult = healthMultFor(wave),
-						dmgMult = ch.DamageMult * Config.Frenzy.EnemyDamageMult,
-						golden = math.random() < Config.Frenzy.GoldenChance,
-					})
+			spawnTimer = 0
+			-- Desde todos lados: el grupo se reparte en varios lados alrededor de un jugador
+			local total = math.min(Config.Frenzy.SpawnGroup, #spawnQueue, Config.Enemy.MaxAlive - Enemies.aliveCount())
+			local split = Waves.splitSides(total, Config.Frenzy.SpawnSides or 1)
+			local anchor = targets[math.random(1, #targets)]
+			local base = nextSpawnAngle(anchor)
+			for side, count in split do
+				local pos = Enemies.findSpawnPositionAt(targets, anchor, base + (side - 1) * math.pi * 2 / #split)
+				if pos then
+					for i = 1, count do
+						local angle = i * 2.4
+						local offset = if i == 1 then Vector3.zero else Vector3.new(math.cos(angle), 0, math.sin(angle)) * 4
+						Enemies.spawn(table.remove(spawnQueue) :: string, pos + offset, {
+							healthMult = healthMultFor(wave),
+							dmgMult = ch.DamageMult * Config.Frenzy.EnemyDamageMult,
+							golden = math.random() < Config.Frenzy.GoldenChance,
+						})
+					end
 				end
 			end
 		end

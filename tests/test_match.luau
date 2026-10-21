@@ -2,6 +2,8 @@
 -- Carga el GameServer real y lo hace avanzar frame a frame.
 local M = require("./mocks")
 local Config = require("./Config")
+Config.Player.FireMode = "Auto" -- simula partidas: el jugador ataca solo
+Config.Crates.TestGold = 0 -- sin las monedas de prueba de las cajas: se cuentan las del juego
 -- Estos bots no giran hacia los enemigos: prueban el flujo, no la puntería
 Config.Camera.Mode = "TopDown"
 local Remotes = require("./Remotes")
@@ -334,6 +336,54 @@ test("en resultados, irse cuenta como voto para volver", function()
 	tick(MatchCfg.ReturnDelay + 0.2)
 	eq(MatchManager.getState(), "LOBBY", "estado")
 	M.removePlayer(X)
+end)
+
+test("OTRA: quedás listo solo; si todos los listos vienen de OTRA, cuenta corta", function()
+	local Z = M.addPlayer("Zoe")
+	local W = M.addPlayer("Walter")
+	tick(0.5)
+	request(Z, "PlayAgain") -- en el lobby no hace nada
+	eq(Z:GetAttribute("Ready"), false, "OTRA fuera de resultados se ignora")
+	request(Z, "SetReady", true)
+	request(W, "SetReady", true)
+	tick(MatchCfg.CountdownTime + 1)
+	eq(MatchManager.getState(), "PLAYING", "arrancó")
+	local t = playUntil({ "RESULTS" }, 20 * 60, { Z, W })
+	assert(t, "debería terminar")
+	-- Resumen: récord y progreso de la cuenta para la barra "te faltan X"
+	local s = summaries[Z]
+	eq(s.bestWaveBefore, 0, "primera partida: sin récord previo")
+	eq(s.newRecord, s.wavesCleared > 0, "récord nuevo si pasó alguna oleada")
+	assert(s.account and s.account.needed > 0 and s.account.xp < s.account.needed, "progreso de cuenta")
+	eq(s.account.level, Z:GetAttribute("AccountLevel"), "nivel de cuenta")
+	request(Z, "PlayAgain")
+	eq(MatchManager.getState(), "RESULTS", "muy pronto: se ignora")
+	tick(MatchCfg.MinResultsTime)
+	request(Z, "PlayAgain")
+	eq(MatchManager.getState(), "RESULTS", "falta Walter")
+	request(W, "ReturnToLobby")
+	eq(MatchManager.getState(), "RETURNING", "los dos votaron")
+	tick(MatchCfg.ReturnDelay + 0.2)
+	eq(MatchManager.getState(), "PREPARING", "Zoe lista sola, Walter no")
+	eq(Z:GetAttribute("Ready"), true, "Zoe quedó lista por OTRA")
+	eq(W:GetAttribute("Ready"), false, "Walter no")
+	-- Walter se pone listo a mano: cuenta normal
+	request(W, "SetReady", true)
+	eq(MatchManager.getState(), "STARTING", "todos listos")
+	local left = gameState:GetAttribute("CountdownEnd") - M.workspace:GetServerTimeNow()
+	assert(left > MatchCfg.AgainCountdownTime + 0.5, "cuenta normal: " .. left)
+	-- Walter cancela y se va: queda solo Zoe (de OTRA) → cuenta corta
+	request(W, "SetReady", false)
+	M.removePlayer(W)
+	tick(0.1)
+	eq(MatchManager.getState(), "STARTING", "Zoe sola lista")
+	left = gameState:GetAttribute("CountdownEnd") - M.workspace:GetServerTimeNow()
+	assert(left <= MatchCfg.AgainCountdownTime + 0.01, "cuenta corta: " .. left)
+	tick(MatchCfg.AgainCountdownTime + 0.5)
+	eq(MatchManager.getState(), "PLAYING", "arrancó otra")
+	M.removePlayer(Z)
+	tick(MatchCfg.ReturnDelay + 1)
+	eq(MatchManager.getState(), "LOBBY", "vuelve al lobby")
 end)
 
 test("Ana vuelve a entrar otro día: conserva capítulos, monedas y récords", function()

@@ -123,6 +123,11 @@ M.Region3 = {
 }
 M.Vector3int16 = { new = function(x, y, z) return { X = x, Y = y, Z = z } end }
 M.RaycastParams = { new = function() return {} end }
+-- Partículas: solo guardan lo que reciben
+M.NumberSequence = { new = function(...) return { ... } end }
+M.NumberSequenceKeypoint = { new = function(...) return { ... } end }
+M.ColorSequence = { new = function(...) return { ... } end }
+M.NumberRange = { new = function(a, b) return { Min = a, Max = b or a } end }
 M.terrainWrites = 0
 
 -- warn de Roblox: se guarda para que las pruebas lo revisen (y no ensucia la salida)
@@ -220,6 +225,17 @@ function methods:SetNetworkOwnershipAuto() rawget(self, "_raw")._networkAuto = t
 function methods:SetAttribute(k, v) rawget(self, "_raw")._attrs[k] = v end
 function methods:GetAttribute(k) return rawget(self, "_raw")._attrs[k] end
 function methods:GetChildren() return table.clone(rawget(self, "_raw")._children) end
+function methods:GetDescendants()
+	local out = {}
+	local function walk(node)
+		for _, c in rawget(node, "_raw")._children do
+			table.insert(out, c)
+			walk(c)
+		end
+	end
+	walk(self)
+	return out
+end
 function methods:FindFirstChild(name)
 	for _, c in rawget(self, "_raw")._children do
 		if c.Name == name then return c end
@@ -260,6 +276,12 @@ function methods:Kick(msg) rawget(self, "_raw").kicked = msg or "" end
 -- Terreno y rayos: sin geometría real (los rayos no pegan en nada)
 function methods:Clear() end
 function methods:WriteVoxels() M.terrainWrites += 1 end
+M.terrainFills = 0
+function methods:FillBlock() M.terrainFills += 1 end
+function methods:FillCylinder() M.terrainFills += 1 end
+function methods:FillBall() M.terrainFills += 1 end
+function methods:FillWedge() M.terrainFills += 1 end
+function methods:SetMaterialColor() end
 function methods:PasteRegion() end
 function methods:Raycast() return nil end
 function methods:IsA(cls) return rawget(self, "_raw").ClassName == cls end
@@ -335,6 +357,12 @@ M.workspace = workspaceInst
 local Players = newInstance("Players", { Name = "Players", CharacterAutoLoads = true })
 M.playerList = {}
 function methods:GetPlayers() return table.clone(M.playerList) end
+function methods:GetPlayerByUserId(id)
+	for _, p in M.playerList do
+		if p.UserId == id then return p end
+	end
+	return nil
+end
 
 local replicated = newInstance("ReplicatedStorage", { Name = "ReplicatedStorage" })
 newInstance("Folder", { Name = "Shared" }).Parent = replicated

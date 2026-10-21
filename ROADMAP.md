@@ -25,10 +25,14 @@
 
 ### Etapa 8 · Talentos, runas y economía
 - [x] Árbol de talentos con nivel de cuenta (3 ramas, 25 nodos) — 8a
-- [ ] Runas
-- [ ] Cofres gratuitos y especiales
+- [x] Runas: 12 de colección (suben con duplicados), 3 espacios de especiales, cofre con gemas y botín de jefes
+- [ ] Cofres gratuitos y especiales (hechas: cajas con monedas en la plaza volcánica, 5 rarezas de caja y 7 de premio, animación de apertura)
+- [x] Premios equipables: mascota que sigue y da daño, personaje que cambia el avatar; cajas por Robux con recibos seguros
+- [ ] Crear los Developer Products en el Creator Dashboard y pegar los ProductId (Shared/Crates.lua)
+- [ ] Más premios y formas de ganar monedas jugando (misiones diarias)
 - [x] Reciclaje de equipo (por pieza y en lote) — 8a
-- [ ] Balance de costos/botín con datos de partidas reales
+- [x] Herramientas para balancear: registro de partidas, panel de stats y panel de prueba (F2)
+- [ ] Balance de costos/botín con datos de partidas reales (usar el resumen de RunLog)
 - [ ] Misiones diarias y semanales
 - [ ] Activar el botón de Tienda (sin monetización)
 
@@ -36,12 +40,19 @@
 - [ ] Más habilidades temporales y sinergias
 - [ ] Más capítulos con ambientaciones propias
 - [ ] Torre infinita y modos adicionales
-- [ ] Modelos y animaciones de enemigos
+- [ ] Modelos y animaciones de enemigos (hechos: esqueletos, slimes, murciélagos y Atrapador con modelo; aleteo y vuelo. Falta: caminata de esqueletos, aplastado de slimes, resto de los tipos)
 
 ### Etapa 10 · Experiencia y pulido
+- [x] Soporte de modelos por enemigo (carpeta EnemyModels) y ojos en las figuras
 - [x] Números de daño e indicadores claros
 - [ ] Sonidos propios (hoy son los básicos de Roblox) y animaciones de combate
-- [ ] Pantallas de recompensas y progresión
+- [x] Pantallas de recompensas y progresión: conteo, récord, "te faltan X" y botón ¡OTRA!
+- [x] Dopamina 1: racha con notas, pausa de impacto, primeros niveles rápidos, revelación de legendarias
+- [x] Dopamina 2: orbes en escalera, números con racha, carta dorada sorpresa, avisos de sinergia
+- [x] Hordas desde todos lados y enemigos que rodean
+- [x] Agarre: el Atrapador te inmoviliza y te salva tu compañero (o forcejeás solo)
+- [ ] Dopamina 3: élites con cofre, momentos horda
+- [ ] Dopamina 4: misiones diarias, maestría por arma, desbloqueos visibles con candado, metas de equipo
 - [x] Pool de proyectiles visuales para móvil
 - [ ] Matchmaking entre servidores y teletransporte
 

@@ -15,7 +15,19 @@ local function event(name: string): RemoteEvent
 	return e
 end
 
+local function func(name: string): RemoteFunction
+	local f = Instance.new("RemoteFunction")
+	f.Name = name
+	f.Parent = folder
+	return f
+end
+
 local Remotes = {
+	-- jugador -> servidor (RemoteFunction): ("Open", Id de la caja) → resultado de la tirada ·
+	-- ("Collection") → premios que tenés. Lo valida todo CrateService (ver ahí el formato).
+	CrateRequest = func("CrateRequest"),
+	-- servidor -> jugador: (resultado) se abrió una caja pagada con Robux (llega con el recibo)
+	CrateOpened = event("CrateOpened"),
 	ItemGranted = event("ItemGranted"),
 	ItemEffect = event("ItemEffect"),
 	RewardNotice = event("RewardNotice"),
@@ -27,14 +39,26 @@ local Remotes = {
 	TalentState = event("TalentState"),
 	-- jugador -> servidor: (offerId) cambiar las cartas de habilidad (talento Otra mano)
 	RerollSkills = event("RerollSkills"),
+	-- servidor -> jugador: (runas {Id = nivel}, activas {Id | ""}, espacios abiertos, aviso?, Id recién conseguida?)
+	RuneState = event("RuneState"),
+	-- jugador -> servidor: ("Get") · ("Equip", espacio, Id) · ("Unequip", espacio) · ("OpenChest")
+	RuneRequest = event("RuneRequest"),
 	DashRequest = event("DashRequest"),
+	-- jugador -> servidor: (apretado: boolean, dirección: Vector3) disparo manual. Lo valida Combat.
+	AttackRequest = event("AttackRequest"),
+	-- jugador -> servidor: () tocó el botón de forcejeo mientras lo tienen agarrado. Lo valida Grab.
+	StruggleRequest = event("StruggleRequest"),
+	-- jugador -> servidor: (origen de la cámara: Vector3, dirección de la mira: Vector3) marcar. Lo valida Ping.
+	PingRequest = event("PingRequest"),
+	-- servidor -> participantes: ("Add", marca) · ("Remove", id) · ("Clear"). Ver Ping.Mark
+	Ping = event("Ping"),
 	-- servidor -> todos: (id, origen, dirección, velocidad, duración, userId del dueño)
 	ProjectileFired = event("ProjectileFired"),
 	-- servidor -> todos: (id)
 	ProjectileEnded = event("ProjectileEnded"),
 	-- servidor -> todos: (id, nueva posición, nueva dirección) cuando una flecha rebota
 	ProjectileRedirected = event("ProjectileRedirected"),
-	-- servidor -> jugador: (offerId, {skillIds}, segundos para elegir)
+	-- servidor -> jugador: (offerId, {skillIds}, segundos para elegir, cambios, índice de la carta dorada o 0)
 	SkillOffer = event("SkillOffer"),
 	-- jugador -> servidor: (offerId, índice elegido 1..3)
 	ChooseSkill = event("ChooseSkill"),
@@ -46,6 +70,7 @@ local Remotes = {
 	RunEnded = event("RunEnded"),
 	-- jugador -> servidor: (acción, argumento) desde el lobby o los resultados.
 	--   "SetReady" (boolean) · "SelectChapter" (Id del capítulo) · "ReturnToLobby"
+	--   "PlayAgain" (botón OTRA en resultados: vuelve y queda listo solo, mismo capítulo)
 	-- Lo valida todo MatchManager: tipos, estado de la partida, permisos y frecuencia.
 	LobbyRequest = event("LobbyRequest"),
 	-- servidor -> jugador: (mensaje) cuando una petición no se puede cumplir
@@ -58,6 +83,16 @@ local Remotes = {
 	Orbs = event("Orbs"),
 	-- servidor -> todos: (posición, userId de quien lo abrió o 0) se abrió un cofre
 	ChestOpened = event("ChestOpened"),
+	-- jugador -> servidor: () pedir el panel de stats · servidor -> jugador: (desglose) ver StatsBreakdown
+	StatsRequest = event("StatsRequest"),
+	StatsState = event("StatsState"),
+	-- jugador -> servidor: (acción) panel de prueba · servidor -> jugador: (ok, mensaje). Ver DebugCommands
+	DebugCommand = event("DebugCommand"),
+	-- jugador -> servidor: ("Select", Id del arma) en el lobby. Lo valida WeaponService.
+	WeaponRequest = event("WeaponRequest"),
+	-- servidor -> todos: (userId, origen, dirección, alcance, arco en grados, Id del arma) golpe
+	-- cuerpo a cuerpo, para dibujarlo
+	MeleeSwing = event("MeleeSwing"),
 }
 
 folder.Parent = ReplicatedStorage

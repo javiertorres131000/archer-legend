@@ -8,7 +8,8 @@
 --   ally  daño de un compañero (gris, solo con Config.CombatText.ShowTeammateDamage)
 --   hurt  daño que recibiste (rojo)
 --   xp    experiencia de los orbes que juntaste (se suman en un número)
---   kill  murió un enemigo: explosión del color del enemigo y combo (lo ven todos)
+--   kill  murió un enemigo: explosión del color del enemigo y combo (lo ven todos);
+--         b = true si era un jefe (pausa de impacto más larga)
 --   loot  botín que cobraste (oro, gemas, piedras)
 --
 -- Para no saturar la red: los golpes al mismo enemigo dentro de FlushInterval se suman en un
@@ -31,6 +32,7 @@ export type Event = {
 	c: Color3?,
 	s: number?,
 	x: boolean?, -- enemigo dorado
+	b: boolean?, -- era un jefe
 }
 
 type Pending = { kind: Kind, pos: Vector3, amount: number, part: Instance? }
@@ -89,9 +91,9 @@ function CombatFeed.xp(player: Player, pos: Vector3, amount: number)
 end
 
 -- Murió un enemigo: todos los que juegan ven la explosión (y suman al combo).
-function CombatFeed.kill(players: { Player }, pos: Vector3, color: Color3, size: number, golden: boolean)
+function CombatFeed.kill(players: { Player }, pos: Vector3, color: Color3, size: number, golden: boolean, boss: boolean?)
 	for _, p in players do
-		push(p, { k = "kill", p = pos, c = color, s = size, x = golden })
+		push(p, { k = "kill", p = pos, c = color, s = size, x = golden, b = if boss then true else nil })
 	end
 end
 

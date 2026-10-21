@@ -3,6 +3,7 @@
 -- lejanos. Comprueba que el juego avanza de oleada en oleada sin errores de Luau.
 local M = require("./mocks")
 local Config = require("./Config")
+Config.Player.FireMode = "Auto" -- simula partidas: el jugador ataca solo
 -- Estos bots no giran hacia los enemigos: prueban el flujo, no la puntería
 Config.Camera.Mode = "TopDown"
 local Remotes = require("./Remotes")

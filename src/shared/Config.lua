@@ -7,7 +7,12 @@ local Config = {}
 
 Config.Arena = {
 	Size = Vector3.new(300, 1, 300), -- ancho x alto x largo del mapa (studs)
-	WallHeight = 90, -- paredes invisibles en el borde (para no salirse por las montañas)
+	WallHeight = 260, -- paredes invisibles en el borde (para no salirse por las montañas)
+	WallThickness = 10, -- gruesas: ni el dash ni un salto rápido las atraviesan
+	-- Red de seguridad (Arena.keepInside): si alguien igual queda afuera del borde o cae debajo
+	-- del piso, vuelve adentro, apoyado en el terreno y a esta distancia del borde.
+	ReturnMargin = 40,
+	FallBelow = 25, -- studs por debajo del piso que cuentan como "se cayó"
 	SpawnMargin = 30, -- distancia mínima al borde para que aparezcan enemigos (las montañas)
 }
 
@@ -25,6 +30,9 @@ Config.Map = {
 	EdgeWidth = 30, -- montañas del borde
 	EdgeHeight = 34,
 	Props = 120, -- decoración repartida por el mapa (árboles, rocas, ruinas...)
+	-- Largo del pasto animado del terreno (0.1 a 1; Roblox trae 1). Más bajo = se ve mejor el piso
+	-- y los enemigos chicos. Solo se ve si el Terreno tiene "Decoration" activado en Studio.
+	GrassLength = 0.35,
 	Materials = {
 		forest = { Top = Enum.Material.Grass, Under = Enum.Material.Ground, Cliff = Enum.Material.Rock },
 		ruins = { Top = Enum.Material.Sandstone, Under = Enum.Material.Sandstone, Cliff = Enum.Material.Slate },
@@ -35,6 +43,10 @@ Config.Map = {
 Config.Player = {
 	WalkSpeed = 20,
 	MaxHealth = 100,
+	-- Cómo se ataca: "Manual" = click (o R2 / botón ATACAR en el celular) y apuntás vos con la
+	-- mira; mantener apretado sigue atacando. "Auto" = dispara solo al enemigo más cercano.
+	FireMode = "Manual",
+	FireMessagesPerSecond = 30, -- tope de mensajes de apuntado por jugador (anti-spam)
 	AttackRange = 60, -- distancia máxima de auto-apuntado
 	-- En primera persona solo se apunta a enemigos delante tuyo: ancho del cono en grados.
 	-- (En modo TopDown se apunta a todo alrededor.)
@@ -68,8 +80,39 @@ Config.Enemy = {
 	-- Con hordas grandes, "All" pesa en celulares; el daño ya se ve con los números flotantes.
 	HealthBars = "Bosses",
 	ContactCooldown = 1, -- segundos entre golpes del mismo enemigo
-	MinSpawnDistance = 32, -- no aparecen pegados a un jugador
-	MaxSpawnDistance = 75, -- ni tan lejos que nunca lleguen (el mapa es grande)
+	MinSpawnDistance = 26, -- no aparecen pegados a un jugador
+	MaxSpawnDistance = 50, -- ni tan lejos que haya que salir a buscarlos
+	-- Que todos vengan a vos (Enemies.update / EnemyAI):
+	ChaseDistance = 40, -- más lejos que esto, cualquiera que se mueva va directo al jugador más cercano
+	CatchUpSpeed = 14, -- velocidad mínima mientras se acerca desde lejos
+	-- Rodear en vez de hacer fila: cada enemigo que persigue se acerca en curva, desviado hasta
+	-- FlankAngle grados (el suyo, al azar). Desde FlankFar studs tiene el desvío completo y se va
+	-- enderezando hasta ir directo a menos de FlankNear. Así llegan por todos los costados.
+	FlankAngle = 50,
+	FlankFar = 35,
+	FlankNear = 12,
+	LeashDistance = 75, -- más lejos que esto durante LeashTime: reaparece cerca del equipo
+	StillLeashDistance = 45, -- lo mismo para los quietos (plantas, torretas), que nunca caminan
+	LeashTime = 3,
+	-- Aspecto (EnemyVisuals): modelos en ServerStorage > EnemyModels > <Id del tipo>
+	Models = true,
+	ModelsFolder = "EnemyModels",
+	ModelMinHeight = 5, -- alto mínimo de los modelos (studs): los enemigos chicos no quedan bajo el pasto
+	-- Voladores (enemigos con Float): suben y bajan suave en el aire (cada uno a su ritmo)
+	FlyBob = 0.6, -- studs de vaivén para arriba y para abajo
+	FlyBobSpeed = 2.2, -- qué tan rápido (radianes por segundo)
+	-- Aleteo (EnemyAnimator, en el cliente): las piezas de un modelo cuyo grupo se llama
+	-- "left wing" / "right wing" (o tiene "wing" en el nombre) aletean desde su unión con el cuerpo.
+	WingFlapAngle = 35, -- grados de aleteo hacia cada lado
+	WingFlapSpeed = 14, -- velocidad del aleteo (radianes por segundo, ~2 aleteos por segundo)
+	AnimateDistance = 150, -- más lejos que esto no se anima (rendimiento)
+	ModelTint = 0.45, -- cuánto se tiñe el modelo con el color de su enemigo (0 = nada, 1 = todo)
+	Eyes = true, -- ojos en las figuras que no tienen modelo
+	-- Indicador brillante arriba de cada enemigo (EnemyMarkers, en el cliente): se ve a través de
+	-- las paredes y de lejos. Cuando quedan pocos, se agranda y late para encontrar al último.
+	Markers = true,
+	MarkerSize = 14, -- píxeles
+	MarkerFewLeft = 10, -- con esta cantidad o menos por matar, se agrandan
 	SeparationPadding = 0.5, -- espacio extra para que no se apilen
 	DefaultTelegraph = 0.5, -- segundos de aviso si un ataque no indica otro
 	DefaultRest = 0.6, -- pausa entre ataques si el enemigo no indica otra
@@ -108,7 +151,12 @@ Config.Waves = {
 Config.Frenzy = {
 	-- Hordas
 	SpawnIntervalMult = 0.25, -- multiplica el intervalo entre apariciones de cada capítulo (menos = más seguido)
-	SpawnGroup = 5, -- enemigos que aparecen juntos en cada aparición
+	SpawnGroup = 6, -- enemigos que aparecen en cada aparición (repartidos entre SpawnSides lados)
+	-- Desde todos lados: cada aparición se reparte en SpawnSides grupos desde direcciones
+	-- distintas alrededor de un jugador (y la próxima, desde otras). Con BehindSpawnChance,
+	-- uno de los grupos sale por la espalda de ese jugador: hay que mirar a todos lados.
+	SpawnSides = 3,
+	BehindSpawnChance = 0.5,
 	EnemyHealthMult = 0.6, -- vida de los enemigos comunes (son muchos más: mueren más rápido)
 	EnemyDamageMult = 0.5, -- daño de los enemigos comunes (son muchos más: cada uno pega menos)
 	Knockback = 1.2, -- studs que retrocede un enemigo al recibir un flechazo (los jefes no)
@@ -145,6 +193,45 @@ Config.Rooms = {
 }
 
 -- Cooperativo: derribo, rescate y dificultad según la cantidad de jugadores
+-- Agarre (Grab.lua): el Atrapador te salta encima y te inmoviliza. Te salva un compañero
+-- pegándole, o te soltás solo machacando ESPACIO (toque en el celular, A en el joystick).
+Config.Grab = {
+	TickTime = 0.5, -- cada tanto te saca Dps × TickTime de vida mientras te tiene
+	ReleaseDamageFraction = 0.25, -- te suelta si recibe esta fracción de su vida máxima mientras te tiene
+	StrugglePresses = 16, -- toques para soltarte solo
+	StruggleMaxRate = 12, -- toques por segundo que cuenta como máximo (anti-macro)
+	MaxHold = 10, -- segundos máximos agarrado (por las dudas)
+	StunAfter = 1.5, -- el que te soltó queda aturdido estos segundos
+	Knockback = 8, -- y sale despedido estos studs
+	RegrabCooldown = 6, -- segundos antes de que ESE Atrapador pueda volver a agarrar a alguien
+	ImmuneAfter = 5, -- segundos después de soltarte en que ningún Atrapador te puede agarrar
+}
+
+-- Marcas para el cooperativo (Ping.lua / PingUI): apuntás y marcás un enemigo, un cofre o un
+-- lugar; todo el equipo lo ve con tu color. Derribado o agarrado, marcar pide ayuda.
+Config.Ping = {
+	Enabled = true,
+	Keys = { Enum.KeyCode.G, Enum.UserInputType.MouseButton3, Enum.KeyCode.DPadUp }, -- teclado / ruedita / joystick
+	Cooldown = 0.6, -- segundos mínimos entre dos marcas del mismo jugador (lo controla el servidor)
+	MaxPerPlayer = 2, -- marcas vivas por jugador; la más vieja se borra
+	Duration = 6, -- segundos que dura una marca de lugar o cofre
+	EnemyDuration = 8, -- una marca de enemigo (antes, si muere)
+	HelpDuration = 5, -- un pedido de ayuda
+	MaxDistance = 220, -- hasta dónde llega la mira (studs)
+	OriginSlack = 70, -- distancia máxima entre la cámara que manda el cliente y su personaje
+	AimAssist = 2.5, -- studs de margen alrededor del enemigo o cofre para que cuente
+	AimAssistPerStud = 0.03, -- y un poco más cuanto más lejos está
+	ChestRadius = 2,
+	GroundStep = 1.5, -- paso con el que se busca el piso a lo largo de la mira
+	-- Color de cada jugador (orden por UserId entre los participantes)
+	Colors = {
+		Color3.fromRGB(80, 200, 255),
+		Color3.fromRGB(255, 200, 60),
+		Color3.fromRGB(120, 240, 120),
+		Color3.fromRGB(255, 120, 200),
+	},
+}
+
 Config.Coop = {
 	DownedTime = 15, -- segundos derribado antes de quedar eliminado
 	ReviveTime = 3, -- segundos que hay que mantener la interacción para revivir
@@ -173,9 +260,18 @@ Config.Progression = {
 	-- XP para pasar del nivel N al N+1 = BaseXP + (N - 1) * XPGrowth
 	BaseXP = 12,
 	XPGrowth = 7,
+	-- Arranque rápido: los primeros niveles piden solo esta fracción (nivel 1→2, 2→3, ...).
+	-- Con 12/7 queda 4, 9, 16, 25 y después la fórmula normal (40, 47...): 3-4 niveles en el
+	-- primer minuto, para que la partida enganche desde el principio.
+	EarlyLevelMult = { 0.35, 0.45, 0.6, 0.75 },
 	ChoiceTimeout = 30, -- segundos para elegir; después se elige una al azar
 	ChoicesPerLevel = 3,
-	RarityWeights = { Common = 55, Rare = 32, Epic = 13 },
+	RarityWeights = { Common = 55, Rare = 32, Epic = 13, Legendary = 9 },
+	-- Las habilidades del mazo de tu arma salen más seguido que las comunes (× este peso)
+	WeaponDeckWeight = 1.6,
+	-- Carta dorada sorpresa: con esta probabilidad, una de las cartas de la oferta viene dorada y
+	-- da 2 niveles de esa habilidad de una vez (solo en habilidades con lugar para 2 niveles más).
+	GoldenCardChance = 0.05,
 }
 
 -- Lobby y ciclo de partida (MatchManager)
@@ -184,6 +280,9 @@ Config.Match = {
 	CountdownTime = 5, -- segundos de cuenta regresiva cuando todos están listos
 	ResultsTime = 15, -- segundos de resultados antes de volver solos al lobby
 	MinResultsTime = 2, -- "Volver al lobby" no responde antes de esto (evita doble clic)
+	-- Botón OTRA en los resultados: al volver al lobby quedás listo solo, con el mismo capítulo,
+	-- y si todos los del lobby apretaron OTRA la cuenta regresiva es esta (más corta).
+	AgainCountdownTime = 3,
 	ReturnDelay = 1, -- segundos de pantalla de transición al volver
 	RequestCooldown = 0.25, -- tiempo mínimo entre peticiones de un mismo jugador
 }
@@ -192,6 +291,80 @@ Config.Match = {
 Config.Lobby = {
 	Center = Vector3.new(0, 0, 400),
 	Size = Vector3.new(90, 1, 90),
+}
+
+-- Cajas (crates) de la plaza volcánica, al este del lobby. Precios, premios y probabilidades
+-- están en Shared/Crates.lua y Shared/CrateItems.lua; acá, cómo funciona el sistema.
+Config.Crates = {
+	Enabled = true, -- false: no se arma la plaza ni se pueden abrir cajas
+	Currency = "Gold", -- moneda con la que se paga (Shared/Currencies.lua)
+	LeaderstatName = "Monedas", -- columna de leaderstats que muestra esa moneda
+	OpenCooldown = 2, -- segundos mínimos entre dos aperturas del mismo jugador
+	InfoCooldown = 0.4, -- segundos mínimos entre dos pedidos de la colección (pestaña Index)
+	StationRange = 40, -- hay que estar a esta distancia (studs) de una plataforma para abrir
+	EquipCooldown = 0.5, -- segundos mínimos entre dos cambios de equipo
+	-- Robux: cada caja con ProductId (Shared/Crates.lua) muestra un botón "R$". Con false no
+	-- aparece ninguno. Donde Roblox prohíbe cajas pagas al azar (PolicyService) nunca aparece.
+	RobuxEnabled = true,
+	MaxSavedReceipts = 100, -- compras recordadas por perfil (para no entregar dos veces la misma)
+	-- Mascota equipada: daño extra según su rareza (0.05 = +5%). Los personajes son solo aspecto.
+	PetDamageBonus = {
+		Common = 0.02,
+		Uncommon = 0.04,
+		Rare = 0.06,
+		Epic = 0.09,
+		Legendary = 0.12,
+		Mythic = 0.16,
+		Secret = 0.2,
+	},
+	-- Cómo te sigue la mascota (solo visual, en cada pantalla)
+	Pet = {
+		Height = 2.4, -- alto en studs
+		Offset = Vector3.new(2.6, 1.2, 2.4), -- a tu derecha, arriba y atrás
+		FollowSpeed = 8, -- más alto = se pega más rápido
+		BobHeight = 0.35,
+	},
+	-- Monedas para probar: se dan UNA vez por perfil. Con OnlyInStudio = true, solo en Studio.
+	-- Antes de publicar: TestGold = 0 (o dejá OnlyInStudio en true).
+	TestGold = 25000,
+	TestGoldOnlyInStudio = true,
+	-- Plaza: pegada al muro este del lobby, con una puerta en ese muro
+	Plaza = {
+		Size = Vector3.new(80, 1, 96), -- ancho (X) x alto x largo (Z)
+		DoorZ = 12, -- dónde está la puerta en el muro del lobby (corrida en Z desde el centro)
+		DoorWidth = 14,
+		StationSpacing = 17, -- distancia entre plataformas
+		StationRadius = 6, -- radio del hexágono
+	},
+	-- Luz de la plaza (solo en tu pantalla, al entrar): cielo rojizo y niebla cálida
+	Lighting = {
+		ClockTime = 17.7, -- sol bajo: atardecer rojizo para cualquier lado que mires
+		Brightness = 1.6,
+		Ambient = Color3.fromRGB(95, 45, 35),
+		OutdoorAmbient = Color3.fromRGB(130, 60, 40),
+		HazeDensity = 0.42,
+		HazeColor = Color3.fromRGB(255, 120, 75),
+		HazeDecay = Color3.fromRGB(120, 28, 16),
+		HazeGlare = 0.5,
+		Haze = 2.3,
+		BloomIntensity = 0.7,
+		BloomSize = 28,
+		BloomThreshold = 0.95,
+		Tint = Color3.fromRGB(255, 228, 210),
+		Saturation = 0.18,
+		Contrast = 0.12,
+	},
+	-- Animación de apertura (cliente)
+	Cinematic = {
+		-- Arena cinemática (solo existe en tu pantalla mientras se abre una caja). Lejos de todo y
+		-- a baja altura: muy arriba la atmósfera se afina y el cielo se ve negro en vez de rojizo.
+		Origin = Vector3.new(0, 40, -2600),
+		ShakeTime = 2.4, -- segundos que la caja tiembla antes de explotar
+		OrbitSpeed = 7, -- grados por segundo que gira la cámara alrededor de los premios
+		RouletteLaps = 3, -- vueltas completas antes de frenar
+		RouletteFast = 0.045, -- segundos por premio al principio de la ruleta
+		RouletteSlow = 0.55, -- segundos del último salto
+	},
 }
 
 Config.UI = {
@@ -212,6 +385,21 @@ Config.Effects = {
 	-- En baja: sin bloom ni rayos de sol, menos partículas y sin luces en los proyectiles.
 	Quality = "Auto",
 	ScreenShake = 1, -- intensidad del sacudón de cámara (0 = apagado)
+	-- Pausa de impacto ("hit-stop") en tus críticos, dorados y jefes: el arma se congela un
+	-- instante, la cámara se acerca y la pantalla destella. Solo visual, en tu pantalla.
+	HitStop = 0.06, -- segundos de congelado en un crítico (dorados y jefes: el doble/triple)
+	HitStopGap = 0.2, -- mínimo entre dos pausas (con muchos críticos seguidos no se traba)
+	HitStopFov = 4, -- grados que se acerca la cámara (0 = sin acercamiento)
+	-- Racha de muertes: cada muerte seguida suena una nota más aguda (escala pentatónica).
+	-- Se corta como el combo (Config.Frenzy.ComboWindow). StreakNotes: cuántos escalones sube
+	-- (5 escalones = una octava; 10 = dos octavas, más arriba se vuelve chillón).
+	StreakNotes = 10,
+	-- Orbes de XP en escalera: cada cobro seguido (dentro de OrbLadderWindow s) suena una nota
+	-- más aguda, hasta OrbLadderNotes escalones; si pasa un rato sin juntar, vuelve a empezar.
+	OrbLadderNotes = 7,
+	OrbLadderWindow = 0.8,
+	-- Arma en primera persona (manos de Roblox sosteniendo el ítem). Apagado: solo chispas al pegar.
+	FirstPersonWeapon = true,
 	-- Iluminación de la arena (en el lobby queda la normal)
 	ArenaClockTime = 13.5, -- hora del día (0 = medianoche, 12 = mediodía)
 	ArenaAmbient = Color3.fromRGB(125, 125, 120),
@@ -222,6 +410,9 @@ Config.Effects = {
 	TintStrength = 0.06, -- cuánto se tiñe la luz con el color del capítulo (0 = nada)
 	NeonStrips = false, -- líneas neón en las paredes de la arena
 	Haze = 0.28, -- bruma a lo lejos (da profundidad al mapa grande; 0 = sin bruma)
+	-- Luz de la arena: "Code" (los valores de arriba, de día) o "Place" (la que armes vos en
+	-- Studio dentro de Lighting: hora, Atmosphere, Sky, efectos). Con "Place" el juego no la toca.
+	ArenaLighting = "Code",
 }
 
 Config.Camera = {
@@ -266,6 +457,9 @@ Config.CombatText = {
 	FlushInterval = 0.1, -- el servidor junta los golpes y los manda cada esto (menos tráfico)
 	Lifetime = 0.9, -- segundos que se ve cada número
 	ShowTeammateDamage = false, -- true: también ves el daño que hacen tus compañeros
+	-- Con racha, tus números de daño salen más grandes: +ComboGrow (60%) al llegar a x ComboGrowAt
+	ComboGrow = 0.6,
+	ComboGrowAt = 50,
 }
 
 -- Perfil guardado con DataStore (Profiles.lua)
@@ -288,6 +482,19 @@ Config.Debug = {
 	ShowPerformance = false, -- FPS, peor frame, enemigos y proyectiles; sólo diagnóstico
 	UnlockAllChapters = false, -- todos los capítulos elegibles desde el lobby
 	StartWave = 1, -- oleada con la que arranca cada partida
+	-- Panel de prueba (F2): monedas, niveles, saltar oleada, jefe, etc. Lo valida el servidor.
+	-- Funciona siempre en Studio; en un servidor publicado, solo para los UserId de Admins.
+	Commands = true,
+	Admins = {} :: { number }, -- p. ej. { 12345678 }
+}
+
+-- Registro de partidas para balancear (RunLog.lua)
+Config.RunLog = {
+	Print = true, -- una línea por jugador en la Salida al terminar cada partida
+	SaveToDataStore = true, -- guardar en un DataStore aparte (no toca los perfiles)
+	StoreName = "RunLog_v1",
+	PerDayLimit = 400, -- filas por día (UTC); las de más se descartan
+	MemoryLimit = 100, -- filas que quedan en memoria del servidor
 }
 
 return Config

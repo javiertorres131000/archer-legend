@@ -5,7 +5,7 @@ local Dash = {}
 function Dash.request(player, direction)
 	if PlayerData.isPaused() then return false end
 	local state = PlayerData.get(player)
-	if not state or not state.inMatch or state.life ~= "ALIVE" or typeof(direction) ~= "Vector3" then return false end
+	if not state or not state.inMatch or state.life ~= "ALIVE" or state.grabbed or typeof(direction) ~= "Vector3" then return false end
 	if direction.X ~= direction.X or direction.Z ~= direction.Z or math.abs(direction.X) > 1.01 or math.abs(direction.Z) > 1.01 then return false end
 	local dir = PlayerData.flat(direction)
 	if dir.Magnitude < 0.1 or dir.Magnitude > 1.1 then return false end

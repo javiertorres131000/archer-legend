@@ -217,6 +217,10 @@ function MapBuilder.build(chapter: any, seed: number, half: Vector3, propsFolder
 	local terrain = workspace.Terrain
 	propsFolder:ClearAllChildren()
 	terrain:Clear()
+	-- Pasto animado más bajo (Config.Map.GrassLength)
+	pcall(function()
+		terrain.GrassLength = MapCfg.GrassLength
+	end)
 
 	local custom = customMap(chapter.Id)
 	if custom then

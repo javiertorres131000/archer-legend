@@ -47,6 +47,7 @@ return {
 		MiniBoss = { Wave = 5, Type = "KingSlime" },
 		Boss = { Wave = 10, Type = "Treant" },
 		Pool = {
+			{ Type = "Grabber", From = 3, Weight = 0.6 }, -- te agarra: hace falta el compañero
 			{ Type = "HordeSkeleton", From = 1, Weight = 3 },
 			{ Type = "RushBeast", From = 2, Weight = 1.5 },
 			{ Type = "HoodMage", From = 3, Weight = 1 },
@@ -90,6 +91,7 @@ return {
 		MiniBoss = { Wave = 5, Type = "CyclopsMage" },
 		Boss = { Wave = 10, Type = "StoneGolem" },
 		Pool = {
+			{ Type = "Grabber", From = 3, Weight = 0.6 }, -- te agarra: hace falta el compañero
 			{ Type = "HordeSkeleton", From = 1, Weight = 3 },
 			{ Type = "RushBeast", From = 2, Weight = 1.5 },
 			{ Type = "HoodMage", From = 3, Weight = 1 },
@@ -134,6 +136,7 @@ return {
 		MiniBoss = { Wave = 5, Type = "Reaper" },
 		Boss = { Wave = 10, Type = "FlameDemon" },
 		Pool = {
+			{ Type = "Grabber", From = 3, Weight = 0.6 }, -- te agarra: hace falta el compañero
 			{ Type = "HordeSkeleton", From = 1, Weight = 3 },
 			{ Type = "RushBeast", From = 2, Weight = 1.5 },
 			{ Type = "HoodMage", From = 3, Weight = 1 },

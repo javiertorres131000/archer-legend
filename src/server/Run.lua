@@ -22,7 +22,13 @@ local Chests = require(script.Parent.Chests)
 local ItemService = require(script.Parent.ItemService)
 local Equipment = require(script.Parent.Equipment)
 local TalentService = require(script.Parent.TalentService)
+local Runes = require(script.Parent.Runes)
+local CrateEquip = require(script.Parent.CrateEquip)
+local StatsBreakdown = require(script.Parent.StatsBreakdown)
+local WeaponService = require(script.Parent.WeaponService)
 local Dash = require(script.Parent.Dash)
+local Grab = require(script.Parent.Grab)
+local Ping = require(script.Parent.Ping)
 local Rarities = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Rarities"))
 
 export type Result = "Victory" | "Defeat" | "Abandoned"
@@ -59,14 +65,20 @@ local bossesKilled: { string } = {}
 local roomIndex = 1
 local doorOpenedAt = 0
 local performanceTimer = 0
+local boundsTimer = 0 -- cada cuánto se revisa que nadie quedó afuera del mapa
 local enteringUntil: number? = nil -- mientras llega a la sala nueva, la oleada todavía no arranca
 
 -- Arma el motor de combate (una sola vez, al arrancar el servidor).
 function Run.init()
 	ItemService.init(Remotes)
 	Dash.init(Remotes)
+	Grab.init(Remotes)
+	Ping.init(Remotes)
 	Equipment.init(Remotes)
 	TalentService.init(Remotes)
+	StatsBreakdown.init(Remotes)
+	WeaponService.init(Remotes)
+	Runes.init(Remotes)
 	Arena.build()
 	Hazards.init()
 	Combat.init(Remotes, Arena.Half)
@@ -128,9 +140,10 @@ function Run.init()
 				-- La XP cae como orbe (el dorado da mucha más)
 				Orbs.drop(Ground.place(pos), enemy.xp * (if enemy.golden then 5 else 1))
 				Chests.onKill()
-				CombatFeed.kill(participants, pos, enemy.color, enemy.radius * 2, enemy.golden)
+				CombatFeed.kill(participants, pos, enemy.color, enemy.radius * 2, enemy.golden, enemy.isBoss)
 				if enemy.isBoss then
 					table.insert(bossesKilled, enemy.typeId)
+					Runes.onBossKilled(participants)
 				end
 				-- Botín (los invocados por un jefe no dan)
 				if not enemy.summoner then
@@ -198,6 +211,9 @@ function Run.start(index: number, participants: { Player })
 		if s then
 			Equipment.apply(p, s.stats)
 			TalentService.apply(p, s.stats)
+			Runes.apply(p, s.stats)
+			CrateEquip.apply(p, s.stats) -- mascota de las cajas
+			WeaponService.apply(p, s.stats)
 		end
 		p:SetAttribute("DashReadyAt", 0)
 	end
@@ -234,6 +250,21 @@ function Run.step(dt: number): Result?
 
 	local now = os.clock()
 	local targets = PlayerData.getAliveTargets()
+	-- Nadie afuera del mapa ni cayendo al vacío (en pie o derribado)
+	boundsTimer += dt
+	if boundsTimer >= 0.25 then
+		boundsTimer = 0
+		local roots = {}
+		for _, p in PlayerLife.participants() do
+			local character = p.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			if root and humanoid and humanoid.Health > 0 then
+				table.insert(roots, root)
+			end
+		end
+		Arena.keepInside(roots)
+	end
 	Progression.update(now)
 	local frozen = Progression.syncPause()
 	if frozen then
@@ -287,6 +318,7 @@ function Run.step(dt: number): Result?
 	end
 
 	if not frozen then
+		Grab.update(dt)
 		Dash.update(targets, now)
 		ItemService.update(dt, targets, now)
 		PlayerLife.update(dt)
@@ -324,6 +356,8 @@ end
 -- Fija el resultado y detiene las oleadas.
 function Run.finish(final: Result)
 	result = final
+	Grab.clear() -- nadie queda agarrado en los resultados
+	Ping.clear()
 	if final ~= "Abandoned" then
 		Waves.finish(final)
 	end
@@ -436,6 +470,8 @@ function Run.cleanup()
 	Arena.closeDoor()
 	Remotes.GameState:SetAttribute("DoorEnd", 0)
 	CombatFeed.clear()
+	Grab.clear()
+	Ping.clear()
 	Orbs.clear()
 	Chests.clear()
 	clearWorld()

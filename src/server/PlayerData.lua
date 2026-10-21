@@ -29,6 +29,23 @@ export type Stats = {
 	goldBonus: number, -- oro extra del botín (0.1 = +10%)
 	startChoices: number, -- habilidades gratis al empezar la partida
 	rerolls: number, -- cambios de cartas que quedan en esta partida
+	weapon: string, -- arma de la partida (Shared/Weapons.lua): "Bow" | "Sword" | "Fists"
+	-- Habilidades de arco
+	backArrows: number, -- flechas hacia atrás
+	chargedEvery: number, -- cada cuántos disparos sale una flecha gigante (0 = nunca)
+	farDamage: number, -- daño extra a enemigos lejanos (0.25 = +25%)
+	arrowRain: boolean, -- lluvia de flechas cada tanto
+	-- Habilidades de espada
+	meleeArc: number, -- grados extra de arco
+	meleeRange: number, -- studs extra de alcance
+	whirlEvery: number, -- cada cuántos golpes gira 360° (0 = nunca)
+	executeBonus: number, -- daño extra a enemigos con poca vida
+	healOnKill: number, -- vida por enemigo muerto con un golpe
+	judgment: boolean, -- espada gigante cada tanto
+	-- Habilidades de puños
+	comboStep: number, -- daño extra por golpe seguido (0.05 = +5%)
+	uppercutEvery: number, -- cada cuántos golpes lanza y aturde (0 = nunca)
+	thousandFists: boolean, -- ráfaga de golpes cada tanto
 	stacks: { [string]: number }, -- skillId -> veces elegida
 }
 
@@ -45,8 +62,17 @@ export type State = {
 	dashOwned: boolean,
 	stats: Stats,
 	lastShot: number,
+	-- Disparo manual (Config.Player.FireMode = "Manual"): lo manda el cliente y valida Combat
+	grabbed: boolean, -- lo tiene agarrado un enemigo (Grab): no se mueve, no ataca ni hace dash
+	grabImmuneUntil: number, -- después de soltarse no lo puede agarrar nadie hasta entonces (Grab)
+	trigger: boolean, -- tiene apretado el botón de disparo
+	fireQueued: boolean, -- hizo click durante la recarga: dispara apenas se pueda
+	aimDir: Vector3?, -- hacia dónde apunta (plano, unitario)
+	aimMsgs: number, -- mensajes en la ventana actual (límite de frecuencia)
+	aimWindow: number,
 	pendingOffers: number, -- niveles ganados todavía sin elegir
 	currentOffer: { string }?, -- ids ofrecidos ahora mismo
+	offerGolden: number, -- carta dorada de la oferta (índice; 0 = ninguna): da 2 niveles
 	offerId: number,
 	offerDeadline: number,
 	life: LifeState,
@@ -57,6 +83,12 @@ export type State = {
 	revives: number, -- compañeros que revivió
 	runLoot: { [string]: number }, -- botín juntado en esta partida (ya está en el perfil)
 	lastHurt: number, -- os.clock() del último golpe recibido (pausa entre golpes)
+	-- Habilidades por arma (Combat)
+	attacks: number, -- ataques hechos en la partida (cada N: tiro cargado, torbellino, uppercut)
+	combo: number, -- golpes seguidos (puños)
+	lastHitAt: number, -- os.clock() del último golpe que pegó
+	nextPower: number, -- próxima lluvia de flechas / juicio / ráfaga
+	burstUntil: number, -- ráfaga de mil puños activa hasta
 }
 
 export type Target = { player: Player, root: BasePart, humanoid: Humanoid, state: State }
@@ -105,6 +137,20 @@ function PlayerData.newStats(): Stats
 		goldBonus = 0,
 		startChoices = 0,
 		rerolls = 0,
+		weapon = "Bow",
+		backArrows = 0,
+		chargedEvery = 0,
+		farDamage = 0,
+		arrowRain = false,
+		meleeArc = 0,
+		meleeRange = 0,
+		whirlEvery = 0,
+		executeBonus = 0,
+		healOnKill = 0,
+		judgment = false,
+		comboStep = 0,
+		uppercutEvery = 0,
+		thousandFists = false,
 		stacks = {},
 	}
 end
@@ -166,9 +212,20 @@ function PlayerData.resetStats()
 		state.dashOwned = false
 		state.lastHurt = -math.huge
 		state.lastShot = 0
+		state.grabbed = false
+		state.grabImmuneUntil = 0
+		state.trigger = false
+		state.fireQueued = false
+		state.aimDir = nil
+		state.attacks = 0
+		state.combo = 0
+		state.lastHitAt = 0
+		state.nextPower = 0
+		state.burstUntil = 0
 		state.stats = PlayerData.newStats()
 		state.pendingOffers = 0
 		state.currentOffer = nil
+		state.offerGolden = 0
 		state.kills = 0
 		state.damageDealt = 0
 		state.downs = 0
@@ -184,8 +241,21 @@ function PlayerData.init(onAdded: (Player) -> (), onRemoving: (Player) -> ())
 			items = {}, nextStorm = 0, dashReady = 0, dashUntil = 0, dashDirection = Vector3.zero, dashOwned = false,
 			stats = PlayerData.newStats(),
 			lastShot = 0,
+			grabbed = false,
+			grabImmuneUntil = 0,
+			trigger = false,
+			fireQueued = false,
+			aimDir = nil,
+			aimMsgs = 0,
+			aimWindow = 0,
+			attacks = 0,
+			combo = 0,
+			lastHitAt = 0,
+			nextPower = 0,
+			burstUntil = 0,
 			pendingOffers = 0,
 			currentOffer = nil,
+			offerGolden = 0,
 			offerId = 0,
 			offerDeadline = 0,
 			life = "ALIVE",

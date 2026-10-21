@@ -17,6 +17,7 @@
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local PlayerData = require(script.Parent.PlayerData)
 local PlayerLife = require(script.Parent.PlayerLife)
+local Grab = require(script.Parent.Grab)
 
 local EnemyCfg = Config.Enemy
 local flat = PlayerData.flat
@@ -157,6 +158,41 @@ Attacks.Dash = {
 			if not ctx.hit[t.player] and (flat(t.root.Position) - newPos).Magnitude <= e.radius + 1.5 then
 				ctx.hit[t.player] = true
 				PlayerLife.damage(t, R(a.Damage, 15) * e.dmgMult)
+			end
+		end
+		return newPos, blocked or ctx.travelled >= ctx.dist
+	end,
+}
+
+-- Distancia de un punto al tramo a-b (en el plano)
+local function segmentDistance(p: Vector3, a: Vector3, b: Vector3): number
+	local ab = b - a
+	local len2 = ab:Dot(ab)
+	if len2 < 1e-6 then
+		return (p - a).Magnitude
+	end
+	local t = math.clamp((p - a):Dot(ab) / len2, 0, 1)
+	return (p - (a + ab * t)).Magnitude
+end
+
+-- Agarre: marca una franja y salta como el Dash; si alcanza a un jugador, lo agarra (Grab.lua)
+-- y termina. Si no alcanza a nadie (o no puede agarrar todavía), es solo un salto.
+Attacks.Grab = {
+	prepare = Attacks.Dash.prepare,
+	begin = Attacks.Dash.begin,
+	update = function(e, a, ctx, dt, targets)
+		local pos = flat(e.part.Position)
+		local step = math.min(R(a.Speed, 55) * dt, ctx.dist - ctx.travelled)
+		ctx.travelled += step
+		local wanted = pos + ctx.dir * step
+		local newPos = Enemies.clampFlat(wanted, e.radius)
+		local blocked = (wanted - newPos).Magnitude > 0.05
+		for _, t in targets do
+			-- Contacto a lo largo de todo el tramo del frame (con lag, el salto no lo atraviesa)
+			if segmentDistance(flat(t.root.Position), pos, newPos) <= e.radius + 1.5 then
+				if Grab.try(e, t, R(a.Dps, 10) * e.dmgMult) then
+					return newPos, true
+				end
 			end
 		end
 		return newPos, blocked or ctx.travelled >= ctx.dist
@@ -323,10 +359,10 @@ Attacks.Teleport = {
 		end
 		ctx.dest = dest
 		Hazards.marker(dest, e.radius + 1, R(a.Telegraph, EnemyCfg.DefaultTelegraph) + 0.1)
-		e.part.Transparency = 0.5
+		Enemies.setTransparency(e, 0.5)
 	end,
 	update = function(e, _a, ctx)
-		e.part.Transparency = 0
+		Enemies.setTransparency(e, 0)
 		return ctx.dest, true
 	end,
 }
@@ -476,7 +512,19 @@ function EnemyAI.setup(e)
 		facing = nil,
 		mv = {},
 		trailTimer = 0,
+		-- Desvío propio al acercarse (rodear en vez de hacer fila); los jefes van directo
+		flank = if e.isBoss then 0 else (math.random() * 2 - 1) * (EnemyCfg.FlankAngle or 0),
 	}
+end
+
+-- Rodear: desvía la dirección de avance según la distancia (completo lejos, nada de cerca)
+function EnemyAI.flankDir(dir: Vector3, flank: number, dist: number): Vector3
+	local near, far = EnemyCfg.FlankNear or 12, EnemyCfg.FlankFar or 35
+	if flank == 0 or dist <= near then
+		return dir
+	end
+	local k = math.clamp((dist - near) / math.max(1, far - near), 0, 1)
+	return rotate(dir, flank * k)
 end
 
 function EnemyAI.cleanup(e)
@@ -599,6 +647,15 @@ function EnemyAI.step(e, dt: number, targets: { PlayerData.Target }): (Vector3, 
 		local vel = Vector3.zero
 		if target and m and Moves[m.Type] then
 			vel = Moves[m.Type](e, m, pos, target, dist, dt)
+			-- Lejos del jugador: todos los que caminan van hacia él (los que deambulan o
+			-- mantienen distancia también), y al menos a Config.Enemy.CatchUpSpeed.
+			if dist > EnemyCfg.ChaseDistance and m.Type ~= "Still" then
+				vel = dirTo(pos, target.root.Position) * math.max(R(m.Speed, 8), EnemyCfg.CatchUpSpeed)
+			end
+			-- Rodear: los que persiguen (y los que vienen de lejos) llegan en curva, cada uno por su lado
+			if (m.Type == "Chase" or dist > EnemyCfg.ChaseDistance) and m.Type ~= "Still" and vel.Magnitude > 0.01 then
+				vel = EnemyAI.flankDir(vel.Unit, ai.flank or 0, dist) * vel.Magnitude
+			end
 		end
 
 		-- Rastro peligroso (arañas)
