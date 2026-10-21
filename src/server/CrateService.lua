@@ -4,8 +4,9 @@
 -- Compra y apertura de cajas. Todo se decide acá; el cliente solo pide y muestra.
 --
 -- Remotes.CrateRequest (RemoteFunction), pedidos del jugador:
---   ("Open", crateId)      → abrir pagando monedas: { Ok = true, Crate, Prize, Count, New, Gold }
---   ("BuyRobux", crateId)  → muestra la compra de Roblox de esa caja: { Ok = true }
+--   ("Open", crateId)      → abrir una caja de monedas (PayWith = "Coins"): { Ok = true, Crate, Prize, Count, New, Gold }
+--   ("BuyRobux", crateId)  → muestra la compra de Roblox de una caja de Robux (PayWith = "Robux"): { Ok = true }
+--   Cada caja se paga de una sola forma: una de Robux no se abre con monedas y al revés.
 --   ("Collection")         → { Ok = true, Owned = { [prizeId] = n }, Opened, Equipped }
 --   ("Equip", prizeId) · ("Unequip", "Pet" | "Character")  → ver CrateEquip
 --   Si algo no se puede: { Ok = false, Error = "texto para mostrar" }
@@ -137,13 +138,12 @@ function CrateService.open(player: Player, crateId: any): { [string]: any }
 	if problem or not crate or not data then
 		return fail(problem or "No se pudo abrir.")
 	end
+	if Crates.paysWithRobux(crate) then
+		return fail("Esta caja se abre con Robux.")
+	end
 	local gold = data.Currencies[Cfg.Currency] or 0
 	if gold < crate.Price then
-		local missing = string.format("Te faltan %s monedas.", Crates.formatPrice(crate.Price - gold))
-		if CrateService.robuxAvailable(player, crate) then
-			missing ..= " También podés abrirla con Robux."
-		end
-		return fail(missing)
+		return fail(string.format("Te faltan %s monedas.", Crates.formatPrice(crate.Price - gold)))
 	end
 	if #crate.Prizes == 0 then
 		return fail("Esta caja no tiene premios.")
@@ -168,7 +168,7 @@ end
 
 -- ¿Puede este jugador comprar esta caja con Robux?
 function CrateService.robuxAvailable(player: Player, crate: Crates.Crate): boolean
-	return Cfg.RobuxEnabled and crate.ProductId > 0 and paidAllowed[player] == true
+	return Cfg.RobuxEnabled and Crates.paysWithRobux(crate) and crate.ProductId > 0 and paidAllowed[player] == true
 end
 
 function CrateService.buyRobux(player: Player, crateId: any): { [string]: any }
@@ -176,8 +176,11 @@ function CrateService.buyRobux(player: Player, crateId: any): { [string]: any }
 	if problem or not crate then
 		return fail(problem or "No se pudo comprar.")
 	end
+	if not Crates.paysWithRobux(crate) then
+		return fail("Esta caja se abre con monedas.")
+	end
 	if not Cfg.RobuxEnabled or crate.ProductId <= 0 then
-		return fail("Esta caja no se vende con Robux.")
+		return fail("Esta caja todavía no está a la venta.")
 	end
 	if paidAllowed[player] ~= true then
 		return fail("Las cajas con Robux no están disponibles en tu región.")
@@ -331,7 +334,7 @@ end
 -- Anota el Developer Product de cada caja en Receipts (se llama solo al iniciar)
 function CrateService.registerProducts()
 	for _, crate in Crates.List do
-		if crate.ProductId > 0 then
+		if Crates.paysWithRobux(crate) and crate.ProductId > 0 then
 			Receipts.register(crate.ProductId, onReceipt(crate))
 		end
 	end

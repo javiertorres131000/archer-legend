@@ -37,16 +37,56 @@ local function open(id)
 	return invoke(p, "Open", id)
 end
 
-test("5 cajas con su precio y 7 rarezas, de menor a mayor", function()
-	local expected = { Common = 100, Rare = 500, Epic = 1500, Legendary = 5000, Secret = 15000 }
-	eq(#Crates.List, 5, "cajas")
+test("5 cajas: Common, Rare y Epic con monedas; Legendary y Secret solo con Robux; 7 rarezas", function()
+	local expected = { Common = 100, Rare = 500, Epic = 25000 }
+	local crates = 0
+	for _, c in Crates.List do
+		if c.Type == "Crate" then crates += 1 end
+	end
+	eq(crates, 5, "cofres de skins")
 	for id, price in expected do
 		assert(Crates.ById[id], "falta " .. id)
 		eq(Crates.ById[id].Price, price, id)
+		eq(Crates.ById[id].PayWith, "Coins", id)
+	end
+	for _, id in { "Legendary", "Secret" } do
+		assert(Crates.paysWithRobux(Crates.ById[id]), id .. " es de Robux")
 	end
 	local order = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret" }
 	for i, id in order do
 		eq(CrateItems.RarityById[id].Order, i, id)
+	end
+end)
+
+test("huevos de mascotas: 4, tres con monedas y el Mythic con Robux; cofres solo skins y huevos solo mascotas", function()
+	local eggs = {}
+	for _, c in Crates.List do
+		assert(c.Type == "Crate" or c.Type == "Egg", c.Id .. ": tipo")
+		for _, e in c.Prizes do
+			local kind = CrateItems.ById[e.Prize].Kind
+			if c.Type == "Egg" then
+				eq(kind, "Pet", c.Id .. " da " .. e.Prize)
+			else
+				assert(kind ~= "Pet", c.Id .. " (cofre de skins) da la mascota " .. e.Prize)
+			end
+		end
+		if c.Type == "Egg" then table.insert(eggs, c) end
+	end
+	eq(#eggs, 4, "huevos")
+	for _, id in { "CommonEgg", "RareEgg", "EpicEgg" } do
+		eq(Crates.ById[id].PayWith, "Coins", id)
+		assert(Crates.isEgg(Crates.ById[id]))
+	end
+	assert(Crates.paysWithRobux(Crates.ById.MythicEgg))
+	-- Toda mascota sale de algún huevo; todo premio sale de alguna caja
+	for _, prize in CrateItems.List do
+		local found = false
+		for _, c in Crates.List do
+			for _, e in c.Prizes do
+				if e.Prize == prize.Id then found = true end
+			end
+		end
+		assert(found, prize.Id .. " no sale de ninguna caja")
 	end
 end)
 
@@ -69,6 +109,27 @@ test("tablas: todo premio existe, Ids únicos y cada caja suma 100%", function()
 		for _, r in Crates.rates(crate) do rates += r.Percent end
 		assert(math.abs(rates - 100) < 1e-6)
 	end
+end)
+
+test("trajes detallados (CrateLooks): de premios que existen, con piezas válidas", function()
+	local CrateLooks = require("./CrateLooks")
+	local segs = { Torso = true, Head = true, LeftArm = true, RightArm = true, LeftLeg = true, RightLeg = true }
+	local count = 0
+	for id, look in CrateLooks do
+		if type(look) == "table" then
+			count += 1
+			local prize = CrateItems.ById[id]
+			assert(prize, "traje de un premio que no existe: " .. id)
+			assert(prize.Kind ~= "Pet", id .. ": los trajes son para personajes")
+			assert(#look.Parts > 0, id)
+			for _, part in look.Parts do
+				assert(segs[part.Seg], id .. ": segmento " .. tostring(part.Seg))
+				assert(part.Size.X > 0 and part.Size.Y > 0 and part.Size.Z > 0, id .. ": " .. part.Name)
+			end
+		end
+	end
+	assert(CrateLooks.has("FireDemon") and not CrateLooks.has("Recruit"))
+	assert(count >= 1)
 end)
 
 test("porcentajes y precios se muestran bien", function()
@@ -142,12 +203,22 @@ test("abrir: cobra, da el premio que dice el servidor y lo guarda en el perfil",
 	eq(data.Currencies.Gold, 0)
 end)
 
+test("abrir un huevo con monedas da una mascota", function()
+	setGold(1000)
+	CrateService._forceRoll(0.999)
+	local res = open("CommonEgg")
+	CrateService._forceRoll(nil)
+	assert(res.Ok, res.Error)
+	eq(CrateItems.ById[res.Prize].Kind, "Pet")
+	eq(data.Currencies.Gold, 1000 - Crates.ById.CommonEgg.Price)
+end)
+
 test("sin monedas suficientes no cobra ni da nada", function()
 	setGold(99)
 	local res = open("Common")
 	assert(not res.Ok and string.find(res.Error, "1 monedas", 1, true), res.Error)
 	eq(data.Currencies.Gold, 99, "no cobró")
-	eq(data.Crates.Opened, 2, "no abrió")
+	eq(data.Crates.Opened, 3, "no abrió")
 end)
 
 test("pedidos inválidos: caja que no existe, tipos raros, acción desconocida", function()
@@ -203,7 +274,7 @@ rawget(Market, "_raw").PromptProductPurchase = function(_, who, productId)
 	table.insert(prompted, { who, productId })
 end
 local PRODUCT = 987654
-Crates.ById.Rare.ProductId = PRODUCT
+Crates.ById.Legendary.ProductId = PRODUCT
 CrateService.registerProducts()
 local function receipt(id, productId, userId)
 	return Receipts.process({ PlayerId = userId or p.UserId, ProductId = productId or PRODUCT, PurchaseId = id })
@@ -213,21 +284,30 @@ test("Robux: sin permiso de Roblox (PolicyService) no se vende; con permiso mues
 	atStation(2)
 	eq(p:GetAttribute("PaidCratesAllowed"), false, "sin respuesta de PolicyService = no permitido")
 	M.advance(Cfg.OpenCooldown + 0.1)
-	local blocked = invoke(p, "BuyRobux", "Rare")
+	local blocked = invoke(p, "BuyRobux", "Legendary")
 	assert(not blocked.Ok and string.find(blocked.Error, "región", 1, true), blocked.Error)
 	CrateService._setPaidAllowed(p, true)
 	M.advance(Cfg.OpenCooldown + 0.1)
-	local res = invoke(p, "BuyRobux", "Rare")
+	local res = invoke(p, "BuyRobux", "Legendary")
 	assert(res.Ok, res.Error)
 	eq(#prompted, 1)
 	eq(prompted[1][1], p)
 	eq(prompted[1][2], PRODUCT)
 	M.advance(Cfg.OpenCooldown + 0.1)
-	assert(not invoke(p, "BuyRobux", "Common").Ok, "caja sin ProductId")
+	local coins = invoke(p, "BuyRobux", "Common")
+	assert(not coins.Ok and string.find(coins.Error, "monedas", 1, true), "las de monedas no se venden por Robux")
+	M.advance(Cfg.OpenCooldown + 0.1)
+	local soon = invoke(p, "BuyRobux", "Secret")
+	assert(not soon.Ok and string.find(soon.Error, "todavía", 1, true), "sin ProductId todavía no se vende")
+	M.advance(Cfg.OpenCooldown + 0.1)
+	setGold(1000000)
+	local withCoins = open("Legendary")
+	assert(not withCoins.Ok and string.find(withCoins.Error, "Robux", 1, true), "las de Robux no se abren con monedas")
+	eq(data.Currencies.Gold, 1000000, "no cobró")
 	assert(not invoke(p, "BuyRobux", "Nope").Ok, "caja que no existe")
 	state.inMatch = true
 	M.advance(Cfg.OpenCooldown + 0.1)
-	assert(not invoke(p, "BuyRobux", "Rare").Ok, "en partida")
+	assert(not invoke(p, "BuyRobux", "Legendary").Ok, "en partida")
 	state.inMatch = false
 end)
 
@@ -240,7 +320,7 @@ test("recibo: entrega una vez, guarda, avisa al cliente y no cobra monedas", fun
 	CrateService._forceRoll(0)
 	eq(receipt("compra-1"), Receipts.GRANTED, "primera vez")
 	CrateService._forceRoll(nil)
-	local prize = Crates.ById.Rare.Prizes[1].Prize
+	local prize = Crates.ById.Legendary.Prizes[1].Prize
 	eq(data.Crates.Opened, opened + 1)
 	eq(data.Currencies.Gold, gold, "no toca las monedas")
 	eq(#fired, 1)

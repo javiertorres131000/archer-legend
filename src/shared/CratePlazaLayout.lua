@@ -8,7 +8,7 @@
 local Config = require(script.Parent.Config)
 local Crates = require(script.Parent.Crates)
 
-export type Station = { Id: string, Top: CFrame, Position: Vector3 }
+export type Station = { Id: string, Type: string, Top: CFrame, Position: Vector3 }
 export type Layout = {
 	Center: Vector3, -- centro del piso (a la altura del piso)
 	Size: Vector3,
@@ -29,16 +29,23 @@ function CratePlazaLayout.get(): Layout
 	local lobbyHalfX = lobby.Size.X / 2
 	local center = Vector3.new(lobby.Center.X + lobbyHalfX + 1 + cfg.Size.X / 2, lobby.Center.Y, lobby.Center.Z + cfg.DoorZ)
 	local stations = {}
-	local n = #Crates.List
+	local crates: { Crates.Crate }, eggs: { Crates.Crate } = {}, {}
+	for _, crate in Crates.List do
+		table.insert(if Crates.isEgg(crate) then eggs else crates, crate)
+	end
+	local y = center.Y + CratePlazaLayout.PlatformHeight
+	-- Cofres de skins: fila contra el muro del fondo (este), de frente a la puerta
 	local rowX = center.X + cfg.Size.X / 2 - 16
-	for i, crate in Crates.List do
-		local z = center.Z + (i - (n + 1) / 2) * cfg.StationSpacing
-		local pos = Vector3.new(rowX, center.Y + CratePlazaLayout.PlatformHeight, z)
-		table.insert(stations, {
-			Id = crate.Id,
-			Top = CFrame.lookAt(pos, pos + Vector3.new(-1, 0, 0)), -- de frente a la puerta
-			Position = pos,
-		})
+	for i, crate in crates do
+		local pos = Vector3.new(rowX, y, center.Z + (i - (#crates + 1) / 2) * cfg.StationSpacing)
+		table.insert(stations, { Id = crate.Id, Type = crate.Type, Top = CFrame.lookAt(pos, pos + Vector3.new(-1, 0, 0)), Position = pos })
+	end
+	-- Huevos de mascotas: fila contra el muro sur, de frente al centro de la plaza
+	local rowZ = center.Z - cfg.Size.Z / 2 + 16
+	local eggCenterX = center.X - 12
+	for i, crate in eggs do
+		local pos = Vector3.new(eggCenterX + (i - (#eggs + 1) / 2) * cfg.StationSpacing, y, rowZ)
+		table.insert(stations, { Id = crate.Id, Type = crate.Type, Top = CFrame.lookAt(pos, pos + Vector3.new(0, 0, 1)), Position = pos })
 	end
 	return {
 		Center = center,

@@ -11,6 +11,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CrateItems = require(script.Parent.CrateItems)
+local CrateLooks = require(script.Parent.CrateLooks)
 
 local C = Color3.fromRGB
 local SQRT3 = math.sqrt(3)
@@ -209,6 +210,67 @@ function CrateModels.crate(def: { Id: string, Color: Color3, Dark: Color3 }): Mo
 end
 
 ---------------------------------------------------------------------
+-- Huevo de mascotas
+---------------------------------------------------------------------
+
+-- Huevo ornamentado (~3 x 4 studs), pivote abajo al centro, frente hacia -Z: cáscara oscura,
+-- dos bandas de neón del color del huevo, zigzag dorado, gemas y corona arriba. Las piezas de
+-- neón se llaman "Glow" (la animación las hace brillar). Modelo propio: CrateAssets > Crates > Id.
+function CrateModels.egg(def: { Id: string, Color: Color3, Dark: Color3 }): Model
+	local custom = override("Crates", def.Id)
+	if custom then
+		return custom
+	end
+	local model = Instance.new("Model")
+	model.Name = def.Id
+	local base = CFrame.new()
+	root(model, base)
+	local w, h = 3, 4 -- ancho y alto de la cáscara
+	local shell = part(model, "Shell", Vector3.new(w, h, w), base * CFrame.new(0, h / 2, 0), def.Dark, Enum.Material.SmoothPlastic)
+	shell.Reflectance = 0.08
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Parent = shell
+	local gold = C(255, 200, 70)
+	-- Ancho del huevo a una altura y (elipse)
+	local function widthAt(y: number): number
+		local k = (y - h / 2) / (h / 2)
+		return w * math.sqrt(math.max(0, 1 - k * k))
+	end
+	-- Bandas de neón
+	for _, y in { 1.25, 2.85 } do
+		local d = widthAt(y) + 0.08
+		local band = neon(model, "Glow", Vector3.new(0.16, d, d), base * CFrame.new(0, y, 0) * CFrame.Angles(0, 0, math.rad(90)), def.Color)
+		band.Shape = Enum.PartType.Cylinder
+	end
+	-- Zigzag dorado alrededor del medio
+	local r = widthAt(2) / 2 + 0.02
+	for i = 0, 15 do
+		local a = i / 16 * math.pi * 2
+		local normal = Vector3.new(math.cos(a), 0, math.sin(a))
+		local pos = normal * r + Vector3.new(0, 2.05, 0)
+		local tilt = if i % 2 == 0 then 0.75 else -0.75
+		part(model, "Zigzag", Vector3.new(0.12, 0.85, 0.08), base * CFrame.lookAt(pos, pos + normal) * CFrame.Angles(0, 0, tilt), gold, Enum.Material.Metal)
+	end
+	-- Gemas sobre la banda de abajo
+	for i = 0, 3 do
+		local a = i / 4 * math.pi * 2 + math.pi / 4
+		local rr = widthAt(1.25) / 2 + 0.12
+		local gem = neon(model, "Glow", Vector3.new(0.32, 0.32, 0.32), base * CFrame.new(math.cos(a) * rr, 1.25, math.sin(a) * rr), def.Color:Lerp(C(255, 255, 255), 0.3))
+		gem.Shape = Enum.PartType.Ball
+	end
+	-- Corona dorada arriba
+	for i = 0, 4 do
+		local a = i / 5 * math.pi * 2
+		local cf = base * CFrame.new(math.cos(a) * 0.55, h - 0.12, math.sin(a) * 0.55) * CFrame.Angles(0, -a, math.rad(15))
+		part(model, "Crown", Vector3.new(0.18, 0.55, 0.18), cf, gold, Enum.Material.Metal)
+	end
+	local top = neon(model, "Glow", Vector3.new(0.35, 0.35, 0.35), base * CFrame.new(0, h + 0.12, 0), def.Color)
+	top.Shape = Enum.PartType.Ball
+	return model
+end
+
+---------------------------------------------------------------------
 -- Premios de bloques
 ---------------------------------------------------------------------
 
@@ -385,6 +447,32 @@ local function petModel(model: Model, look: CrateItems.Look)
 			part(model, "EarIn", Vector3.new(0.18, 0.32, 0.05), head * CFrame.new(x, 0.82, -0.03) * CFrame.Angles(0, 0, math.rad(x * -20)), acc, accMaterial(look))
 		end
 	end
+	if has(look, "LongEars") then
+		for _, x in { -0.3, 0.3 } do
+			part(model, "Ear", Vector3.new(0.3, 1.1, 0.22), head * CFrame.new(x, 1.1, 0.15) * CFrame.Angles(math.rad(-10), 0, math.rad(x * -25)), look.Body)
+			part(model, "EarIn", Vector3.new(0.16, 0.8, 0.05), head * CFrame.new(x, 1.1, 0.03) * CFrame.Angles(math.rad(-10), 0, math.rad(x * -25)), acc)
+		end
+	end
+	if has(look, "Snout") then
+		part(model, "PigSnout", Vector3.new(0.75, 0.55, 0.25), head * CFrame.new(0, -0.15, -0.72), acc)
+		for _, x in { -0.15, 0.15 } do
+			part(model, "Nostril", Vector3.new(0.12, 0.18, 0.06), head * CFrame.new(x, -0.15, -0.86), EYE)
+		end
+	end
+	if has(look, "Horn") then
+		local hornColor = accent(look, C(255, 220, 120))
+		for i = 0, 2 do
+			local w = 0.26 - i * 0.07
+			part(model, "Horn", Vector3.new(w, 0.32, w), head * CFrame.new(0, 0.75 + i * 0.25, -0.35 - i * 0.08) * CFrame.Angles(math.rad(-20), math.rad(i * 30), 0), hornColor, accMaterial(look))
+		end
+	end
+	if has(look, "Horns") then
+		for _, side in { -1, 1 } do
+			local cf = head * CFrame.new(side * 0.45, 0.75, 0.2) * CFrame.Angles(math.rad(25), 0, math.rad(-side * 25))
+			part(model, "Horn", Vector3.new(0.25, 0.55, 0.25), cf, C(60, 45, 40))
+			part(model, "HornTip", Vector3.new(0.17, 0.3, 0.17), cf * CFrame.new(0, 0.4, 0), accent(look, C(255, 200, 80)), accMaterial(look))
+		end
+	end
 	part(model, "Tail", Vector3.new(0.3, 0.3, 1.1), base * CFrame.new(0, 1.9, 1.55) * CFrame.Angles(math.rad(35), 0, 0), acc, accMaterial(look))
 	if has(look, "Halo") then
 		halo(model, head * CFrame.new(0, 1.15, 0), 0.6, C(255, 240, 160))
@@ -459,7 +547,18 @@ function CrateModels.prize(prizeId: string): Model
 			petModel(model, look)
 		end
 	else
-		humanoidModel(model, look, def.Id == "LavaGolem")
+		if CrateLooks.has(def.Id) then
+			-- Traje detallado (CrateLooks): cuerpo liso y encima las piezas del traje
+			humanoidModel(model, { Body = look.Body, Skin = look.Skin, Pants = look.Pants }, false)
+			for _, d in model:GetChildren() do
+				if d.Name == "Eye" then
+					d:Destroy()
+				end
+			end
+			CrateLooks.applyToBlocky(def.Id, model)
+		else
+			humanoidModel(model, look, def.Id == "LavaGolem")
+		end
 	end
 	return model
 end

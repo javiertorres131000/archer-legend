@@ -17,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local CrateItems = require(Shared:WaitForChild("CrateItems"))
 local CrateModels = require(Shared:WaitForChild("CrateModels"))
+local CrateLooks = require(Shared:WaitForChild("CrateLooks"))
 local Profiles = require(script.Parent.Profiles)
 local PlayerData = require(script.Parent.PlayerData)
 
@@ -188,6 +189,14 @@ function CrateEquip.refreshLook(player: Player)
 		end
 		local original = originals[player]
 		local prize = if id then CrateItems.ById[id] else nil
+		-- Un traje detallado cambia el material de la piel: volver al de siempre
+		if type(current) == "string" and CrateLooks.has(current) then
+			for _, d in character:GetChildren() do
+				if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then
+					d.Material = Enum.Material.Plastic
+				end
+			end
+		end
 		if not id then
 			if original then
 				humanoid:ApplyDescriptionAsync(original)
@@ -195,7 +204,19 @@ function CrateEquip.refreshLook(player: Player)
 			character:SetAttribute("CrateLook", nil)
 		elseif prize and original then
 			humanoid:ApplyDescriptionAsync(blockyDescription(original, prize.Look))
-			attachParts(character, id)
+			if CrateLooks.has(id) then
+				CrateLooks.applyToCharacter(id, character) -- traje detallado (CrateLooks)
+				local head = character:FindFirstChild("Head")
+				if head then
+					for _, d in head:GetChildren() do
+						if d:IsA("Decal") then
+							d.Transparency = 1 -- la cara la ponen las piezas del traje
+						end
+					end
+				end
+			else
+				attachParts(character, id)
+			end
 			character:SetAttribute("CrateLook", id)
 		end
 	end)

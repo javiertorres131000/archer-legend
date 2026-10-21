@@ -28,7 +28,8 @@
 - [x] Runas: 12 de colección (suben con duplicados), 3 espacios de especiales, cofre con gemas y botín de jefes
 - [ ] Cofres gratuitos y especiales (hechas: cajas con monedas en la plaza volcánica, 5 rarezas de caja y 7 de premio, animación de apertura)
 - [x] Premios equipables: mascota que sigue y da daño, personaje que cambia el avatar; cajas por Robux con recibos seguros
-- [ ] Crear los Developer Products en el Creator Dashboard y pegar los ProductId (Shared/Crates.lua)
+- [x] Huevos de mascotas (4, con animación de ruptura); los cofres quedan solo para skins
+- [ ] Crear los Developer Products en el Creator Dashboard y pegar los ProductId (Shared/Crates.lua) — Legendary Crate, Secret Crate y Mythic Egg
 - [ ] Más premios y formas de ganar monedas jugando (misiones diarias)
 - [x] Reciclaje de equipo (por pieza y en lote) — 8a
 - [x] Herramientas para balancear: registro de partidas, panel de stats y panel de prueba (F2)
