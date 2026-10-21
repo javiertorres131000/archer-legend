@@ -24,7 +24,7 @@ Roguelite de acción cooperativo para Roblox (1 a 4 jugadores), inspirado en las
 2. En **Game Settings › Places › Max Players** poné **4** (el juego arma equipos de hasta 4).
 3. **Play** (F5) para uno solo, o **Test › Clients and Servers › 2 Players › Start** para cooperativo.
 
-**Cámara:** la arena se juega en primera persona; cada jugador puede pasar a tercera persona (detrás del hombro) y volver con la tecla **V** (o R3 en el joystick). Teclas, distancia y hombro en `Config.Camera`. Para volver a la vista desde arriba: `Config.Camera.Mode = "TopDown"`. En primera persona el disparo automático apunta a lo que tenés delante (ancho del cono en `Config.Player.AimConeFirstPerson`). El disparo es siempre automático, también caminando. En primera persona el mouse no se ve dentro de la arena; aparece solo al elegir habilidad, en los resultados o al quedar eliminado.
+**Cámara:** la arena se juega en primera persona; cada jugador puede pasar a tercera persona (detrás del hombro) y volver con la tecla **V** (o R3 en el joystick). Teclas, distancia y hombro en `Config.Camera`. Para volver a la vista desde arriba: `Config.Camera.Mode = "TopDown"`. **Ataque manual:** click izquierdo (R2 en el joystick, botón ATACAR en el celular) para atacar hacia donde apunta la mira; mantener apretado sigue atacando a la cadencia del arma, y un click durante la recarga sale apenas se pueda. Sirve para las tres armas y también caminando. En cenital se apunta con el mouse. Para volver al ataque automático: `Config.Player.FireMode = "Auto"` (ahí en primera persona apunta solo a lo que tenés delante, cono en `Config.Player.AimConeFirstPerson`). En primera persona el mouse no se ve dentro de la arena; aparece solo al elegir habilidad, en los resultados o al quedar eliminado.
 
 Para probar rápido: `Config.Debug.UnlockAllChapters = true` deja elegir cualquier capítulo y `Config.Debug.StartWave` arranca en otra oleada (por ejemplo 10 para ir directo al jefe). Volvé a `false` y `1` para jugar normal.
 
@@ -45,6 +45,10 @@ Sin esos dos pasos se juega igual, pero arriba a la derecha del lobby dice *"⚠
 
 Para empezar de cero en las pruebas, cambiá `Config.Profiles.StoreName` (por ejemplo a `"PlayerProfiles_test2"`): los perfiles viejos quedan guardados aparte. **No lo cambies en el juego publicado** o todos empiezan de cero.
 
+## Pasto
+
+El pasto animado del terreno está más bajo (`Config.Map.GrassLength`, 0.35; Roblox trae 1). Solo se ve si el Terreno tiene *Decoration* activado en Studio.
+
 ## Mapa abierto con relieve
 
 Cada partida se juega en un mapa grande (300 × 300) de día, con lomas, **mesetas con rampa para subir**, montañas en el borde, bruma a lo lejos y árboles o ruinas repartidos. Los enemigos caminan sobre el relieve, los proyectiles suben y bajan con las colinas y los cofres y orbes quedan apoyados en el piso. Ya no hay puertas entre oleadas: al terminar una, a los 4 s arranca la siguiente.
@@ -54,11 +58,19 @@ Ajustes en `Config.Map` (tamaño de lomas, cantidad y altura de mesetas, montañ
 ## Modo frenético: qué probar
 
 1. **Play** y JUGAR: la arena tiene luz de día y relieve. Caminá: **disparás mientras te movés**.
-2. Las hordas se te vienen encima. Al pegar, el enemigo destella blanco y retrocede; los críticos salen con un número amarillo enorme y un sacudón.
+2. Las hordas se te vienen encima **desde todos lados**: cada aparición se reparte en 3 grupos de direcciones distintas (que van rotando) y la mitad de las veces uno sale por tu espalda (`Config.Frenzy.SpawnSides`, `BehindSpawnChance`). Cada enemigo se acerca en curva con su propio ángulo, así te rodean en vez de hacer fila (`Config.Enemy.FlankAngle`, `FlankFar`, `FlankNear`). Al pegar, el enemigo destella blanco y retrocede; los críticos salen con un número amarillo enorme y un sacudón.
 3. Al morir explotan en partículas y sueltan **orbes de XP**: pasá cerca y vuelan hacia vos. A la derecha sube el **combo**.
 4. Cada tanto aparece un **cofre** con un haz del color de su rareza: pasá al lado para abrirlo (objeto temporal para cada participante, monedas y posibilidad de equipo).
 5. Si ves un enemigo **dorado**, matalo: botín enorme.
-6. Al subir de nivel, destello dorado y cartas que giran como tragamonedas.
+6. Al subir de nivel, destello dorado y cartas que giran como tragamonedas. Los primeros 4 niveles salen rapidísimo (`Config.Progression.EarlyLevelMult`).
+7. **Racha:** cada muerte seguida suena una nota más aguda (escala pentatónica, hasta 2 octavas); a los x10, x25, x50... sale un cartel y un arpegio. El contador, su barra y esos carteles van en arcoíris que corre de costado, más rápido cuanto más larga la racha.
+8. **Pausa de impacto:** en tus críticos el arma se congela un instante, la cámara se acerca y la pantalla destella; con dorados y jefes, más fuerte (`Config.Effects.HitStop`, `HitStopGap`, `HitStopFov`).
+9. **Legendaria:** si una de las cartas es legendaria, se hace esperar 1,6 s (signos de pregunta dorados que laten cada vez más rápido y redoble) y aparece con destello dorado y el cartel "¡LEGENDARIA!". Hasta que se revela no se puede elegir.
+10. **Resultados:** las monedas cuentan hacia arriba, aparece "¡NUEVO RÉCORD!" o a cuánto quedaste de tu récord / de ganar, tu mejor racha y la barra de la cuenta ("te faltan X XP para el próximo punto de talento"). **⚡ ¡OTRA!** vuelve al lobby y te deja listo con el mismo capítulo; si todos los listos apretaron OTRA, la cuenta es de 3 s (`Config.Match.AgainCountdownTime`).
+11. **Orbes en escalera:** juntá orbes seguidos y cada uno suena una nota más aguda; si pasa un rato sin juntar, arranca de nuevo (`Config.Effects.OrbLadderNotes`, `OrbLadderWindow`).
+12. **Números con racha:** cuanto más larga la racha, más grandes salen tus números de daño (hasta +60% en x50, `Config.CombatText.ComboGrow`); los críticos, en arcoíris que gira.
+13. **Carta dorada:** con 5% de chance (`Config.Progression.GoldenCardChance`) una carta de la oferta viene dorada (borde de oro que late, "✦ ×2"): da 2 niveles de esa habilidad de una vez. La decide el servidor.
+14. **Sinergias:** al completar un par de habilidades que combinan (lista editable en `Shared/Synergies.lua`, ej. Perforación + Rebote = "Flecha imparable") sale "¡SINERGIA!" en arcoíris con los dos nombres, una vez por partida. Por ahora es solo el aviso, sin bono extra.
 
 Ajustes en `Config.Frenzy` (hordas, dorados, cofres, combo), `Config.Player` (críticos, imán, disparar caminando), `Config.Effects` (luz, bloom, sacudón, calidad) y los sonidos en `Shared/Sounds.lua`.
 
@@ -123,7 +135,7 @@ Valores para ajustar en `Config`: `Waves.EnemyCountMultiplier` (cantidad de enem
 4. **Listo y cancelar:** en Player1 tocá **JUGAR**. Queda en *LISTO* y abajo dice "Esperando a que todos estén listos (1/2)". Volvé a tocarlo para cancelar.
 5. **Cuenta regresiva:** poné listos a los dos. Aparece el 5-4-3-2-1 grande. Cancelá en una ventana antes de que termine: la cuenta se corta. Volvé a poner listos a los dos y dejala terminar.
 6. **Partida:** pantalla de transición, los dos aparecen en la arena con la cámara desde arriba, el HUD de combate y la barra de vida propia. La barra superior dice "2 jugadores".
-7. **Volver:** al ganar o perder sale la pantalla de resultados. **Volver al lobby** en las dos ventanas los lleva antes; si no, vuelven solos a los 15 s. Ya en el lobby, la interfaz aparece de nuevo y pueden preparar otra partida.
+7. **Volver:** al ganar o perder sale la pantalla de resultados. **Volver al lobby** (o **¡OTRA!**) en las dos ventanas los lleva antes; si no, vuelven solos a los 15 s. Con ¡OTRA! quedás listo solo al llegar. Ya en el lobby, la interfaz aparece de nuevo y pueden preparar otra partida.
 8. **Desconexión:** en otra prueba, con la cuenta corriendo, cerrá la ventana de Player2. La cuenta sigue con Player1 solo y la partida arranca para 1.
 
 Para la **victoria** sin jugar 10 oleadas: `Config.Debug.StartWave = 10`. Al ganar se desbloquea *Ruinas Perdidas* para esta sesión.
@@ -140,6 +152,10 @@ Con dos jugadores dentro de una partida:
 3. **Cancelar:** empezá a rescatar y alejate antes de 3 s. No tiene que revivir.
 4. **Eliminado:** dejá pasar 15 s sin rescatar. Esa ventana mira al compañero hasta el próximo descanso, donde reaparece en la arena.
 5. **Derrota:** que caigan los dos. Sale la pantalla de derrota y vuelven al lobby.
+6. **Agarre:** desde la oleada 3 aparece cada tanto el **Atrapador** (violeta). Parpadea, marca una franja en el piso y salta: si te alcanza, te agarra. No te movés, no atacás ni hacés dash, y te saca vida cada medio segundo; los demás enemigos te siguen pegando. Pantalla roja con "¡TE AGARRARON!" y barra de forcejeo.
+   - **Rescate:** el compañero ve "¡AYUDA!" sobre tu cabeza (a través de todo); si le saca el 25% de la vida al Atrapador (o lo mata), te suelta: "¡Beto te salvó!" / "¡Salvaste a Ana!".
+   - **Solo:** machacá **ESPACIO** (A en el joystick, botón ¡SOLTATE! en el celular) 16 veces. El servidor cuenta como mucho 12 toques por segundo.
+   - Te suelta también si te derriban o a los 10 s. Al soltarte sale despedido, queda aturdido 1,5 s y no vuelve a agarrar por 6 s. Todo en `Config.Grab`.
 
 ## Árbol de talentos
 
@@ -160,6 +176,79 @@ local P = require(game.ServerScriptService.Server.Profiles)
 P.addAccountXP(p, 20000); P.addCurrency(p, "Gold", 50000); P.addCurrency(p, "Gems", 500)
 ```
 
+## Enemigos: que vengan a vos y modelos
+
+**Que vengan a vos** (`Config.Enemy`):
+- Aparecen a 26–50 studs de algún jugador (antes 32–75).
+- A más de 40 studs, todo el que camina (también los que deambulan o mantienen distancia) va directo al jugador más cercano y al menos a velocidad 14.
+- Si alguno queda a más de 75 studs durante 3 segundos (o un quieto, como plantas y torretas, a más de 45), reaparece a distancia normal de alguien. Nunca hay que salir a buscar al último.
+
+**Indicador sobre cada enemigo** (`EnemyMarkers`, `Config.Enemy.Markers`): un rombo brillante que se ve a través de paredes y relieve. Naranja los comunes, violeta las élites, dorado los dorados y rojo los jefes. Con 10 o menos por matar se agrandan y laten, y arriba de la pantalla aparece una flecha que apunta al más cercano, con cuántos quedan y a qué distancia. Los enterrados no se marcan.
+
+**Bordes del mapa:** paredes invisibles de 260 studs de alto y 10 de grosor (el dash no las atraviesa), cruzadas en las esquinas, y un techo invisible. Además, cada 0,25 s el servidor revisa que ningún jugador haya quedado afuera o caído debajo del piso; si pasa, lo devuelve adentro, apoyado en el terreno (`Config.Arena.ReturnMargin`, `FallBelow`).
+
+**Modelos** (`EnemyVisuals`). La caja de colisión sigue igual (el combate no cambia); el modelo se suelda encima.
+1. En Studio, creá una carpeta **EnemyModels** dentro de **ServerStorage**.
+2. Metele un **Model** por enemigo, llamado exactamente como el Id del tipo (lista abajo). También sirve uno para un grupo: **Redondos** (lo usan todos los enemigos redondos: slimes, murciélagos, bombas, espíritu, bestia y rey slime) o **Todos** (cualquiera sin modelo propio). Cada uno puede ser una **carpeta con varios Models**: cada tipo de enemigo usa siempre el mismo modelo de la carpeta. Además el modelo se tiñe con el color del enemigo (`Config.Enemy.ModelTint`), así se distinguen los tipos aunque compartan modelo. Los personajes con articulaciones (zombies, R6/R15) se animan: se rescata su animación de caminar aunque se borren sus scripts. Sirve uno de la **Caja de herramientas** (Toolbox › Creator Store) o uno hecho por ustedes.
+3. Listo: se escala solo a la altura del enemigo, se apoya en el piso y mira para el mismo lado. Si mira para otro lado, poné al Model un atributo numérico **Yaw** (grados, p. ej. 180). Para agrandarlo o achicarlo, un atributo **Scale** (p. ej. 1.3).
+4. **Seguridad:** los scripts que traiga el modelo se borran solos al usarlo (los modelos gratis a veces traen scripts maliciosos). Igual, revisalos antes de publicar.
+5. **Animación (opcional):** si el modelo tiene un AnimationController o Humanoid y una **Animation** llamada `Walk` (o `Idle`), se reproduce en bucle.
+6. Los modelos miden al menos `Config.Enemy.ModelMinHeight` (6 studs), para que los enemigos chicos no queden escondidos en el pasto. La barra de vida y el indicador van arriba del modelo.
+7. Usá modelos livianos (pocas piezas o un MeshPart): puede haber más de 100 enemigos a la vez.
+
+8. **Alas que aletean** (`EnemyAnimator`): si el modelo tiene sus alas dentro de un grupo con "wing" en el nombre (p. ej. `left wing` / `right wing`), aletean solas en la pantalla de cada jugador (`Config.Enemy.WingFlapAngle`, `WingFlapSpeed`). Los voladores (`Float` en `EnemyTypes`) además suben y bajan (`FlyBob`).
+
+Los que no tienen modelo se ven como la figura de siempre, ahora con ojos (`Config.Enemy.Eyes`). Al arrancar, la Salida lista los tipos que todavía no tienen modelo. El parpadeo de ataque y la quemadura se ven como un brillo sobre el modelo.
+
+Ids: GreenSlime, RedSlime, WhiteSkull, YellowSkull, GreenBat, RedBat, GreyWolf, BrownWolf, Snake, Spider, Crocodile, Worm, GreenPlant, BluePlant, GreenStump, BlueStump, Cactus, WhiteGolem, BlueGolem, SkeletonArcher, RedArcher, FireSpirit, TornadoMage, FireMage, WhiteBomb, BlueBomb, RedBomb, ElectricTower, OrbTower, HordeSkeleton, RushBeast, HoodMage, HeavyKnight, EliteCaptain y los jefes KingSlime, Treant, CyclopsMage, StoneGolem, Reaper, FlameDemon (el nombre de cada uno está en `src/server/Data/EnemyTypes.lua`).
+
+## Armas: arco, espada y puños
+
+En el lobby tocá **⚔️ Arma** y elegí (se guarda en el perfil; solo sin estar LISTO):
+- **Arco:** a distancia, dispara hacia la mira.
+- **Espada:** tajo hacia donde apuntás (alcance 11 studs), en arco en arco de 130° que pega a todos los de adelante. Daño ×1.9, más lenta (×1.3).
+- **Puños:** alcance 7, arco 80°, muy rápidos (×0.45 del tiempo entre golpes) y daño ×0.75.
+
+**Arma en primera persona** (`WeaponFx`, se apaga con `Config.Effects.FirstPersonWeapon = false`): estilo shooter de Roblox. El arco se ve solo (sin manos), apuntando al frente con la flecha hacia la mira; con espada y guantes, las manos en bloque de tu personaje (color de tus brazos) entran desde las esquinas de abajo y sostienen el ítem. Los modelos pueden ser un Model o una sola MeshPart. El arco va de frente, a la izquierda del centro e inclinado, con la flecha cargada que se tensa hacia vos, sale en cada disparo y se recarga; la espada abajo a la derecha (tajo de lado a lado, vuelta completa en el Torbellino); un guante a cada lado en guardia con golpes alternados. Balanceo al caminar y chispas del color del arma donde pegás. Modelos en `ReplicatedStorage > WeaponModels > Bow / Sword / Fists` (los guantes: uno, se usa en los dos lados); si no están, se arman con piezas. Se escalan y orientan solos (el arco detecta para qué lado está la curva); para acomodar uno, atributos `Rotation` (Vector3, grados) y `Flip` (bool: espada al revés / curva del arco para el otro lado) en el modelo.
+
+**Habilidades por arma.** Al subir de nivel salen cartas comunes (Fuerza, Cadencia, Vitalidad, Imán, Ojo de halcón, Golpe brutal, Encantamiento ígneo, Curación) y las del mazo de tu arma, que salen más seguido (`Config.Progression.WeaponDeckWeight`):
+- 🏹 Arco: Flecha frontal, Abanico, Perforación, Rebote, Flecha trasera, Tiro cargado (cada 4º disparo, flecha gigante), Ojo del cazador (+25% a lejanos) y ⭐ Lluvia de flechas (cada 6 s).
+- ⚔️ Espada: Hoja ancha, Hoja larga, Torbellino (cada 5º golpe, 360°), Ejecución (+60% a enemigos con poca vida), Sed de sangre (cura al matar) y ⭐ Juicio (espada gigante cada 8 s).
+- 👊 Puños: Combo (+5% por golpe seguido, hasta +50%), Uppercut (cada 3er golpe lanza y aturde), Pies veloces y ⭐ Ráfaga de mil puños (cada 10 s, 2 s al triple de velocidad).
+Las legendarias ⭐ solo aparecen con 2 habilidades del mazo de tu arma. Catálogo en `src/shared/Skills.lua`.
+
+Con espada o puños, las habilidades de flechas que vengan de runas se convierten: flecha extra → +12% daño, par diagonal → +20° de arco, perforación y rebote → +8% daño cada una. Críticos, quemadura, daño y cadencia funcionan igual. Valores en `src/shared/Weapons.lua`. El Tocón verde y el Cactus ahora vuelan y mantienen distancia mientras disparan.
+
+## Herramientas de prueba y balance
+
+**Panel de stats** (botón **📊 Stats** del lobby; en partida, tecla **Tab** o el botón 📊 en celular). Muestra cada stat en columnas acumuladas: **Base → Equipo → Talentos → Runas** y, jugando, **Ahora** (con habilidades y objetos de la partida). En verde, lo que cambió respecto de la columna anterior: así se ve cuánto aporta cada sistema. Lo calcula el servidor (`StatsBreakdown`).
+
+**Panel de prueba** (tecla **F2**). Solo aparece en Studio o para los UserId de `Config.Debug.Admins`; el servidor revisa el permiso en cada pedido, así que en el juego publicado nadie más puede usarlo. Botones: +5000 oro, +500 gemas, +50 piedras, +5 niveles de cuenta, desbloquear capítulos (queda guardado), resumen de partidas y, jugando: saltar oleada, matar enemigos, aparecer el jefe, subir de nivel, objeto al azar y curarse. Se apaga con `Config.Debug.Commands = false`.
+
+**Registro de partidas** (`RunLog`, `Config.RunLog`). Al terminar cada partida anota una fila por jugador: capítulo, resultado, oleadas, duración, jugadores, bajas, daño, caídas, oro/gemas/piedras ganados, XP de cuenta y la build (puntos de talento, poder de equipo, runas, habilidades y objetos). Sale en la Salida como `[RunLog] ...` y se guarda en un DataStore aparte (`RunLog_v1`, una clave por día, sin tocar los perfiles). El botón **Resumen de partidas** del panel F2 (o `require(game.ServerScriptService.Server.RunLog).report(7)` en la barra de comandos del servidor) imprime promedios por capítulo de los últimos 7 días: % de victorias, oleadas, duración, oro, XP, bajas, DPS y caídas. Con esos números se ajustan costos y botín.
+
+## Cajas (crates)
+
+Al este del lobby hay una puerta a la **plaza volcánica**: una plataforma por caja. Acercate y apretá **E** ("Ver cajas") para abrir el menú; **OPEN** compra y abre. Para probar en Studio te da 25.000 monedas una vez (`Config.Crates.TestGold`); también está el +5000 oro del panel F2.
+
+**Cambiar precios y probabilidades:** `src/shared/Crates.lua`. Cada caja tiene `Price` y una lista `Prizes` con `{ Prize = "Id", Chance = % }`. Las Chance pueden no sumar 100 (se reparten en proporción), pero la prueba `test_crates` avisa si no suman 100 para que lo que ves en DROP RATES sea exacto. Una caja nueva suma su plataforma sola.
+
+**Cambiar o agregar premios:** `src/shared/CrateItems.lua`. Cada premio tiene `Id` (no lo cambies una vez publicado: el inventario guardado lo usa), `Name`, `Rarity` (Common, Uncommon, Rare, Epic, Legendary, Mythic, Secret), `Kind` (Unit, Pet, Character) y `Look` (colores y accesorios del modelo de bloques). Después ponelo en la tabla de alguna caja.
+
+**Tus propios modelos:** creá en Studio `ReplicatedStorage > CrateAssets > Prizes` y meté un Model con el `Id` exacto del premio, mirando hacia -Z y con el pivote en los pies. Se usa en el índice y en la animación; se le borran los scripts. Lo mismo para los cofres en `CrateAssets > Crates` con el Id de la caja.
+
+**Sistema:** `Config.Crates`: moneda (`Currency`, el oro), nombre de la columna de leaderstats, límite entre aperturas, distancia a la plataforma, monedas de prueba, tamaño de la plaza, luz volcánica y tiempos de la animación (temblor, giro de cámara, vueltas y velocidad de la ruleta). Sonidos en `Shared/Sounds.lua` (`Crate*`).
+
+**Antes de publicar:** dejá `TestGoldOnlyInStudio = true` (o `TestGold = 0`).
+
+**Vender cajas por Robux:**
+1. Publicá el juego y andá al [Creator Dashboard](https://create.roblox.com/dashboard/creations) › tu experiencia › **Monetization › Developer Products › Create a Developer Product**. Creá uno por caja (por ejemplo "Rare Crate") con su precio en Robux.
+2. Copiá el **Product ID** de cada uno y pegalo en `ProductId` de esa caja en `src/shared/Crates.lua`. El precio en Robux se cambia en el Dashboard, no en el código (el botón lo lee solo).
+3. Probá en Studio: la compra es de prueba (no cobra) y tiene que estar activado *Game Settings › Security › Enable Studio Access to API Services* para que se guarde el perfil.
+Roblox exige mostrar las probabilidades antes de comprar (ya están en DROP RATES: no las saques) y no vender cajas pagas al azar en algunos países: el juego lo consulta con `PolicyService` y ahí el botón no aparece.
+
+**Equipar:** en la pestaña **Index**, EQUIP sobre un premio que tengas. Un espacio de **mascota** (te sigue y da daño extra según su rareza, `Config.Crates.PetDamageBonus`) y uno de **personaje** (unidades y personajes: cambian tu avatar por el de bloques del premio, solo aspecto). Se equipa en el lobby y queda guardado.
+
 ## Pruebas automáticas
 
 En `tests/` (fuera de lo que sincroniza Rojo). Corren los módulos reales del servidor sobre una imitación mínima de Roblox:
@@ -169,6 +258,9 @@ En `tests/` (fuera de lo que sincroniza Rojo). Corren los módulos reales del se
 | `test_match.luau` | Ciclo de partida: solo, dos jugadores, cancelar listo, desconexión en la cuenta, victoria y vuelta, derrota y vuelta, segunda partida, partidas duplicadas, líder, equipo lleno, permisos y peticiones inválidas; recompensas entregadas y guardadas, volver a entrar con todo, no poder ponerse listo mientras carga el perfil |
 | `test_playerlife.luau` | Derribo, rescate, eliminación, descanso, lobby a salvo, entradas y salidas |
 | `test_catalog.luau` | Catálogo de enemigos y capítulos, escalado coop de oleadas, variedad |
+| `test_dopamine.luau` | Arranque rápido de niveles (4, 9, 16, 25 y después la fórmula), marca de jefe en las muertes, carta dorada (solo con lugar para 2 niveles, da 2, sin chance no sale) y lista de sinergias (Ids reales, mismo mazo, sin repetidos) |
+| `test_grab.luau` | Agarre: anclado sin atacar ni dash, daño de a poco, rescate por daño o muerte del agarrador (quién te salvó), forcejeo con tope de frecuencia, cuándo no agarra, derribo y tope de tiempo, la IA salta y agarra, el Atrapador en todos los capítulos |
+| `test_manual_fire.luau` | Ataque manual: sin apretar no ataca; apunta a la mira y no al enemigo; cadencia al mantener; click en cola; espada al aire; validación y límite de mensajes |
 | `test_aim.luau` | Puntería: en primera persona solo apunta adelante; en cenital, a todo alrededor; dispara caminando |
 | `test_ai.luau` | 60 s de cada enemigo y jefe: sin errores, todos atacan, los jefes cambian de fase |
 | `test_profiles.luau` | Perfil: nuevo, guardar y volver, monedas, reintentos, DataStore caído, Studio sin acceso, bloqueo de sesión (esperar, tomar, abandonado, perdido, mismo servidor), migraciones, datos rotos, versión nueva, irse mientras carga, guardado automático y cierre del servidor |
@@ -178,10 +270,15 @@ En `tests/` (fuera de lo que sincroniza Rojo). Corren los módulos reales del se
 | `test_orbs.luau` | Orbes de XP (imán, aspiradora, tope, envío a los clientes) y cofres (cuándo aparecen, tope, abrir, abrir al final) |
 | `test_selection_pause.luau` | Pausa global, inmovilidad, inmunidad, proyectiles, quemaduras, espera cooperativa y limpieza |
 | `test_equipment.luau` | Equipo inicial, validaciones, costos, fusión, reciclaje (pieza y lote), topes, persistencia y reparación de perfiles |
+| `test_enemy_reach.luau` | Distancia de aparición, aparición desde varios lados y por la espalda, acercamiento en curva (rodear), atracción desde lejos, reubicación de quietos y lejanos, ojos, borrado de scripts de los modelos, aviso de enterrados y vuelta adentro del mapa |
+| `test_weapons.luau` | Armas: elegir (validaciones), perfil, golpe en arco (adelante sí, atrás y lejos no), bonos de habilidades, cadencia, sin flechas con espada, enemigos voladores |
+| `test_weapon_skills.luau` | Mazos por arma, legendarias con requisito, flecha trasera, tiro cargado, ojo del cazador, hoja larga, ejecución, sed de sangre, torbellino, combo, uppercut (aturde) y los tres poderes legendarios |
+| `test_tools.luau` | Panel de stats (columnas, sin tocar las stats reales, frecuencia), registro de partidas (fila, promedios, tope, una escritura, Studio sin DataStore) y comandos de prueba (permisos Studio/admins, pedidos ajenos ignorados, validación y comandos de partida) |
 | `test_talents.luau` | Árbol: todo alcanzable, costos crecientes, conexión, puntos por nivel, oro y gemas, máximo, listo/partida, frecuencia, reinicio, stats, perfil v4, XP de cuenta, Codicia, Ventaja y cambio de cartas |
 | `test_items_dash.luau` | Acumulación, aura, rayos, explosiones, sinergias, modo opcional sin pausa, dash, invocaciones y limpieza |
 | `test_map.luau` | Relieve: misma semilla mismo mapa, centro plano, montañas en el borde, mesetas con rampa caminable, altura del piso, decoración, mapa hecho a mano, enemigos apoyados y a buena distancia |
 | `test_rooms.luau` | Puerta entre oleadas: hay que entrar todos, límite de tiempo, cambio de sala, entrada, salas hechas a mano, más enemigos por oleada, decoración en los bordes |
+| `test_crates.luau` | Cajas: precios y rarezas, tablas que suman 100%, tirada ponderada, compra (cobra, guarda, repetidos), sin monedas, pedidos inválidos, límite de frecuencia, lejos o en partida, colección, Robux (PolicyService, compra, recibo una vez, sin guardar no confirma, repetidos, tope), equipar (espacios, validación, partida, frecuencia), bono de mascota, perfil v8 y plaza con sus prompts |
 | `test_integration.luau` | Dos partidas completas con el `GameServer` real y 2 bots desde el lobby |
 
 Para correrlas necesitás Python y `luau` ([descarga](https://github.com/luau-lang/luau/releases)):

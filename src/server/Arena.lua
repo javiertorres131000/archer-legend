@@ -69,11 +69,17 @@ function Arena.build()
 
 	local wallColor = Color3.fromRGB(60, 60, 70)
 	local h = ArenaCfg.WallHeight
+	local t = ArenaCfg.WallThickness or 10
+	-- Arrancan 40 studs abajo del piso (por si el terreno tiene pozos junto al borde) y se cruzan en
+	-- las esquinas para que no quede ninguna rendija.
+	local y = h / 2 - 40
 	walls = {
-		makePart(folder, "WallN", Vector3.new(ArenaCfg.Size.X + 2, h, 1), CFrame.new(0, h / 2, -half.Z - 0.5), wallColor),
-		makePart(folder, "WallS", Vector3.new(ArenaCfg.Size.X + 2, h, 1), CFrame.new(0, h / 2, half.Z + 0.5), wallColor),
-		makePart(folder, "WallW", Vector3.new(1, h, ArenaCfg.Size.Z), CFrame.new(-half.X - 0.5, h / 2, 0), wallColor),
-		makePart(folder, "WallE", Vector3.new(1, h, ArenaCfg.Size.Z), CFrame.new(half.X + 0.5, h / 2, 0), wallColor),
+		makePart(folder, "WallN", Vector3.new(ArenaCfg.Size.X + 2 * t, h, t), CFrame.new(0, y, -half.Z - t / 2), wallColor),
+		makePart(folder, "WallS", Vector3.new(ArenaCfg.Size.X + 2 * t, h, t), CFrame.new(0, y, half.Z + t / 2), wallColor),
+		makePart(folder, "WallW", Vector3.new(t, h, ArenaCfg.Size.Z + 2 * t), CFrame.new(-half.X - t / 2, y, 0), wallColor),
+		makePart(folder, "WallE", Vector3.new(t, h, ArenaCfg.Size.Z + 2 * t), CFrame.new(half.X + t / 2, y, 0), wallColor),
+		-- Techo invisible: por más alto que se trepe, no se pasa por arriba
+		makePart(folder, "Ceiling", Vector3.new(ArenaCfg.Size.X + 2 * t, t, ArenaCfg.Size.Z + 2 * t), CFrame.new(0, y + h / 2 + t / 2, 0), wallColor),
 	}
 	-- Paredes invisibles: el borde se ve como montañas; esto solo evita salirse trepando
 	for _, w in walls do
@@ -84,13 +90,41 @@ function Arena.build()
 	-- (en primera persona ayudan a orientarse, y con el bloom de la arena brillan).
 	local neon = Color3.fromRGB(120, 255, 200)
 	for _, w in (if Config.Effects.NeonStrips then walls else {}) :: { Part } do
-		for _, y in { 0.15, h - 0.15 } do
-			local strip = makePart(folder, "NeonStrip", Vector3.new(w.Size.X + 0.1, 0.3, w.Size.Z + 0.1), CFrame.new(w.Position.X, y, w.Position.Z), neon, Enum.Material.Neon)
+		if w.Name == "Ceiling" then
+			continue
+		end
+		for _, sy in { 0.15, 90 } do
+			local strip = makePart(folder, "NeonStrip", Vector3.new(w.Size.X + 0.1, 0.3, w.Size.Z + 0.1), CFrame.new(w.Position.X, sy, w.Position.Z), neon, Enum.Material.Neon)
 			strip.CanCollide = false
 			table.insert(strips, strip)
 		end
 	end
 	-- Sin SpawnLocation: se aparece en el lobby y MatchManager trae a los participantes acá.
+end
+
+-- ¿Este punto está afuera del mapa o se cayó debajo del piso?
+function Arena.isOutside(pos: Vector3): boolean
+	local half = Arena.Half
+	return math.abs(pos.X) > half.X - 1 or math.abs(pos.Z) > half.Z - 1 or pos.Y < Ground.y(pos.X, pos.Z) - ArenaCfg.FallBelow
+end
+
+-- Red de seguridad: trae de vuelta a quien quedó afuera (trepando, con el dash, por un bug).
+-- Lo pone sobre el terreno, a ReturnMargin del borde, quieto. Devuelve a cuántos movió.
+function Arena.keepInside(roots: { BasePart }): number
+	local half = Arena.Half
+	local margin = ArenaCfg.ReturnMargin
+	local moved = 0
+	for _, root in roots do
+		local pos = root.Position
+		if Arena.isOutside(pos) then
+			local x = math.clamp(pos.X, -half.X + margin, half.X - margin)
+			local z = math.clamp(pos.Z, -half.Z + margin, half.Z - margin)
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.CFrame = CFrame.new(Ground.place(Vector3.new(x, 0, z), 4))
+			moved += 1
+		end
+	end
+	return moved
 end
 
 -- Puntos de aparición en el centro del mapa (zona plana), en fila, mirando al norte.
@@ -133,14 +167,8 @@ local Props = {}
 Arena.Props = Props
 
 Props.forest = function(parent: Instance, pos: Vector3, rng: Random)
-	local kind = rng:NextInteger(1, 3)
-	if kind == 1 then -- árbol
-		local h = rng:NextNumber(8, 13)
-		makePart(parent, "Trunk", Vector3.new(1.6, h, 1.6), CFrame.new(pos + Vector3.new(0, h / 2, 0)), Color3.fromRGB(92, 62, 40), Enum.Material.Wood)
-		local canopy = makePart(parent, "Canopy", Vector3.one * rng:NextNumber(6, 9), CFrame.new(pos + Vector3.new(0, h + 1, 0)), Color3.fromRGB(46, 96, 52), Enum.Material.Grass)
-		canopy.Shape = Enum.PartType.Ball
-		canopy.CanCollide = false
-	elseif kind == 2 then -- roca
+	-- Sin árboles (tapaban la vista en primera persona): rocas y arbustos
+	if rng:NextNumber() < 0.5 then -- roca
 		local s = rng:NextNumber(2.5, 5)
 		makePart(parent, "Rock", Vector3.new(s, s * 0.7, s * 1.2), CFrame.new(pos + Vector3.new(0, s * 0.3, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), rng:NextNumber(-0.3, 0.3)), Color3.fromRGB(110, 110, 105), Enum.Material.Rock)
 	else -- arbusto

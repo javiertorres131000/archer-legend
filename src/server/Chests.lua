@@ -116,6 +116,15 @@ function Chests.count(): number
 	return #chests
 end
 
+-- Dónde están los cofres cerrados (para las marcas de Ping)
+function Chests.positions(): { Vector3 }
+	local list = table.create(#chests)
+	for _, c in chests do
+		table.insert(list, c.pos)
+	end
+	return list
+end
+
 -- Fin de partida: se borran sin dar nada.
 function Chests.clear()
 	for _, c in chests do

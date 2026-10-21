@@ -17,7 +17,10 @@ local subtitle = Theme.text({ Size = UDim2.new(1, -16, 0, 24), Position = UDim2.
 local bag = Theme.text({ RichText = true, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0.3, 0), Size = UDim2.new(0.3, 0, 0, 190), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true, Parent = gui })
 local owned, queue = {}, {}
 local showing = false
+local gameState = ReplicatedStorage:WaitForChild("GameState")
 local function notice(name, rarity, source)
+	-- En los resultados no se muestran: el aviso tapaba el título del panel
+	if gameState:GetAttribute("MatchState") == "RESULTS" then return end
 	if #queue < 12 then table.insert(queue, { name, rarity, source }) end
 	if showing then return end
 	showing = true
@@ -54,6 +57,7 @@ remotes:WaitForChild("SkillGranted").OnClientEvent:Connect(function(id, stacks)
 	if def then notice(def.Name .. " ×" .. stacks, def.Rarity, "Habilidad") end
 end)
 remotes:WaitForChild("RewardNotice").OnClientEvent:Connect(notice)
+remotes:WaitForChild("RunEnded").OnClientEvent:Connect(function() table.clear(queue); toast.Visible = false end)
 remotes:WaitForChild("RunReset").OnClientEvent:Connect(function() table.clear(owned); table.clear(queue); toast.Visible = false; refresh() end)
 player:GetAttributeChangedSignal("InMatch"):Connect(refresh)
 local rarityTimer = 0

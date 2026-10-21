@@ -17,6 +17,8 @@ local RarityVisuals = require(script.Parent.RarityVisuals)
 local Rarities = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rarities"))
 local Skills = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Skills"))
 local Currencies = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Currencies"))
+local Talents = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Talents"))
+local Synergies = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Synergies"))
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local skillOffer = remotes:WaitForChild("SkillOffer") :: RemoteEvent
 local chooseSkill = remotes:WaitForChild("ChooseSkill") :: RemoteEvent
@@ -262,6 +264,7 @@ local announceLabel = text({
 
 -- Abajo a la izquierda: habilidades obtenidas
 local ownedLabel = text({
+	Text = "", -- sin habilidades no muestra nada (antes salía "Label")
 	AnchorPoint = Vector2.new(0, 1),
 	Position = UDim2.new(0, 12, 1, -12),
 	Size = UDim2.new(0, 260, 0, 200),
@@ -600,9 +603,27 @@ local function refreshOwned()
 	ownedLabel.Text = table.concat(lines, "\n")
 end
 
+-- Sinergias: al conseguir por primera vez una habilidad que completa un par, Juice muestra el
+-- cartel (atributo local "Synergy": "contador|nombre|habilidad A + habilidad B")
+local synergiesShown: { [any]: boolean } = {}
+local synergyCount = 0
+
 skillGranted.OnClientEvent:Connect(function(skillId: string, stacks: number)
+	local isNew = (owned[skillId] or 0) == 0 and stacks > 0
 	owned[skillId] = stacks
 	refreshOwned()
+	if isNew then
+		local completed = Synergies.completedBy(skillId, owned, synergiesShown)
+		for _, syn in completed do
+			synergiesShown[syn] = true
+		end
+		local first = completed[1]
+		if first then
+			local a, b = Skills.ById[first.A], Skills.ById[first.B]
+			synergyCount += 1
+			player:SetAttribute("Synergy", string.format("%d|%s|%s + %s", synergyCount, first.Name, a and a.Name or first.A, b and b.Name or first.B))
+		end
+	end
 end)
 
 ---------------------------------------------------------------------
@@ -640,6 +661,33 @@ local timerLabel = text({
 	Parent = overlay,
 })
 
+-- Revelación de una legendaria: la carta se hace esperar (suspenso), y al aparecer destella
+-- toda la pantalla y sale el cartel. Sfx escucha el atributo "LegendaryReveal" para el sonido.
+local LEGEND_SUSPENSE = 1.6 -- segundos que la carta legendaria tarda en mostrarse
+local LEGEND_GOLD = Color3.fromRGB(255, 200, 60)
+local legendFlash = make("Frame", {
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = LEGEND_GOLD,
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ZIndex = 14,
+	Parent = overlay,
+})
+local legendBanner = text({
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.29),
+	Size = UDim2.new(1, 0, 0, 60),
+	Text = "★ ¡LEGENDARIA! ★",
+	TextSize = 46,
+	Font = Theme.Fonts.Title,
+	TextColor3 = LEGEND_GOLD,
+	TextTransparency = 1,
+	TextStrokeTransparency = 1,
+	ZIndex = 15,
+	Parent = overlay,
+})
+local legendBannerScale = make("UIScale", { Parent = legendBanner })
+
 local cardsRow = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.55),
@@ -668,6 +716,9 @@ type Card = {
 	scale: UIScale,
 	glow: number, -- cuánto late el borde según la rareza
 	spinUntil: number, -- hasta cuándo "gira" como tragamonedas
+	legendary: boolean, -- se revela con suspenso
+	golden: boolean, -- carta dorada sorpresa: 2 niveles de una
+	revealed: boolean,
 }
 local cards: { Card } = {}
 local GLOW = { Common = 0.6, Rare = 1.6, Epic = 3 }
@@ -704,9 +755,11 @@ local function choose(index: number)
 	if not currentOfferId or not currentChoices[index] then
 		return
 	end
-	local card = cards[index]
-	if card and os.clock() < card.spinUntil then
-		return -- todavía está girando
+	-- Hasta que no se revelan todas (sobre todo la legendaria), no se puede elegir
+	for _, c in cards do
+		if c.button.Visible and os.clock() < c.spinUntil then
+			return
+		end
 	end
 	chooseSkill:FireServer(currentOfferId, index)
 	closePicker()
@@ -778,17 +831,49 @@ for i = 1, 3 do
 		scale = scale,
 		glow = 0,
 		spinUntil = 0,
+		legendary = false,
+		golden = false,
+		revealed = true,
 	}
 end
 
-skillOffer.OnClientEvent:Connect(function(offerId: number, choices: { string }, timeout: number, rerolls: number?)
+-- Carta dorada: al revelarse, la carta destella en oro y salta
+local CARD_BG = Color3.fromRGB(30, 30, 42)
+local GOLDEN_BG = Color3.fromRGB(72, 56, 16)
+local function revealGolden(card: Card)
+	card.button.BackgroundColor3 = Color3.fromRGB(255, 220, 110)
+	TweenService:Create(card.button, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = GOLDEN_BG }):Play()
+	card.scale.Scale = 1.25
+	TweenService:Create(card.scale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.05 }):Play()
+end
+
+-- La legendaria aparece: carta que salta, destello dorado y cartel
+local function revealLegendary(card: Card)
+	card.scale.Scale = 1.45
+	TweenService:Create(card.scale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.08 }):Play()
+	legendFlash.BackgroundTransparency = 0.25
+	TweenService:Create(legendFlash, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
+	legendBanner.TextTransparency = 0
+	legendBanner.TextStrokeTransparency = 0
+	legendBannerScale.Scale = 1.8
+	TweenService:Create(legendBannerScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	task.delay(1.6, function()
+		TweenService:Create(legendBanner, TweenInfo.new(0.5), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+	end)
+end
+
+skillOffer.OnClientEvent:Connect(function(offerId: number, choices: { string }, timeout: number, rerolls: number?, golden: number?)
 	currentOfferId = offerId
 	currentChoices = choices
 	deadline = os.clock() + timeout
 	local left = if typeof(rerolls) == "number" then rerolls else 0
 	rerollButton.Visible = left > 0
 	rerollButton.Text = string.format("🎲  Cambiar cartas (%d)", left)
+	legendBanner.TextTransparency = 1
+	legendBanner.TextStrokeTransparency = 1
+	legendFlash.BackgroundTransparency = 1
 
+	local hasLegend = false
 	for i, card in cards do
 		local def = Skills.ById[choices[i]]
 		card.button.Visible = def ~= nil
@@ -809,6 +894,19 @@ skillOffer.OnClientEvent:Connect(function(offerId: number, choices: { string }, 
 			card.scale.Scale = 0
 			card.button.Rotation = -8
 			card.spinUntil = os.clock() + 0.3 + i * 0.15
+			-- Legendaria: tarda más en mostrarse (una sola por oferta se hace esperar)
+			card.legendary = def.Rarity == "Legendary" and not hasLegend
+			card.golden = golden == i
+			card.revealed = not card.legendary and not card.golden
+			card.button.BackgroundColor3 = CARD_BG
+			if card.golden then
+				card.desc.Text = def.Description .. "\n\n★ CARTA DORADA: ¡2 niveles de una!"
+				card.stacks.Text ..= "   ★ ×2"
+			end
+			if card.legendary then
+				hasLegend = true
+				card.spinUntil = os.clock() + LEGEND_SUSPENSE
+			end
 			task.delay((i - 1) * 0.1, function()
 				TweenService:Create(card.scale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 				TweenService:Create(card.button, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Rotation = 0 }):Play()
@@ -817,6 +915,15 @@ skillOffer.OnClientEvent:Connect(function(offerId: number, choices: { string }, 
 	end
 	pickerMouse.Modal = true
 	overlay.Visible = true
+	if hasLegend then
+		-- Sfx arma el redoble que termina justo cuando se revela
+		player:SetAttribute("LegendaryReveal", workspace:GetServerTimeNow() + LEGEND_SUSPENSE)
+	end
+	local goldenCard = if typeof(golden) == "number" then cards[golden] else nil
+	if goldenCard and goldenCard.golden then
+		-- Sfx: brillo dorado justo cuando la carta dorada se da vuelta
+		player:SetAttribute("GoldenCardAt", workspace:GetServerTimeNow() + math.max(0, goldenCard.spinUntil - os.clock()))
+	end
 end)
 
 -- Atajos de teclado 1, 2, 3
@@ -853,17 +960,42 @@ RunService.Heartbeat:Connect(function()
 	for i, card in cards do
 		local def = Skills.ById[currentChoices[i]]
 		if def and card.button.Visible then
-			if now < card.spinUntil then
+			if now < card.spinUntil and card.legendary then
+				-- Suspenso: misterio dorado que late cada vez más rápido
+				local progress = 1 - (card.spinUntil - now) / LEGEND_SUSPENSE
+				card.name.Text = "★  ?  ?  ?  ★"
+				card.name.TextColor3 = LEGEND_GOLD
+				card.rarity.Text = "· · ·"
+				card.desc.Text = ""
+				card.scale.Scale = 1 + math.abs(math.sin(now * (6 + progress * 22))) * 0.06 * (0.5 + progress)
+			elseif now < card.spinUntil then
 				local random = Skills.List[math.random(1, #Skills.List)]
 				card.name.Text = random.Name
 				card.name.TextColor3 = Skills.RarityColors[random.Rarity]
+			elseif not card.revealed then
+				card.revealed = true
+				card.name.Text = def.Name
+				card.name.TextColor3 = Color3.new(1, 1, 1)
+				if card.legendary then
+					card.rarity.Text = Skills.RarityNames[def.Rarity]
+					card.desc.Text = def.Description .. (if card.golden then "\n\n★ CARTA DORADA: ¡2 niveles de una!" else "")
+					revealLegendary(card)
+				end
+				if card.golden then
+					revealGolden(card)
+				end
 			elseif card.name.Text ~= def.Name or card.name.TextColor3 ~= Color3.new(1, 1, 1) then
 				card.name.Text = def.Name
 				card.name.TextColor3 = Color3.new(1, 1, 1)
 			end
 			-- El borde late más cuanto más rara es
-			card.stroke.Thickness = 2 + card.glow * (0.5 + math.sin(now * 6 + i) * 0.5)
-			card.stroke.Color = Rarities.color(def.Rarity, now)
+			if card.golden and card.revealed then
+				card.stroke.Thickness = 3 + 3 * (0.5 + math.sin(now * 9 + i) * 0.5)
+				card.stroke.Color = Color3.fromRGB(255, 215, 90):Lerp(Color3.new(1, 1, 1), 0.5 + math.sin(now * 9) * 0.5)
+			else
+				card.stroke.Thickness = 2 + card.glow * (0.5 + math.sin(now * 6 + i) * 0.5)
+				card.stroke.Color = Rarities.color(def.Rarity, now)
+			end
 		end
 	end
 	local left = deadline - now
@@ -890,13 +1022,13 @@ make("TextButton", { Size = UDim2.fromScale(0, 0), BackgroundTransparency = 1, T
 local panel = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.new(0.9, 0, 0, 490),
+	Size = UDim2.new(0.9, 0, 0, 590),
 	BackgroundColor3 = Theme.Colors.Panel,
 	ZIndex = 21,
 	Parent = results,
 }, {
 	corner(14),
-	make("UISizeConstraint", { MaxSize = Vector2.new(520, 490) }),
+	make("UISizeConstraint", { MaxSize = Vector2.new(520, 590) }),
 	make("UIPadding", {
 		PaddingTop = UDim.new(0, 18),
 		PaddingBottom = UDim.new(0, 18),
@@ -921,7 +1053,7 @@ local resultSub = text({
 -- Tabla de jugadores: nombre · bajas · daño
 local tableFrame = make("Frame", {
 	Position = UDim2.new(0, 0, 0, 104),
-	Size = UDim2.new(1, 0, 1, -258),
+	Size = UDim2.new(1, 0, 1, -360),
 	BackgroundTransparency = 1,
 	ZIndex = 22,
 	Parent = panel,
@@ -983,6 +1115,149 @@ local function tableRow(order: number, name: string, kills: string, revives: str
 	})
 end
 
+-- Números que cuentan hacia arriba (recompensas): se sienten más que aparecer de golpe
+local function countUp(label: TextLabel, format: string, target: number, delay: number)
+	label.Text = string.format(format, 0)
+	local value = Instance.new("NumberValue")
+	value.Changed:Connect(function(v: number)
+		label.Text = string.format(format, math.floor(v + 0.5))
+	end)
+	task.delay(delay, function()
+		local tween = TweenService:Create(value, TweenInfo.new(math.clamp(0.5 + target / 500, 0.5, 1.3), Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = target })
+		tween.Completed:Connect(function()
+			label.Text = string.format(format, target)
+			value:Destroy()
+			-- Saltito al terminar de contar
+			local pop = make("UIScale", { Scale = 1.25, Parent = label })
+			TweenService:Create(pop, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		end)
+		tween:Play()
+	end)
+end
+
+-- Récords y "casi": nuevo récord, a cuánto quedaste del récord o de ganar, mejor racha
+local highlights = text({
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 0, 1, -206),
+	Size = UDim2.new(1, 0, 0, 44),
+	TextSize = 16,
+	TextWrapped = true,
+	RichText = true,
+	Font = Theme.Fonts.Bold,
+	ZIndex = 22,
+	Parent = panel,
+})
+local highlightsScale = make("UIScale", { Parent = highlights })
+
+-- Barra de la cuenta: "te faltan X XP para el próximo punto de talento"
+local accountBlock = make("Frame", {
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 0, 1, -156),
+	Size = UDim2.new(1, 0, 0, 40),
+	BackgroundTransparency = 1,
+	ZIndex = 22,
+	Parent = panel,
+})
+local accountLabel = text({
+	Size = UDim2.new(1, 0, 0, 20),
+	TextSize = 15,
+	Font = Theme.Fonts.Bold,
+	TextColor3 = Color3.fromRGB(200, 165, 255),
+	ZIndex = 23,
+	Parent = accountBlock,
+})
+local accountBack = make("Frame", {
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.fromScale(0, 1),
+	Size = UDim2.new(1, 0, 0, 12),
+	BackgroundColor3 = Color3.fromRGB(35, 30, 48),
+	BorderSizePixel = 0,
+	ZIndex = 23,
+	Parent = accountBlock,
+}, { corner(6) })
+local accountFill = make("Frame", {
+	Size = UDim2.fromScale(0, 1),
+	BackgroundColor3 = Color3.fromRGB(170, 120, 255),
+	BorderSizePixel = 0,
+	ZIndex = 24,
+	Parent = accountBack,
+}, { corner(6) })
+
+local function waveWord(n: number): string
+	return if n == 1 then "oleada" else "oleadas"
+end
+
+local function showHighlights(summary: any)
+	local victory = summary.result == "Victory"
+	local cleared = summary.wavesCleared or 0
+	local before = summary.bestWaveBefore or 0
+	local lines = {}
+	if summary.newRecord == true and cleared > 0 then
+		if before > 0 then
+			table.insert(lines, string.format('<font color="#FFD54A">🏆 ¡NUEVO RÉCORD! Oleada %d (antes %d)</font>', cleared, before))
+		else
+			table.insert(lines, string.format('<font color="#FFD54A">🏆 ¡Primer récord: oleada %d!</font>', cleared))
+		end
+	elseif not victory and before > 0 and before - cleared <= 2 then
+		if before == cleared then
+			table.insert(lines, string.format('<font color="#FFB347">Igualaste tu récord (oleada %d). ¡Una más y lo rompés!</font>', before))
+		else
+			local gap = before - cleared
+			table.insert(lines, string.format('<font color="#FFB347">Te faltó %d %s para tu récord (%d)</font>', gap, waveWord(gap), before))
+		end
+	end
+	local extra = {}
+	local left = (summary.totalWaves or 0) - cleared
+	if not victory and left > 0 and left <= 3 then
+		table.insert(extra, string.format("¡A %d %s de ganar el capítulo!", left, waveWord(left)))
+	end
+	local best = player:GetAttribute("BestCombo") or 0
+	if best >= 5 then
+		table.insert(extra, string.format("Mejor racha: x%d", best))
+	end
+	if #extra > 0 then
+		table.insert(lines, table.concat(extra, "   ·   "))
+	end
+	highlights.Text = table.concat(lines, "\n")
+	highlights.Visible = #lines > 0
+	if summary.newRecord == true and cleared > 0 then
+		highlightsScale.Scale = 1.5
+		TweenService:Create(highlightsScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	end
+end
+
+-- Llena la barra desde donde estaba hasta donde quedó (si subiste de nivel, se llena, destella
+-- y arranca de nuevo)
+local function showAccount(account: any?, levelsGained: number)
+	if typeof(account) ~= "table" or typeof(account.needed) ~= "number" or account.needed <= 0 then
+		accountBlock.Visible = false
+		return
+	end
+	accountBlock.Visible = true
+	local missing = math.max(0, account.needed - account.xp)
+	accountLabel.Text = string.format("Nivel de cuenta %d  ·  te faltan %d XP para el próximo punto de talento", account.level, missing)
+	local neededBefore = Talents.xpNeeded(account.levelBefore or account.level)
+	local from = if levelsGained > 0 then (account.xpBefore or 0) / math.max(1, neededBefore) else (account.xpBefore or 0) / account.needed
+	local to = account.xp / account.needed
+	accountFill.Size = UDim2.fromScale(math.clamp(from, 0, 1), 1)
+	local info = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	task.delay(0.6, function()
+		if levelsGained > 0 then
+			local fill = TweenService:Create(accountFill, info, { Size = UDim2.fromScale(1, 1) })
+			fill.Completed:Connect(function()
+				accountFill.BackgroundColor3 = Color3.fromRGB(255, 230, 140)
+				task.wait(0.15)
+				accountFill.BackgroundColor3 = Color3.fromRGB(170, 120, 255)
+				accountFill.Size = UDim2.fromScale(0, 1)
+				TweenService:Create(accountFill, info, { Size = UDim2.fromScale(math.clamp(to, 0, 1), 1) }):Play()
+			end)
+			fill:Play()
+		else
+			TweenService:Create(accountFill, info, { Size = UDim2.fromScale(math.clamp(to, 0, 1), 1) }):Play()
+		end
+	end)
+end
+
 -- Recompensas de esta partida (las calcula y entrega el servidor)
 local rewardsTitle = text({
 	AnchorPoint = Vector2.new(0, 1),
@@ -1032,16 +1307,16 @@ local function showRewards(rewards: { [string]: number }?, firstClear: boolean, 
 				Parent = rewardsRow,
 			}, { corner(19), make("UIPadding", { PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }) })
 			Theme.stroke(c.Color, 1.5, 0.3).Parent = chip
-			text({
+			local amount = text({
 				Size = UDim2.new(0, 0, 1, 0),
 				AutomaticSize = Enum.AutomaticSize.X,
-				Text = string.format("%s +%d", c.Icon, n),
 				TextSize = 19,
 				Font = Theme.Fonts.Bold,
 				TextColor3 = c.Color,
 				ZIndex = 23,
 				Parent = chip,
 			})
+			countUp(amount, c.Icon .. " +%d", n, 0.3 + i * 0.25)
 		end
 	end
 	-- XP de cuenta (da puntos para el árbol de talentos)
@@ -1061,7 +1336,7 @@ local function showRewards(rewards: { [string]: number }?, firstClear: boolean, 
 		text({
 			Size = UDim2.new(0, 0, 1, 0),
 			AutomaticSize = Enum.AutomaticSize.X,
-			Text = string.format("✦ +%d XP de cuenta", accountXP or 0)
+			Text = string.format("★ +%d XP de cuenta", accountXP or 0)
 				.. (if gained > 0 then string.format("  ·  ¡Nivel %d! +%d punto%s de talento", player:GetAttribute("AccountLevel") or 1, gained, if gained == 1 then "" else "s") else ""),
 			TextSize = 17,
 			Font = Theme.Fonts.Bold,
@@ -1096,15 +1371,29 @@ local function showRewards(rewards: { [string]: number }?, firstClear: boolean, 
 	rewardsTitle.Text = title
 end
 
-local againButton = Theme.button({
-	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -24),
-	Size = UDim2.new(0, 260, 0, 48),
-	Text = "Volver al lobby",
-	TextSize = 20,
+-- OTRA: volver a jugar al toque (al llegar al lobby quedás listo solo, mismo capítulo)
+local otraButton = Theme.button({
+	AnchorPoint = Vector2.new(1, 1),
+	Position = UDim2.new(0.5, -6, 1, -24),
+	Size = UDim2.new(0.5, -6, 0, 52),
+	Text = "⚡ ¡OTRA!",
+	TextSize = 26,
 	ZIndex = 22,
 	Parent = panel,
 })
+local otraScale = make("UIScale", { Parent = otraButton })
+local againButton = Theme.button({
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0.5, 6, 1, -24),
+	Size = UDim2.new(0.5, -6, 0, 52),
+	Text = "Volver al lobby",
+	TextSize = 18,
+	BackgroundColor3 = Color3.fromRGB(90, 85, 105),
+	TextColor3 = Color3.new(1, 1, 1),
+	ZIndex = 22,
+	Parent = panel,
+})
+local voted = false
 
 local restartLabel = text({
 	AnchorPoint = Vector2.new(0.5, 1),
@@ -1149,16 +1438,33 @@ runEnded.OnClientEvent:Connect(function(summary)
 	end
 
 	showRewards(summary.rewards, summary.firstClear == true, summary.loot, summary.accountXP, summary.levelsGained)
+	showHighlights(summary)
+	showAccount(summary.account, summary.levelsGained or 0)
 
+	voted = false
 	againButton.Text = "Volver al lobby"
+	otraButton.Text = "⚡ ¡OTRA!"
 	results.Visible = true
 	Theme.popIn(panel)
 end)
 
+-- Los dos cuentan como voto para volver: cuando todo el equipo votó, vuelven antes; si no,
+-- al terminar el tiempo. Con OTRA, además, quedás listo para la próxima.
 againButton.Activated:Connect(function()
-	-- Cuando todos los del equipo lo tocan, vuelven antes; si no, al terminar el tiempo
+	if voted then
+		return
+	end
+	voted = true
 	lobbyRequest:FireServer("ReturnToLobby")
 	againButton.Text = "Esperando al equipo…"
+end)
+otraButton.Activated:Connect(function()
+	if voted then
+		return
+	end
+	voted = true
+	lobbyRequest:FireServer("PlayAgain")
+	otraButton.Text = "¡Vamos! Esperando…"
 end)
 
 RunService.Heartbeat:Connect(function()
@@ -1166,11 +1472,13 @@ RunService.Heartbeat:Connect(function()
 		local resultsEnd = gameState:GetAttribute("ResultsEnd") or 0
 		local left = math.max(0, math.ceil(resultsEnd - workspace:GetServerTimeNow()))
 		restartLabel.Text = string.format("Volvés al lobby en %d s", left)
+		otraScale.Scale = if voted then 1 else 1 + math.abs(math.sin(os.clock() * 4)) * 0.05
 	end
 end)
 
 runReset.OnClientEvent:Connect(function()
 	table.clear(owned)
+	table.clear(synergiesShown)
 	refreshOwned()
 	closePicker()
 	results.Visible = false

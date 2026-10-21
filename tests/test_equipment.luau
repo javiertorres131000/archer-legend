@@ -1,4 +1,5 @@
 local M = require("./mocks")
+require("./Config").Crates.TestGold = 0 -- sin las monedas de prueba de las cajas
 require("./GameServer")
 local Profiles = require("./Profiles")
 local Equipment = require("./Equipment")

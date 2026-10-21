@@ -42,6 +42,46 @@ local function addTrail(part: Part, color: Color3, width: number)
 	trail.Parent = part
 end
 
+-- Flecha de verdad: vara de madera (la pieza principal), punta de metal y plumas, soldadas.
+-- Se arman una vez por pieza del pool; solo se ajusta el tamaño y el color de las plumas.
+local function dressArrow(part: Part, scale: number, featherColor: Color3)
+	local head = part:FindFirstChild("Head") :: Part?
+	local fletch = part:FindFirstChild("Fletch") :: Part?
+	if not head then
+		local h = Instance.new("Part")
+		h.Name = "Head"
+		h.Material = Enum.Material.Metal
+		h.Color = Color3.fromRGB(190, 195, 205)
+		h.CanCollide = false
+		h.CanQuery = false
+		h.CanTouch = false
+		h.CastShadow = false
+		h.Massless = true
+		h.Anchored = false
+		h.Parent = part
+		head = h
+		local f = h:Clone()
+		f.Name = "Fletch"
+		f.Material = Enum.Material.SmoothPlastic
+		f.Parent = part
+		fletch = f
+		for _, child in { h, f } do
+			local w = Instance.new("WeldConstraint")
+			w.Part0 = part
+			w.Part1 = child
+			w.Parent = child
+		end
+	end
+	local h, f = head :: Part, fletch :: Part
+	local length = part.Size.Z
+	-- (con la pieza principal en el origen, mirando a -Z: la punta va adelante)
+	h.Size = Vector3.new(0.22, 0.22, 0.45) * scale
+	h.CFrame = part.CFrame * CFrame.new(0, 0, -length / 2 - 0.15 * scale)
+	f.Size = Vector3.new(0.04, 0.3, 0.5) * scale
+	f.Color = featherColor
+	f.CFrame = part.CFrame * CFrame.new(0, 0, length / 2 - 0.25 * scale)
+end
+
 -- Carpeta solo de este cliente (no se replica al servidor)
 local folder = Instance.new("Folder")
 folder.Name = "ProjectileVisuals"
@@ -119,13 +159,20 @@ projectileFired.OnClientEvent:Connect(
 			end
 		else
 			part.Shape = Enum.PartType.Block
-			part.Size = Vector3.new(0.3, 0.3, 2)
-			part.Color = if ownerUserId == localPlayer.UserId
-				then Color3.fromRGB(255, 230, 120)
+			-- style.size: flecha gigante (Tiro cargado)
+			local scale = if style and style.size then style.size else 1
+			-- Vara de madera; las plumas dicen de quién es (dorado: tuya · azul: compañero · naranja: gigante)
+			part.Size = Vector3.new(0.1, 0.1, 2.2) * scale
+			part.Material = Enum.Material.Wood
+			part.Color = Color3.fromRGB(120, 80, 45)
+			local feather = if scale > 1 then Color3.fromRGB(255, 150, 60)
+				elseif ownerUserId == localPlayer.UserId then Color3.fromRGB(255, 220, 110)
 				else Color3.fromRGB(150, 200, 255)
+			part.CFrame = CFrame.lookAt(origin, origin + dir)
+			dressArrow(part, scale, feather)
 			if not low then
 				local trail = part:FindFirstChildOfClass("Trail")
-				if trail then trail.Enabled = true; trail.Color = ColorSequence.new(part.Color) else addTrail(part, part.Color, 0.5) end
+				if trail then trail.Enabled = true; trail.Color = ColorSequence.new(feather) else addTrail(part, feather, 0.3) end
 			end
 		end
 		part.CFrame = CFrame.lookAt(origin, origin + dir)

@@ -50,11 +50,26 @@ function Lobby.build()
 		part(folder, "TrimZ", Vector3.new(trim, 0.3, size.Z), CFrame.new(c + Vector3.new(side * (half.X - trim / 2), 0.15, 0)), GOLD, Enum.Material.Metal)
 	end
 
-	-- Muros bajos para no caerse del borde
+	-- Muros bajos para no caerse del borde. El muro este tiene una puerta a la plaza de las
+	-- cajas (CratePlaza) si está activada.
 	local wallH = 4
+	local crates = Config.Crates
+	local door = if crates and crates.Enabled then crates.Plaza else nil
 	for _, side in { -1, 1 } do
 		part(folder, "Wall", Vector3.new(size.X + 2, wallH, 1), CFrame.new(c + Vector3.new(0, wallH / 2, side * (half.Z + 0.5))), STONE_LIGHT)
-		part(folder, "Wall", Vector3.new(1, wallH, size.Z), CFrame.new(c + Vector3.new(side * (half.X + 0.5), wallH / 2, 0)), STONE_LIGHT)
+		local x = side * (half.X + 0.5)
+		if side == 1 and door then
+			-- Dos tramos, uno a cada lado de la puerta
+			local z0, z1 = door.DoorZ - door.DoorWidth / 2, door.DoorZ + door.DoorWidth / 2
+			for _, span in { { -half.Z, z0 }, { z1, half.Z } } do
+				local len = span[2] - span[1]
+				if len > 0 then
+					part(folder, "Wall", Vector3.new(1, wallH, len), CFrame.new(c + Vector3.new(x, wallH / 2, (span[1] + span[2]) / 2)), STONE_LIGHT)
+				end
+			end
+		else
+			part(folder, "Wall", Vector3.new(1, wallH, size.Z), CFrame.new(c + Vector3.new(x, wallH / 2, 0)), STONE_LIGHT)
+		end
 	end
 
 	-- Columnas con capitel dorado y estandartes

@@ -4,8 +4,16 @@
 --   · Destello blanco del enemigo al recibir un golpe tuyo
 --   · Explosión de partículas del color del enemigo al morir (enorme si es dorado)
 --   · Sacudón de cámara en tus críticos, al recibir daño y con los dorados
---   · Contador de combo (muertes del equipo seguidas) con anuncios: ¡MASACRE!, ¡IMPARABLE!...
+--   · Contador de combo (muertes del equipo seguidas) con anuncios: ¡EN RACHA!, ¡MASACRE!...
+--     Todo en arcoíris que corre de costado (número, barra y carteles), más rápido cuanto más
+--     larga la racha.
+--     Publica el combo en el atributo local "Combo" (Sfx toca una nota más aguda por muerte)
+--     y la mejor racha de la partida en "BestCombo" (se muestra en los resultados).
+--   · Pausa de impacto en tus críticos, dorados y jefes: el arma se congela un instante
+--     (atributo local "HitStopUntil", lo lee WeaponFx), la cámara se acerca y la pantalla destella.
 --   · Destello dorado y "¡NIVEL N!" al subir de nivel
+--   · Cartel "¡SINERGIA!" en arcoíris cuando completás un par de habilidades (atributo local
+--     "Synergy" que publica el Hud; los pares están en Shared/Synergies.lua)
 -- Usa los eventos de Remotes.CombatText (los mismos que los números flotantes).
 
 local Players = game:GetService("Players")
@@ -129,6 +137,62 @@ local function addShake(amount: number)
 end
 
 ---------------------------------------------------------------------
+-- Pausa de impacto (hit-stop)
+---------------------------------------------------------------------
+local lastHitStop = -math.huge
+local fovBase: number? = nil -- FOV antes del acercamiento (para volver exacto)
+local fovTween: Tween? = nil
+local impactFlash: Frame? = nil -- se crea con la pantalla (más abajo)
+
+-- strength: 1 = crítico, 2 = dorado, 3 = jefe
+local function hitStop(strength: number)
+	local cfg = Config.Effects
+	local now = os.clock()
+	if (cfg.HitStop or 0) <= 0 or now - lastHitStop < (cfg.HitStopGap or 0) then
+		return
+	end
+	lastHitStop = now
+	local duration = cfg.HitStop * strength
+	player:SetAttribute("HitStopUntil", now + duration)
+	addShake(0.1 + 0.12 * strength)
+	-- Acercamiento de cámara y vuelta
+	local camera = workspace.CurrentCamera
+	local fov = (cfg.HitStopFov or 0) * (0.7 + 0.3 * strength)
+	if camera and fov > 0 then
+		if fovTween then
+			fovTween:Cancel()
+		end
+		fovBase = fovBase or camera.FieldOfView
+		local base = fovBase :: number
+		camera.FieldOfView = base - fov
+		local tween = TweenService:Create(camera, TweenInfo.new(duration + 0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { FieldOfView = base })
+		fovTween = tween
+		tween.Completed:Connect(function(state)
+			if state == Enum.PlaybackState.Completed and fovTween == tween then
+				fovBase = nil
+				fovTween = nil
+			end
+		end)
+		tween:Play()
+	end
+	-- Destello blanco cortito
+	local flashFrame = impactFlash
+	if flashFrame then
+		flashFrame.BackgroundTransparency = 0.88 - 0.06 * strength
+		TweenService:Create(flashFrame, TweenInfo.new(duration + 0.08), { BackgroundTransparency = 1 }):Play()
+	end
+end
+
+-- Si cambia la vista (V) en medio del acercamiento, se corta: CameraController pone el FOV nuevo
+player:GetAttributeChangedSignal("CameraView"):Connect(function()
+	if fovTween then
+		fovTween:Cancel()
+		fovTween = nil
+	end
+	fovBase = nil
+end)
+
+---------------------------------------------------------------------
 -- Pantalla: combo y nivel
 ---------------------------------------------------------------------
 local gui = Instance.new("ScreenGui")
@@ -197,23 +261,66 @@ announce.TextStrokeColor3 = Color3.new(0, 0, 0)
 announce.Parent = gui
 local announceScale = Instance.new("UIScale")
 announceScale.Parent = announce
+-- Segunda línea opcional del cartel (sinergias: "Perforación + Rebote")
+local announceSub = Instance.new("TextLabel")
+announceSub.AnchorPoint = Vector2.new(0.5, 0)
+announceSub.Position = UDim2.new(0.5, 0, 0.28, 40)
+announceSub.Size = UDim2.fromOffset(700, 32)
+announceSub.BackgroundTransparency = 1
+announceSub.Font = Enum.Font.GothamBold
+announceSub.TextSize = 24
+announceSub.TextColor3 = Color3.new(1, 1, 1)
+announceSub.TextStrokeTransparency = 0
+announceSub.TextTransparency = 1
+announceSub.Parent = gui
 
-local function shout(message: string, color: Color3)
+-- Arcoíris de la racha: un degradado que recorre los colores y se desplaza cada frame
+local RAINBOW_KEYS = 8
+local function rainbowSequence(phase: number): ColorSequence
+	local keys = table.create(RAINBOW_KEYS)
+	for i = 0, RAINBOW_KEYS - 1 do
+		local t = i / (RAINBOW_KEYS - 1)
+		keys[i + 1] = ColorSequenceKeypoint.new(t, Color3.fromHSV((phase + t * 0.8) % 1, 0.7, 1))
+	end
+	return ColorSequence.new(keys)
+end
+local function rainbowGradient(target: GuiObject): UIGradient
+	local gradient = Instance.new("UIGradient")
+	gradient.Name = "Rainbow"
+	gradient.Color = rainbowSequence(0)
+	gradient.Parent = target
+	return gradient
+end
+-- El texto queda blanco para que el degradado muestre sus colores tal cual
+comboNumber.TextColor3 = WHITE
+comboBar.BackgroundColor3 = WHITE
+local comboGradients = { rainbowGradient(comboNumber), rainbowGradient(comboLabel), rainbowGradient(comboBar) }
+local announceRainbow = rainbowGradient(announce)
+announceRainbow.Enabled = false
+local rainbowPhase = 0
+
+local function shout(message: string, color: Color3, rainbow: boolean?, sub: string?)
+	announceSub.Text = sub or ""
+	announceSub.TextTransparency = if sub then 0 else 1
+	announceSub.TextStrokeTransparency = if sub then 0 else 1
 	announce.Text = message
-	announce.TextColor3 = color
+	announceRainbow.Enabled = rainbow == true
+	announce.TextColor3 = if rainbow then WHITE else color
 	announce.TextTransparency = 0
 	announce.TextStrokeTransparency = 0
 	announceScale.Scale = 1.6
 	TweenService:Create(announceScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	task.delay(0.9, function()
+	task.delay(if sub then 1.8 else 0.9, function()
 		if announce.Text == message then
 			local info = TweenInfo.new(0.5)
 			TweenService:Create(announce, info, { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+			TweenService:Create(announceSub, info, { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
 		end
 	end)
 end
 
 local MILESTONES = {
+	[10] = "¡EN RACHA!",
 	[25] = "¡BUENA RACHA!",
 	[50] = "¡MASACRE!",
 	[100] = "¡IMPARABLE!",
@@ -222,16 +329,15 @@ local MILESTONES = {
 }
 local combo = 0
 local lastKill = 0
+local bestCombo = 0
 
-local function comboColor(n: number): Color3
-	if n >= 100 then
-		return Color3.fromRGB(255, 80, 220)
-	elseif n >= 50 then
-		return Color3.fromRGB(255, 120, 40)
-	elseif n >= 20 then
-		return Color3.fromRGB(255, 220, 60)
+-- El combo y la mejor racha quedan en atributos locales (Sfx y los resultados los leen)
+local function publishCombo()
+	player:SetAttribute("Combo", combo)
+	if combo > bestCombo then
+		bestCombo = combo
+		player:SetAttribute("BestCombo", bestCombo)
 	end
-	return Color3.new(1, 1, 1)
 end
 
 local function addKill()
@@ -241,21 +347,28 @@ local function addKill()
 	end
 	lastKill = now
 	combo += 1
+	publishCombo()
 	if combo >= 3 then
 		comboFrame.Visible = true
 		comboNumber.Text = "x" .. combo
-		local color = comboColor(combo)
-		comboNumber.TextColor3 = color
-		comboBar.BackgroundColor3 = color
 		comboScale.Scale = 1.25
 		TweenService:Create(comboScale, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	end
 	local milestone = MILESTONES[combo]
 	if milestone then
-		shout(milestone .. "  x" .. combo, comboColor(combo))
+		shout(milestone .. "  x" .. combo, WHITE, true)
 		addShake(0.3)
 	end
 end
+
+-- Destello blanco de la pausa de impacto
+local impact = Instance.new("Frame")
+impact.Size = UDim2.fromScale(1, 1)
+impact.BackgroundColor3 = WHITE
+impact.BackgroundTransparency = 1
+impact.BorderSizePixel = 0
+impact.Parent = gui
+impactFlash = impact
 
 -- Destello de pantalla completa (subir de nivel)
 local screenFlash = Instance.new("Frame")
@@ -276,6 +389,19 @@ gameState:GetAttributeChangedSignal("Level"):Connect(function()
 	lastLevel = level
 end)
 
+-- Sinergia (la publica el Hud): "contador|nombre|habilidad A + habilidad B"
+player:GetAttributeChangedSignal("Synergy"):Connect(function()
+	local value = player:GetAttribute("Synergy")
+	if typeof(value) ~= "string" or player:GetAttribute("InMatch") ~= true then
+		return
+	end
+	local _, name, pair = string.match(value, "^(%d+)|([^|]*)|(.*)$")
+	if name then
+		shout("¡SINERGIA!  " .. name, WHITE, true, pair)
+		addShake(0.2)
+	end
+end)
+
 ---------------------------------------------------------------------
 -- Eventos
 ---------------------------------------------------------------------
@@ -289,12 +415,20 @@ combatText.OnClientEvent:Connect(function(events)
 			flash(e.i)
 			if kind == "crit" then
 				addShake(0.12)
+				hitStop(1)
 			end
 		elseif kind == "kill" and typeof(e.p) == "Vector3" then
 			local color = if typeof(e.c) == "Color3" then e.c else WHITE
 			local size = if typeof(e.s) == "number" then e.s else 3
 			explode(e.p, color, size, e.x == true)
 			addKill()
+			if e.b == true then
+				lastHitStop = -math.huge -- un jefe siempre pausa, aunque recién haya habido otra
+				hitStop(3)
+			elseif e.x == true then
+				lastHitStop = -math.huge
+				hitStop(2)
+			end
 			if e.x == true then
 				addShake(0.35)
 				shout("¡DORADO!", Color3.fromRGB(255, 210, 60))
@@ -305,10 +439,16 @@ combatText.OnClientEvent:Connect(function(events)
 	end
 end)
 
--- Al volver al lobby: combo en cero
+-- Al entrar o volver al lobby: combo en cero. La mejor racha se borra al empezar otra partida
+-- (en los resultados todavía se muestra la de la partida que terminó).
 player:GetAttributeChangedSignal("InMatch"):Connect(function()
 	combo = 0
 	comboFrame.Visible = false
+	publishCombo()
+	if player:GetAttribute("InMatch") == true then
+		bestCombo = 0
+		player:SetAttribute("BestCombo", 0)
+	end
 end)
 
 ---------------------------------------------------------------------
@@ -327,12 +467,23 @@ RunService.RenderStepped:Connect(function(dt: number)
 		end
 	end
 
+	-- Arcoíris de la racha: corre más rápido cuanto más larga es
+	if comboFrame.Visible or announceRainbow.Enabled then
+		rainbowPhase = (rainbowPhase + dt * (0.35 + math.min(combo, 100) / 100 * 1.2)) % 1
+		local sequence = rainbowSequence(rainbowPhase)
+		for _, gradient in comboGradients do
+			gradient.Color = sequence
+		end
+		announceRainbow.Color = sequence
+	end
+
 	-- Combo: barra que se vacía; si llega a 0, se corta
 	if comboFrame.Visible then
 		local left = 1 - (now - lastKill) / Config.Frenzy.ComboWindow
 		if left <= 0 then
 			comboFrame.Visible = false
 			combo = 0
+			publishCombo()
 		else
 			comboBar.Size = UDim2.fromScale(left, 1)
 		end

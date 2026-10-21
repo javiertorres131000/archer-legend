@@ -11,6 +11,10 @@
 --   RETURNING <──tiempo o todos votan── RESULTS <──victoria/derrota── PLAYING
 --     (también PLAYING ──se fueron todos──> RETURNING)
 --
+-- Botón OTRA (acción "PlayAgain" en RESULTS): cuenta como voto para volver y, al llegar al
+-- lobby, el jugador queda listo solo con el mismo capítulo. Si todos los listos vienen de OTRA,
+-- la cuenta regresiva es la corta (Config.Match.AgainCountdownTime).
+--
 -- Los clientes solo PIDEN cosas por Remotes.LobbyRequest (listo, elegir capítulo, volver);
 -- el servidor valida tipo, estado, permisos y frecuencia, y publica el resultado en
 -- atributos (GameState y cada Player) que los clientes leen.
@@ -28,6 +32,7 @@ local Profiles = require(script.Parent.Profiles)
 local Rewards = require(script.Parent.Rewards)
 local Runes = require(script.Parent.Runes)
 local Run = require(script.Parent.Run)
+local RunLog = require(script.Parent.RunLog)
 
 local MatchCfg = Config.Match
 
@@ -42,6 +47,8 @@ local readyAt: { [Player]: number } = {} -- quién está listo y desde cuándo (
 local joinOrder: { Player } = {} -- para elegir líder: el que más tiempo lleva en el lobby
 local lastRequest: { [Player]: number } = {}
 local returnVotes: { [Player]: boolean } = {}
+local againVotes: { [Player]: boolean } = {} -- apretaron OTRA en los resultados
+local againReady: { [Player]: boolean } = {} -- quedaron listos solos por OTRA
 local selectedChapter: string = Chapters[1].Id
 local leader: Player? = nil
 local matchesStarted = 0 -- para las pruebas: cuántas partidas arrancaron
@@ -85,6 +92,7 @@ local function setReady(player: Player, value: boolean)
 		readyAt[player] = readyAt[player] or now()
 	else
 		readyAt[player] = nil
+		againReady[player] = nil
 	end
 	player:SetAttribute("Ready", value)
 end
@@ -94,6 +102,7 @@ local function clearAllReady()
 		p:SetAttribute("Ready", false)
 	end
 	table.clear(readyAt)
+	table.clear(againReady)
 end
 
 local function updateLeader()
@@ -147,7 +156,15 @@ local function refreshPreparation()
 	elseif allReady then
 		if state ~= "STARTING" then
 			setState("STARTING")
-			gameState:SetAttribute("CountdownEnd", workspace:GetServerTimeNow() + MatchCfg.CountdownTime)
+			-- Todos vienen de OTRA: cuenta corta
+			local quick = true
+			for p in readyAt do
+				if not againReady[p] then
+					quick = false
+				end
+			end
+			local countdown = if quick then MatchCfg.AgainCountdownTime or MatchCfg.CountdownTime else MatchCfg.CountdownTime
+			gameState:SetAttribute("CountdownEnd", workspace:GetServerTimeNow() + countdown)
 		end
 	elseif state ~= "PREPARING" then
 		-- Si estaba en cuenta regresiva y alguien canceló o entró uno nuevo, se cancela
@@ -222,6 +239,9 @@ local function enterResults(result: Run.Result)
 		personal.firstClear = granted ~= nil and granted.firstClear
 		personal.accountXP = if granted then granted.accountXP else 0 -- XP de cuenta (árbol de talentos)
 		personal.levelsGained = if granted then granted.levelsGained else 0
+		personal.bestWaveBefore = if granted then granted.bestWaveBefore else 0
+		personal.newRecord = granted ~= nil and granted.newRecord
+		personal.account = if granted then granted.account else nil -- barra "te faltan X"
 		personal.loot = if stats then table.clone(stats.runLoot) else {} -- botín juntado (ya cobrado)
 		if result == "Victory" then
 			ChapterUnlocks.onChapterCleared(p, selectedChapter)
@@ -232,7 +252,22 @@ local function enterResults(result: Run.Result)
 		ChapterUnlocks.publish(p) -- récords nuevos para el lobby
 		Profiles.saveSoon(p) -- guardar ya: no esperar al guardado automático
 		Remotes.RunEnded:FireClient(p, personal)
+		RunLog.record(RunLog.entry(p, summary, personal, stats)) -- para balancear (Config.RunLog)
 	end
+	RunLog.flush()
+end
+
+-- Al llegar al lobby: los que apretaron OTRA quedan listos solos (si pueden jugar ese capítulo)
+local function applyAgainVotes()
+	for p in againVotes do
+		local s = PlayerData.get(p)
+		if p.Parent and s and not s.inMatch and Profiles.isLoaded(p)
+			and ChapterUnlocks.isUnlocked(p, selectedChapter) and readyCount() < MatchCfg.MaxPartySize then
+			setReady(p, true)
+			againReady[p] = true
+		end
+	end
+	table.clear(againVotes)
 end
 
 local function enterReturning()
@@ -320,12 +355,15 @@ local function handleRequest(player: Player, action: any, arg: any)
 			clearAllReady()
 			refreshPreparation()
 		end
-	elseif action == "ReturnToLobby" then
+	elseif action == "ReturnToLobby" or action == "PlayAgain" then
 		if state ~= "RESULTS" or not s.inMatch then
 			return
 		end
 		if now() - stateSince < MatchCfg.MinResultsTime then
 			return
+		end
+		if action == "PlayAgain" then
+			againVotes[player] = true
 		end
 		returnVotes[player] = true
 		if allVotedReturn() then
@@ -373,6 +411,8 @@ function MatchManager.onPlayerRemoving(player: Player)
 	end
 	readyAt[player] = nil
 	returnVotes[player] = nil
+	againVotes[player] = nil
+	againReady[player] = nil
 	lastRequest[player] = nil
 	local i = table.find(joinOrder, player)
 	if i then
@@ -410,6 +450,7 @@ function MatchManager.update(dt: number)
 			setState("LOBBY")
 			updateLeader()
 			ensurePlayableChapter()
+			applyAgainVotes() -- OTRA: listos solos
 			refreshPreparation()
 		end
 	end

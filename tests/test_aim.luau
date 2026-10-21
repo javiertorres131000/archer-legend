@@ -3,6 +3,7 @@
 -- Apuntado manual: tira hacia donde mira el jugador.
 local M = require("./mocks")
 local Config = require("./Config")
+Config.Player.FireMode = "Auto" -- estas pruebas son del ataque automático
 local Remotes = require("./Remotes")
 local PlayerData = require("./PlayerData")
 local Enemies = require("./Enemies")

@@ -1,5 +1,129 @@
 # Cambios
 
+## 2026-10-20 · Cajas con Robux y premios equipables
+
+- **Robux por caja:** cada caja puede tener un Developer Product (`ProductId` en `Shared/Crates.lua`; 0 = sin Robux). Botón verde "R$" con el precio real (`GetProductInfo`) debajo de OPEN. El servidor valida (lobby, cercanía, límite, perfil guardable) y muestra la compra; el premio se entrega con el recibo.
+- **Recibos seguros** (`Receipts`, nuevo): único dueño de `ProcessReceipt`. Cada entrega anota el `PurchaseId` en el perfil y recién confirma cuando quedó guardado (`Profiles.saveNow`); un recibo repetido no entrega dos veces y uno que no se pudo guardar se reintenta sin duplicar. Se recuerdan los últimos `MaxSavedReceipts`. El cliente recibe `Remotes.CrateOpened` y muestra la animación (si estás en partida, al volver).
+- **Reglas de Roblox:** probabilidades a la vista antes de comprar (DROP RATES) y `PolicyService.ArePaidRandomItemsRestricted`: donde no se permite, no aparece el botón y el servidor no vende (si no se puede consultar, tampoco).
+- **Equipar** (`CrateEquip`, nuevo): un espacio de mascota y uno de personaje (unidades y personajes). Botón EQUIP / EQUIPPED en Index y línea con lo equipado. Solo lo que tenés y en el lobby, con límite de frecuencia; queda en el perfil (versión 8).
+- **Mascota** (`PetFollow`, cliente nuevo): te sigue flotando a tu lado (todos ven las de todos, sin costo de red) y da daño extra según rareza (`Config.Crates.PetDamageBonus`: Common +2% … Secret +20%), sumado al arrancar la partida y visible en el panel de stats (columna "Mascota").
+- **Personaje:** tu avatar pasa a ser de bloques con los colores del premio (HumanoidDescription sin ropa ni accesorios de Roblox) más sus accesorios (corona, cuernos, alas, aureola...) y ojos. Solo aspecto. Al sacarlo vuelve tu avatar.
+- Pruebas: `test_crates` suma Robux, recibos (una vez, sin guardar, repetidos, tope), equipar, bono de mascota y perfil v8 (21); `test_tools` con la columna Mascota (26/26 archivos OK). Probado en Studio: equipar, mascota que sigue, aspecto del avatar, persistencia y desequipar, sin errores. La compra con Robux no se pudo probar en Studio porque todavía no hay productos creados.
+
+## 2026-10-20 · Cajas (crates) con apertura cinematográfica
+
+- **Plaza volcánica** (`CratePlaza`, `Shared/CratePlazaLayout`): al este del lobby, con una puerta en su muro (`Config.Crates.Plaza`). Piso de roca con grietas de lava, charcos, muros de basalto, arco "CRATES" y una plataforma hexagonal por caja con borde de neón, el cofre flotando, antorchas, cartel (nombre y precio) y un ProximityPrompt que abre el menú.
+- **Luz volcánica** (`Atmosphere`, `Config.Crates.Lighting`): al entrar a la plaza (o durante una apertura) cielo de atardecer rojizo, niebla cálida, bloom y tinte. El Sky y la Atmosphere del place se apartan solo en tu pantalla y vuelven al salir.
+- **5 cajas** (`Shared/Crates.lua`): Common 100, Rare 500, Epic 1.500, Legendary 5.000 y Secret 15.000 monedas, cada una con su tabla de premios y probabilidades. **19 premios** (`Shared/CrateItems.lua`) en 7 rarezas (Common → Secret): unidades, mascotas y personajes de bloques (`Shared/CrateModels.lua`), reemplazables por modelos propios en `ReplicatedStorage/CrateAssets/Prizes`.
+- **Servidor** (`CrateService`, `Remotes.CrateRequest`, RemoteFunction): valida caja, perfil cargado, estar en el lobby, límite de frecuencia (`OpenCooldown`), cercanía a una plataforma (`StationRange`) y monedas; recién ahí cobra, tira con `Random` del servidor y guarda. Los premios van en el perfil (`Crates.Owned`, versión 7). Leaderstats "Monedas" (el oro del perfil) y monedas de prueba una vez por perfil (`TestGold`, solo Studio).
+- **Menú CRATES** (`CrateUI`): pestañas Shop Crates / Index, tarjetas con el cofre girando, brillo de su color, precio y OPEN; DROP RATES con barra proporcional y porcentaje; índice con siluetas de lo que falta. Se escala a la pantalla.
+- **Animación** (`CrateCinematic`): negro y título con línea brillante, arena propia (lava, pedestal, arcos rojos, antorchas, brasas), la caja cae, tiembla, brilla y explota; los premios en círculo con anillos de su rareza y la cámara girando; ruleta que frena en el ganador; haz de luz y partículas (más fuertes con sacudón desde Legendary); nombre, rareza y "Continue". Al terminar se desconecta y borra todo.
+- `CameraController` no toca la cámara con el atributo `Cinematic`. `Lobby` deja la puerta en el muro este.
+- Pruebas: `test_crates.luau` nueva (13); `mocks` con NumberSequence/ColorSequence/NumberRange; `test_match` y `test_equipment` apagan las monedas de prueba (26/26 archivos OK). Probado en Studio: plaza, menú, compra, animación completa, limpieza, sin errores en la consola.
+
+## 2026-10-20 · Gárgolas que vuelan y esqueletos de tu tamaño
+
+- **Esqueletos del tamaño de un personaje:** `HordeSkeleton`, `SkeletonArcher` y `RedArcher` pasan a `Height = 5.5` (como el R15 del jugador; antes 3.4–3.6). El modelo se escala a esa altura.
+- **Gárgolas (murciélagos) en el aire:** `GreenBat`/`RedBat` vuelan a `Float = 4` (a la altura de los ojos; antes 2.5) y suben y bajan con un vaivén (`Config.Enemy.FlyBob` 0.6 studs, `FlyBobSpeed` 2.2), cada uno a su ritmo (`bobPhase`). Los golpes siguen siendo planos: la altura no cambia a quién le pegás.
+- **Aleteo** (`EnemyAnimator`, cliente nuevo): las piezas del modelo dentro de un grupo con "wing" en el nombre aletean desde la unión con el cuerpo (`WingFlapAngle` 35°, `WingFlapSpeed` 14). Solo en pantalla, sin costo de red; lejos de la cámara (`AnimateDistance` 150) quedan quietas.
+- Modelos generados con IA en `ServerStorage/EnemyModels` (en el place, no en el repo): Grabber, HordeSkeleton, SkeletonArcher, RedArcher, GreenSlime, RedSlime, KingSlime, GreenBat, RedBat.
+- Pruebas nuevas en `test_enemy_reach.luau` (25/25 archivos OK).
+
+## 2026-10-20 · Agarre y rescate
+
+- **Atrapador** (`EnemyTypes.Grabber`): enemigo nuevo violeta, en todos los capítulos desde la oleada 3 con peso bajo (sale de a uno cada tanto). Ataque `Grab`: aviso y salto; si te alcanza, te agarra.
+- **Agarrado** (`Grab.lua`, `Config.Grab`): raíz anclada, sin atacar ni dash, `Dps` cada `TickTime`. Te suelta si un compañero le saca `ReleaseDamageFraction` (25%) o lo mata, si machacás `StrugglePresses` (16) veces, si te derriban o a los `MaxHold` (10) s. Después queda aturdido, sale despedido y no vuelve a agarrar por `RegrabCooldown`.
+- El salto revisa el contacto en todo el tramo del frame: con lag no atraviesa al jugador.
+- **Cliente** (`GrabUI`): pantalla roja, "¡TE AGARRARON!", barra de forcejeo y botón táctil; "¡AYUDA!" sobre el compañero agarrado; "¡X te salvó!" / "¡Salvaste a Y!" con arpegio.
+- Pruebas: `test_grab.luau` nueva; `test_catalog` acepta el ataque `Grab` (24/24 archivos OK).
+
+## 2026-10-20 · Hordas desde todos lados
+
+- Cada aparición se reparte en `Config.Frenzy.SpawnSides` (3) grupos desde direcciones distintas alrededor de un jugador, rotando en cada aparición; con `BehindSpawnChance` (50%) uno sale por su espalda. `SpawnGroup` pasa de 5 a 6 (2 por lado).
+- Rodear en vez de hacer fila: cada enemigo que persigue tiene su propio desvío (hasta `Config.Enemy.FlankAngle` = 50°) y se acerca en curva; se endereza entre `FlankFar` (35) y `FlankNear` (12) studs. Los jefes van directo.
+- Pruebas nuevas en `test_enemy_reach.luau` (23/23 archivos OK).
+
+## 2026-10-20 · Más dopamina (segunda tanda)
+
+- **Orbes en escalera:** cobrar XP seguido sube de nota (pentatónica); se reinicia tras una pausa (`Config.Effects.OrbLadderNotes`, `OrbLadderWindow`).
+- **Números con racha:** tus números de daño crecen con el combo (hasta +60% en x50, `Config.CombatText.ComboGrow`/`ComboGrowAt`); los críticos salen en arcoíris.
+- **Carta dorada sorpresa** (`Config.Progression.GoldenCardChance` = 5%): el servidor marca una carta (solo habilidades con lugar para 2 niveles); si la elegís, se aplica 2 veces. Viaja como 6º dato de `SkillOffer`. Borde de oro, "✦ ×2" y arpegio al darse vuelta.
+- **Sinergias:** `Shared/Synergies.lua` con 14 pares; al completar uno, cartel "¡SINERGIA!" en arcoíris con los dos nombres y arpegio (una vez por partida). Solo aviso, sin bono.
+- Pruebas nuevas en `test_dopamine.luau` (23/23 archivos OK).
+
+## 2026-10-20 · Más dopamina
+
+- **Racha con notas:** cada muerte seguida del combo suena una nota más aguda (pentatónica, `Config.Effects.StreakNotes`); hitos con cartel y arpegio desde x10.
+- **Racha en arcoíris:** el contador, la palabra COMBO, la barra y los carteles de hitos van en un arcoíris que corre de costado y se acelera con la racha (antes cambiaban de blanco a amarillo, naranja y rosa).
+- **Pausa de impacto** en tus críticos, dorados y jefes: el arma se congela, la cámara se acerca y la pantalla destella (`Config.Effects.HitStop`, `HitStopGap`, `HitStopFov`). Las muertes de jefes viajan marcadas en `CombatText` (`b = true`).
+- **Arranque rápido:** los primeros niveles piden 4, 9, 16 y 25 de XP (`Config.Progression.EarlyLevelMult`); después, la fórmula de siempre.
+- **Legendarias con suspenso:** la carta tarda 1,6 s en revelarse con redoble, y aparece con destello dorado y cartel. No se puede elegir hasta que se revelan todas.
+- **Resultados:** monedas que cuentan hacia arriba, nuevo récord o "te faltó N para tu récord / para ganar", mejor racha y barra de cuenta "te faltan X XP para el próximo punto de talento". El servidor manda `bestWaveBefore`, `newRecord` y `account` en el resumen.
+- **Botón ¡OTRA!** (`LobbyRequest "PlayAgain"`, validado igual que volver): al llegar al lobby quedás listo con el mismo capítulo; si todos los listos vienen de OTRA, la cuenta es de `Config.Match.AgainCountdownTime` (3 s).
+- Pruebas: `test_dopamine.luau` nueva y caso de OTRA en `test_match.luau` (23/23 archivos OK).
+
+## 2026-10-13 · Ataque manual
+
+- Ya no se ataca solo: click izquierdo (R2 / botón ATACAR en el celular) hacia donde apunta la mira, con las tres armas. Mantener apretado sigue atacando a la cadencia del arma; un click en la recarga queda en cola.
+- El cliente solo manda "apretado + dirección" (`Remotes.AttackRequest`); el servidor valida tipos, números, partida, vida y frecuencia, y pone el origen, la cadencia y el daño.
+- `Config.Player.FireMode = "Auto"` vuelve al ataque automático. Prueba nueva `test_manual_fire.luau`; las pruebas del ataque automático lo fijan en "Auto" (22/22 archivos OK).
+
+## 2026-10-13 · Habilidades por arma (primera tanda)
+
+- Mazos por arma: comunes + las del arma (más frecuentes). "Flechas de fuego" pasa a ser común como "Encantamiento ígneo".
+- Arco: Flecha trasera, Tiro cargado, Ojo del cazador y ⭐ Lluvia de flechas. Espada: Hoja ancha, Hoja larga, Torbellino, Ejecución, Sed de sangre y ⭐ Juicio. Puños: Combo, Uppercut (con aturdimiento), Pies veloces y ⭐ Ráfaga de mil puños.
+- Legendarias con requisito de 2 habilidades del mazo. Visuales nuevos: flecha gigante, lluvia, espada del Juicio y anillo de la ráfaga.
+- Prueba nueva `test_weapon_skills.luau` (21/21 archivos OK).
+- Arma en primera persona estilo shooter: solo el ítem, sin brazos. El arco se ve de frente (a la izquierda, inclinado) con la flecha cargada que se tensa, sale y se recarga; la espada abajo a la derecha; un guante a cada lado. El arco detecta solo para qué lado está la curva (`Flip` la invierte).
+- Arma en primera persona con manos de Roblox en bloque (color de tus brazos) que sostienen el ítem; interruptor `Config.Effects.FirstPersonWeapon`. El arco se ve solo, cerca del cuerpo y apuntando al frente; la flecha cargada es una flecha de verdad (astil redondo, punta de metal, plumas doradas y culatín) que se desliza hacia atrás al tensar. Los modelos de `WeaponModels` pueden ser una sola MeshPart.
+
+## 2026-10-12 · Armas y enemigos voladores
+
+- Arma del jugador a elegir en el lobby: arco, espada (tajo en arco) o puños (rápidos). Golpes cuerpo a cuerpo validados en el servidor y dibujados en el cliente; habilidades de flechas convertidas para cuerpo a cuerpo.
+- Perfil v6 (`Weapon`), arco por defecto.
+- Tocón verde y Cactus vuelan y mantienen distancia.
+- Modelos de enemigos: carpetas con varios modelos (uno fijo por tipo), teñidos con el color del enemigo; alto mínimo 5.
+- Prueba nueva `test_weapons.luau` (20/20 archivos OK).
+
+## 2026-10-12 · Vuelta atrás del estilo dark fantasy
+
+- Se sacaron los biomas dark fantasy (luz, cielo, niebla, terreno, fondo, decoración y partículas): el mapa vuelve a verse como antes. Se mantienen el pasto bajo, los indicadores de enemigos y los bordes del mapa.
+
+## 2026-10-11 · Biomas dark fantasy
+
+- `Biomes.lua` + `BiomeBuilder.lua`: un bioma por capítulo con noche estrellada, luna grande, horizonte magenta, niebla índigo y paleta propia.
+- Borde con picos dentados, parches de lajas en el piso y paisaje de fondo afuera de las paredes: cañón con río (o lava), agujas de roca, mar de niebla y catedrales góticas con ventanas encendidas.
+- Decoración nueva: peñascos, agujas, lajas, arcos rotos, estatuas encapuchadas y velas.
+- Pruebas: fondo solo afuera del área jugable, borde dentado sin tocar el interior y decoración mezclada.
+
+## 2026-10-11 · Dark fantasy, flecha a los últimos y pasto bajo
+
+- Estilo `DarkFantasy` (por defecto): atardecer oscuro, niebla densa por capítulo, colores apagados, rayos de luz, terreno oscuro, decoración tétrica y partículas ambientales. `Day` conserva el estilo anterior.
+- Pasto del terreno más bajo (`GrassLength` 0.35).
+- Flecha arriba de la pantalla hacia el enemigo más cercano cuando quedan pocos, con cantidad y distancia.
+- Arreglo: los indicadores de enemigos esperaban `GameState` en el lugar equivocado y no aparecían.
+
+## 2026-10-11 · Indicadores de enemigos y bordes del mapa
+
+- Rombo brillante sobre cada enemigo, visible a través de todo, con color por tipo; late cuando quedan 10 o menos.
+- Paredes del borde más altas y gruesas, cruzadas en las esquinas, y techo invisible.
+- Red de seguridad del servidor: quien queda afuera del mapa o cae debajo del piso vuelve adentro, sobre el terreno.
+
+## 2026-10-11 · Enemigos que vienen a vos y modelos
+
+- Aparecen más cerca (26–50 studs). Desde lejos, todos los que caminan van directo al jugador más cercano, a velocidad mínima 14.
+- Los que quedan muy lejos (75 studs, o 45 los quietos) por 3 s reaparecen cerca del equipo.
+- `EnemyVisuals`: modelos por tipo en `ServerStorage > EnemyModels`, escalados, apoyados y soldados a la caja de colisión; scripts borrados; animación Walk/Idle opcional; brillo para parpadeo y quemadura. Sin modelo: figura con ojos.
+- Prueba nueva `test_enemy_reach.luau` (19/19 archivos OK).
+
+## 2026-10-11 · Herramientas de prueba y balance
+
+- **Panel de stats** (lobby: botón Stats; partida: Tab / 📊): base → equipo → talentos → runas → ahora, calculado por el servidor.
+- **Panel de prueba F2** (solo Studio o admins de `Config.Debug.Admins`, validado en el servidor): monedas, niveles de cuenta, capítulos, saltar oleada, matar enemigos, jefe, subir de nivel, objeto, curar y resumen de partidas.
+- **Registro de partidas** (`RunLog`): una fila por jugador al terminar, en la Salida y en un DataStore aparte por día; resumen por capítulo para balancear.
+- Revisión de migraciones del perfil después del merge de runas: cadena v1 → v5 sin huecos.
+- Prueba nueva `test_tools.luau` (18/18 archivos OK).
+
 ## 2026-10-10 · Árbol de talentos y nivel de cuenta
 
 - La lista de 8 talentos pasa a ser un **árbol radial**: núcleo y tres ramas (Ataque, Defensa, Utilidad), 25 nodos, 8 nodos clave. Solo se desbloquea lo conectado.

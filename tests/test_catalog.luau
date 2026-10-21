@@ -11,12 +11,12 @@ local function err(msg)
 end
 
 local MOVES = { Chase = true, Erratic = true, Keep = true, Wander = true, Still = true }
-local ATTACKS = { Dash = true, Shoot = true, Area = true, Breath = true, Teleport = true, Burrow = true, Summon = true }
+local ATTACKS = { Dash = true, Shoot = true, Area = true, Breath = true, Teleport = true, Burrow = true, Summon = true, Grab = true }
 -- Campos que EnemyAI sortea con R()/RI(): solo estos pueden ser rangos {min, max}
 local RANGEABLE = {
 	Cooldown = true, Telegraph = true, RepeatTelegraph = true, Recover = true, ChainRest = true,
 	Distance = true, Speed = true, Damage = true, Count = true, Bursts = true, BurstDelay = true,
-	Repeats = true, Radius = true, Delay = true, Scatter = true, Duration = true, Emerge = true, Rotate = true,
+	Repeats = true, Radius = true, Delay = true, Scatter = true, Duration = true, Emerge = true, Rotate = true, Dps = true,
 }
 
 local function checkAttack(id, a)

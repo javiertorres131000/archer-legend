@@ -29,6 +29,8 @@ HEADER = (
     "task, os, typeof, TweenInfo, Random, warn, Region3, Vector3int16, RaycastParams = __M.game, __M.workspace, __M.script, __M.Instance, __M.Vector3, "
     "__M.Vector2, __M.CFrame, __M.Color3, __M.UDim2, __M.UDim, __M.Enum, __M.task, __M.os, "
     "__M.typeof, __M.TweenInfo, __M.Random, __M.warn, __M.Region3, __M.Vector3int16, __M.RaycastParams\n"
+    "local NumberSequence, NumberSequenceKeypoint, ColorSequence, NumberRange = __M.NumberSequence, "
+    "__M.NumberSequenceKeypoint, __M.ColorSequence, __M.NumberRange\n"
 )
 
 REQUIRE_PATTERNS = [

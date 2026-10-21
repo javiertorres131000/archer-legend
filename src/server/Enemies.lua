@@ -10,6 +10,8 @@ local PlayerData = require(script.Parent.PlayerData)
 local Ground = require(script.Parent.Ground)
 local PlayerLife = require(script.Parent.PlayerLife)
 local EnemyAI = require(script.Parent.EnemyAI)
+local EnemyVisuals = require(script.Parent.EnemyVisuals)
+local Grab = require(script.Parent.Grab)
 
 local EnemyCfg = Config.Enemy
 local flat = PlayerData.flat
@@ -43,6 +45,13 @@ export type Enemy = {
 	golden: boolean, -- enemigo dorado: brilla y suelta mucho botín
 	showBar: boolean,
 	ai: any, -- estado de EnemyAI
+	visual: any, -- EnemyVisuals: modelo u ojos
+	farFor: number, -- segundos seguidos lejos de todos (para reubicarlo)
+	stunUntil: number?, -- aturdido (Uppercut): no se mueve ni pega hasta entonces
+	grabbing: Player?, -- jugador que tiene agarrado (Grab)
+	grabHits: { [Player]: number }?, -- daño recibido mientras agarra (quién lo salvó)
+	grabLockUntil: number?, -- no puede volver a agarrar hasta entonces
+	bobPhase: number?, -- voladores: fase del vaivén (cada uno a su ritmo)
 }
 
 export type SpawnOptions = { healthMult: number?, dmgMult: number?, summoner: Enemy?, golden: boolean? }
@@ -64,6 +73,18 @@ function Enemies.init(arenaHalf: Vector3, combat, hazards)
 	folder.Name = "Enemies"
 	folder.Parent = workspace
 	EnemyAI.init(Enemies, combat, hazards)
+	Grab.setKnockback(Enemies.knockback)
+	-- Si hay carpeta de modelos, avisa una vez cuáles faltan (los que faltan usan la figura)
+	local ids = {}
+	for id in EnemyTypes do
+		table.insert(ids, id)
+	end
+	local missing = EnemyVisuals.missing(ids, function(id)
+		return EnemyTypes[id].Shape
+	end)
+	if #missing > 0 and #missing < #ids then
+		print("[EnemyVisuals] Tipos sin modelo (usan la figura): " .. table.concat(missing, ", "))
+	end
 end
 
 -- Se llama cada vez que un enemigo recibe daño (para XP, estadísticas, etc.)
@@ -76,6 +97,15 @@ function Enemies.getHalf(): Vector3
 end
 
 -- Mantiene un punto dentro de la arena, dejando `margin` contra las paredes.
+-- Voladores: vaivén suave para arriba y para abajo, cada uno con su fase (según su id)
+function Enemies.flyBob(enemy: Enemy, now: number): number
+	if not enemy.def.Float or enemy.def.Float <= 0 then
+		return 0
+	end
+	local phase = enemy.bobPhase or 0
+	return math.sin(now * (EnemyCfg.FlyBobSpeed or 2) + phase) * (EnemyCfg.FlyBob or 0)
+end
+
 function Enemies.clampFlat(pos: Vector3, margin: number): Vector3
 	return Vector3.new(math.clamp(pos.X, -half.X + margin, half.X - margin), 0, math.clamp(pos.Z, -half.Z + margin, half.Z - margin))
 end
@@ -125,6 +155,33 @@ local function createHealthBar(parent: BasePart, width: number, height: number):
 	fill.BorderSizePixel = 0
 	fill.Parent = back
 	return gui, fill
+end
+
+-- Un punto en una dirección dada (ángulo en radianes, en el plano) alrededor de `anchor`, a la
+-- distancia de aparición, con un poco de desvío al azar. Si por ahí no hay lugar (pared,
+-- otro jugador cerca), cualquier punto válido.
+function Enemies.findSpawnPositionAt(targets: { PlayerData.Target }, anchor: PlayerData.Target, angle: number): Vector3?
+	local margin = Config.Arena.SpawnMargin
+	local maxX = half.X - margin
+	local maxZ = half.Z - margin
+	local around = flat(anchor.root.Position)
+	for _ = 1, 8 do
+		local a = angle + math.rad((math.random() - 0.5) * 50)
+		local dist = EnemyCfg.MinSpawnDistance + math.random() * (EnemyCfg.MaxSpawnDistance - EnemyCfg.MinSpawnDistance)
+		local pos = around + Vector3.new(math.cos(a), 0, math.sin(a)) * dist
+		pos = Vector3.new(math.clamp(pos.X, -maxX, maxX), 0, math.clamp(pos.Z, -maxZ, maxZ))
+		local ok = true
+		for _, t in targets do
+			if (flat(t.root.Position) - pos).Magnitude < EnemyCfg.MinSpawnDistance then
+				ok = false
+				break
+			end
+		end
+		if ok then
+			return pos
+		end
+	end
+	return Enemies.findSpawnPosition(targets)
 end
 
 -- Un punto a una distancia razonable de algún jugador (ni encima ni del otro lado del mapa),
@@ -222,6 +279,7 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 		radius = size / 2,
 		height = height,
 		baseY = baseY,
+		bobPhase = math.random() * math.pi * 2,
 		color = color,
 		maxHealth = maxHealth,
 		health = maxHealth,
@@ -242,7 +300,10 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 		golden = golden,
 		showBar = showBar,
 		ai = nil,
+		visual = nil,
+		farFor = 0,
 	}
+	EnemyVisuals.attach(enemy)
 	EnemyAI.setup(enemy)
 	table.insert(Enemies.list, enemy)
 	return enemy
@@ -256,8 +317,8 @@ end
 
 -- Empuja al enemigo en esa dirección (retroceso al recibir un flechazo).
 function Enemies.knockback(enemy: Enemy, dir: Vector3, distance: number)
-	if not enemy.alive or enemy.hidden or distance <= 0 or dir.Magnitude < 0.01 then
-		return
+	if not enemy.alive or enemy.hidden or enemy.grabbing or distance <= 0 or dir.Magnitude < 0.01 then
+		return -- el que te tiene agarrado no se despega por los golpes
 	end
 	local push = Vector3.new(dir.X, 0, dir.Z).Unit * distance
 	local pos = Enemies.clampFlat(enemy.part.Position + push, enemy.radius)
@@ -268,8 +329,14 @@ end
 -- Enterrado: invisible, no recibe golpes y no lo apunta nadie.
 function Enemies.setHidden(enemy: Enemy, hidden: boolean)
 	enemy.hidden = hidden
-	enemy.part.Transparency = if hidden then 1 else 0
+	EnemyVisuals.setTransparency(enemy, if hidden then 1 else 0)
+	enemy.part:SetAttribute("Hidden", hidden or nil) -- el indicador del cliente se esconde
 	enemy.barGui.Enabled = enemy.showBar and not hidden
+end
+
+-- Transparencia (0 visible · 0.5 teletransportándose · 1 invisible), con modelo u ojos incluidos.
+function Enemies.setTransparency(enemy: Enemy, t: number)
+	EnemyVisuals.setTransparency(enemy, t)
 end
 
 -- attacker: el jugador que hizo el daño (para estadísticas). Puede ser nil.
@@ -279,6 +346,10 @@ function Enemies.damage(enemy: Enemy, amount: number, attacker: Player?, kind: s
 		return
 	end
 	local dealt = math.min(amount, enemy.health)
+	-- Mientras agarra a alguien: quién le pega (para saber quién lo salvó)
+	if enemy.grabbing and attacker and enemy.grabHits then
+		enemy.grabHits[attacker] = (enemy.grabHits[attacker] or 0) + dealt
+	end
 	enemy.health -= amount
 	enemy.bar.Size = UDim2.fromScale(math.max(enemy.health, 0) / enemy.maxHealth, 1)
 	local killed = enemy.health <= 0
@@ -413,8 +484,45 @@ function Enemies.update(dt: number, targets: { PlayerData.Target }, now: number,
 		end
 		local pos = flat(e.part.Position)
 
+		-- Muy lejos de todos por un rato (deambula, se quedó quieto, el equipo se fue): reaparece
+		-- a una distancia normal de alguien. Así nunca hay que salir a buscar al último.
+		if #targets > 0 and not e.hidden then
+			local _, far = nearestTarget(pos, targets)
+			local still = e.def.Move ~= nil and e.def.Move.Type == "Still"
+			if far > (if still then EnemyCfg.StillLeashDistance else EnemyCfg.LeashDistance) then
+				e.farFor += dt
+				if e.farFor >= EnemyCfg.LeashTime then
+					e.farFor = 0
+					local spot = Enemies.findSpawnPosition(targets)
+					if spot then
+						pos = Enemies.clampFlat(spot, e.radius)
+						e.part.CFrame = CFrame.new(pos.X, Ground.y(pos.X, pos.Z) + e.baseY, pos.Z)
+					end
+				end
+			else
+				e.farFor = 0
+			end
+		end
+
 		-- La IA decide adónde ir, hacia dónde mirar y si se separa de los demás.
-		local desired, facing, separate = EnemyAI.step(e, dt, targets)
+		-- Aturdido: se queda quieto.
+		local stunned = e.stunUntil ~= nil and now < e.stunUntil
+		local desired, facing, separate
+		local holding = if e.grabbing then Grab.holdPosition(e) else nil
+		if holding then
+			-- Tiene a alguien agarrado: se queda pegado a él, mirándolo
+			local victim = (e.grabbing :: Player).Character
+			local victimRoot = victim and victim:FindFirstChild("HumanoidRootPart") :: BasePart?
+			desired, separate = holding, false
+			facing = if victimRoot then flat(victimRoot.Position - holding) else nil
+			if facing and facing.Magnitude < 0.01 then
+				facing = nil
+			end
+		elseif stunned then
+			desired, facing, separate = pos, nil, false
+		else
+			desired, facing, separate = EnemyAI.step(e, dt, targets)
+		end
 
 		if separate then
 			local push = Vector3.zero
@@ -439,14 +547,15 @@ function Enemies.update(dt: number, targets: { PlayerData.Target }, now: number,
 
 		local newPos = Enemies.clampFlat(desired, e.radius)
 		-- Caminan sobre el relieve: la altura sale del piso en ese punto
-		local y = Ground.y(newPos.X, newPos.Z) + e.baseY + (e.ai.yOffset or 0)
+		local y = Ground.y(newPos.X, newPos.Z) + e.baseY + (e.ai.yOffset or 0) + Enemies.flyBob(e, now)
 		local look = if facing and facing.Magnitude > 0.01 then facing.Unit else e.part.CFrame.LookVector
 		local center = Vector3.new(newPos.X, y, newPos.Z)
 		table.insert(parts, e.part)
 		table.insert(cframes, CFrame.lookAt(center, center + Vector3.new(look.X, 0, look.Z)))
+		EnemyVisuals.sync(e)
 
 		-- Daño por contacto
-		if not e.hidden and e.contactDamage > 0 then
+		if not e.hidden and not stunned and e.contactDamage > 0 then
 			local target, dist = nearestTarget(newPos, targets)
 			-- Con relieve: no pega a alguien que está arriba de una meseta (o abajo)
 			local sameLevel = target ~= nil and math.abs(target.root.Position.Y - y) <= e.height / 2 + 4

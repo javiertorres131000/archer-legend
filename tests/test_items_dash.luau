@@ -1,6 +1,7 @@
 local M = require("./mocks")
 require("./GameServer")
 local Config = require("./Config")
+Config.Player.FireMode = "Auto" -- estas pruebas son del ataque automático
 local PlayerData = require("./PlayerData")
 local PlayerLife = require("./PlayerLife")
 local Progression = require("./Progression")

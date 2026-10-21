@@ -2,7 +2,9 @@
 -- Ubicación: StarterPlayer > StarterPlayerScripts > Client > CombatText
 -- Dibuja los números flotantes que manda el servidor (Remotes.CombatText, ver CombatFeed):
 --   · daño que hacés: número blanco sobre el enemigo (grande y amarillo si es un golpe fuerte)
---   · crítico: número amarillo enorme con "!"
+--   · crítico: número enorme con "!" en arcoíris que gira
+--   · con racha (atributo local "Combo" que publica Juice), tus números salen más grandes
+--     (Config.CombatText.ComboGrow / ComboGrowAt)
 --   · quemadura: naranja · daño de compañeros (opcional): gris
 --   · daño que recibís: número rojo que sube desde tu barra de vida
 --   · XP: "+5 XP" celeste al juntar orbes
@@ -41,10 +43,27 @@ type Popup = {
 	jitter: number,
 	size: number,
 	active: boolean,
+	gradient: UIGradient, -- arcoíris (solo críticos)
 }
 
 local pool: { Popup } = {}
 local POOL_SIZE = 48
+local RAINBOW = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 80, 90)),
+	ColorSequenceKeypoint.new(0.2, Color3.fromRGB(255, 200, 65)),
+	ColorSequenceKeypoint.new(0.4, Color3.fromRGB(90, 255, 150)),
+	ColorSequenceKeypoint.new(0.6, Color3.fromRGB(70, 190, 255)),
+	ColorSequenceKeypoint.new(0.8, Color3.fromRGB(190, 100, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 80, 170)),
+})
+
+-- Con racha, tus números salen más grandes
+local function comboScale(): number
+	local cfg = Config.CombatText
+	local at = math.max(1, cfg.ComboGrowAt or 50)
+	local combo = player:GetAttribute("Combo") or 0
+	return 1 + math.min(combo, at) / at * (cfg.ComboGrow or 0)
+end
 
 for i = 1, POOL_SIZE do
 	local attachment = Instance.new("Attachment")
@@ -65,6 +84,10 @@ for i = 1, POOL_SIZE do
 	label.TextStrokeTransparency = 0
 	label.TextStrokeColor3 = Color3.new(0, 0, 0)
 	label.Parent = gui
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = RAINBOW
+	gradient.Enabled = false
+	gradient.Parent = label
 	pool[i] = {
 		attachment = attachment,
 		gui = gui,
@@ -75,17 +98,19 @@ for i = 1, POOL_SIZE do
 		jitter = 0,
 		size = 24,
 		active = false,
+		gradient = gradient,
 	}
 end
 
 local nextSlot = 1
-local function popup(pos: Vector3, text: string, color: Color3, size: number, rise: number, life: number?)
+local function popup(pos: Vector3, text: string, color: Color3, size: number, rise: number, life: number?, rainbow: boolean?)
 	-- Toma el siguiente del pool (si están todos ocupados, reusa el más viejo)
 	local p = pool[nextSlot]
 	nextSlot = nextSlot % POOL_SIZE + 1
 	p.attachment.WorldPosition = pos
 	p.label.Text = text
-	p.label.TextColor3 = color
+	p.label.TextColor3 = if rainbow then Color3.new(1, 1, 1) else color
+	p.gradient.Enabled = rainbow == true
 	p.label.TextTransparency = 0
 	p.label.TextStrokeTransparency = 0
 	p.size = size
@@ -187,13 +212,13 @@ combatText.OnClientEvent:Connect(function(events)
 				pos + Vector3.new(0, 2, 0),
 				tostring(amount),
 				if big then Color3.fromRGB(255, 225, 80) else Color3.new(1, 1, 1),
-				if big then 34 else 26,
+				(if big then 34 else 26) * comboScale(),
 				3
 			)
 		elseif kind == "crit" and typeof(amount) == "number" then
-			popup(pos + Vector3.new(0, 2.5, 0), tostring(amount) .. "!", Color3.fromRGB(255, 200, 40), 40, 4, LIFETIME * 1.2)
+			popup(pos + Vector3.new(0, 2.5, 0), tostring(amount) .. "!", Color3.fromRGB(255, 200, 40), 40 * comboScale(), 4, LIFETIME * 1.2, true)
 		elseif kind == "burn" and typeof(amount) == "number" then
-			popup(pos + Vector3.new(0, 1.5, 0), tostring(amount), Color3.fromRGB(255, 150, 40), 20, 2.5)
+			popup(pos + Vector3.new(0, 1.5, 0), tostring(amount), Color3.fromRGB(255, 150, 40), 20 * comboScale(), 2.5)
 		elseif kind == "ally" and typeof(amount) == "number" then
 			popup(pos + Vector3.new(0, 2, 0), tostring(amount), Color3.fromRGB(180, 180, 195), 18, 2.5)
 		elseif kind == "xp" and typeof(amount) == "number" then
@@ -230,7 +255,10 @@ RunService.RenderStepped:Connect(function()
 			else
 				-- Sale grande, se achica rápido y sube mientras se desvanece
 				local pop = 1 + 0.5 * math.max(0, 1 - age / 0.12)
-				p.label.TextSize = math.floor(p.size * pop)
+				p.label.TextSize = math.min(100, math.floor(p.size * pop)) -- TextSize llega hasta 100
+				if p.gradient.Enabled then
+					p.gradient.Rotation = (now * 220 + p.jitter * 60) % 360
+				end
 				p.gui.StudsOffsetWorldSpace = Vector3.new(p.jitter * 0.4, p.rise * t, 0)
 				local fade = math.clamp((t - 0.55) / 0.45, 0, 1)
 				p.label.TextTransparency = fade

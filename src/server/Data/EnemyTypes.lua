@@ -15,7 +15,8 @@
 -- Campos comunes de un ataque: Type, Cooldown, Range, MinRange, Weight, Telegraph (aviso),
 --   Recover, Repeats (lo repite con un aviso más corto), Then (encadena otro ataque),
 --   ChainRest (pausa después). Casi cualquier número puede ser un rango {min, max}.
--- Tipos: Dash, Shoot, Area, Breath, Teleport, Burrow, Summon (ver EnemyAI).
+-- Tipos: Dash, Shoot, Area, Breath, Teleport, Burrow, Summon, Grab (ver EnemyAI).
+--   Grab: salta como el Dash y, si te alcanza, te agarra (Grab.lua): Dps = daño por segundo.
 
 local C = Color3.fromRGB
 
@@ -30,6 +31,32 @@ local ICE = C(120, 200, 255)
 local SPARK = C(255, 240, 90)
 
 local T = {}
+
+---------------------------------------------------------------------
+-- Atrapador: te salta encima y te inmoviliza hasta que un compañero le pegue o te soltés
+-- (Config.Grab). Sale de a uno cada tanto (peso bajo en los capítulos).
+
+T.Grabber = {
+	Name = "Atrapador",
+	Health = 150,
+	Size = 3,
+	Color = C(130, 45, 170),
+	ContactDamage = 8,
+	XP = 4,
+	Cost = 4,
+	Move = { Type = "Chase", Speed = 12 },
+	Attacks = {
+		{
+			Type = "Grab",
+			Cooldown = { 4, 6 },
+			Range = 22,
+			Telegraph = 0.8,
+			Distance = { 18, 26 },
+			Speed = 60,
+			Dps = 12,
+		},
+	},
+}
 
 ---------------------------------------------------------------------
 -- Slimes y calaveras: cuerpo a cuerpo
@@ -90,7 +117,7 @@ T.GreenBat = {
 	Health = 35,
 	Size = 2,
 	Shape = "Ball",
-	Float = 2.5,
+	Float = 4, -- vuela a la altura de los ojos (los golpes se miden en el plano: no cuesta más pegarle)
 	Color = C(80, 170, 90),
 	ContactDamage = 8,
 	XP = 1,
@@ -106,7 +133,7 @@ T.RedBat = {
 	Health = 50,
 	Size = 2.2,
 	Shape = "Ball",
-	Float = 2.5,
+	Float = 4,
 	Color = C(200, 50, 60),
 	ContactDamage = 10,
 	XP = 2,
@@ -283,7 +310,9 @@ T.GreenStump = {
 	ContactDamage = 10,
 	XP = 2,
 	Cost = 2,
-	Move = { Type = "Still" },
+	-- Vuela: flota sobre el piso y se mantiene a media distancia mientras dispara
+	Float = 3.5,
+	Move = { Type = "Keep", Speed = 9, Min = 12, Max = 24 },
 	Attacks = {
 		-- Salta y libera 4 proyectiles (en + o en x, al azar)
 		{
@@ -339,7 +368,9 @@ T.Cactus = {
 	ContactDamage = 12,
 	XP = 3,
 	Cost = 2,
-	Move = { Type = "Still" },
+	-- Vuela: flota y busca distancia para su ráfaga
+	Float = 3,
+	Move = { Type = "Keep", Speed = 8, Min = 16, Max = 30 },
 	Attacks = {
 		-- Línea de aviso y ráfaga rápida hacia donde estabas
 		{
@@ -394,7 +425,7 @@ T.SkeletonArcher = {
 	Name = "Arquero esqueleto",
 	Health = 60,
 	Size = 2.4,
-	Height = 3.4,
+	Height = 5.5, -- del tamaño de un personaje de Roblox
 	Color = C(170, 210, 170),
 	ContactDamage = 8,
 	XP = 2,
@@ -409,7 +440,7 @@ T.RedArcher = {
 	Name = "Arquero esqueleto rojo",
 	Health = 80,
 	Size = 2.4,
-	Height = 3.4,
+	Height = 5.5,
 	Color = C(210, 110, 110),
 	ContactDamage = 8,
 	XP = 3,
@@ -1053,7 +1084,7 @@ T.FlameDemon = {
 }
 
 -- Roles legibles: horda, embestida, zona, bloqueo, prioridad.
-T.HordeSkeleton = { Name = "Esqueleto de horda", Role = "Horde", Health = 35, Size = 2.2, Height = 3.6,
+T.HordeSkeleton = { Name = "Esqueleto de horda", Role = "Horde", Health = 35, Size = 2.2, Height = 5.5,
  Color = BONE, ContactDamage = 8, XP = 1, Cost = 1, Move = { Type = "Chase", Speed = 9 } }
 T.RushBeast = { Name = "Bestia veloz", Role = "Rush", Health = 65, Size = 2.8, Shape = "Ball",
  Color = C(255, 145, 60), ContactDamage = 12, XP = 2, Cost = 2, Move = { Type = "Chase", Speed = 15 },
