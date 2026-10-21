@@ -1,20 +1,17 @@
-# Skin Demonio Ígneo (FireDemon): pendiente de pasar al repo
+# Skin Demonio Ígneo (FireDemon)
 
-Hecho directo en Roblox Studio (place "Leyendas de flechas", placeId 81254012896939) el 21/10/2026.
-Antes de sincronizar con Rojo en otra PC, hay que traer estos scripts de Studio al repo; si no, Rojo los pisa.
+## Código (en el repo, rama skin-demonio, base fase2)
+- src/shared/CrateLooks.lua: trajes detallados. FireDemon usa las mallas de CrateAssets > Looks > FireDemon,
+  con Glow (brillo), Fx (Flames / Embers / Smoke), Light y Sway (alas y capa).
+- src/shared/CrateModels.lua: los premios con traje (CrateLooks.has) se ven con el traje en la caja y en el índice.
+- src/server/CrateEquip.lua: al equiparlo, CrateLooks.applyToCharacter; al sacarlo, CrateLooks.removeFromCharacter.
+- src/server/DebugCommands.lua: acción "Demon" en el panel F2 (te da y equipa el Demonio Ígneo).
+- src/client/LavaSkinFx.client.lua: brillo que late, aleteo suave, alas que se abren al saltar, capa,
+  pisadas de lava, aura, estela en el dash y explosión al equipar.
 
-## Scripts a pasar de Studio al repo
-| En Studio | Archivo en el repo | Qué cambió |
-|---|---|---|
-| ReplicatedStorage > Shared > CrateLooks | src/shared/CrateLooks.lua | El traje FireDemon ahora usa mallas (campo `Mesh` y `MeshFolder`), con `Glow`, `Fx` ("Flames" / "Embers" / "Smoke"), `Light` y `Sway` (alas y capa con Weld). Los tags "LavaGlow" y "LavaSway" son para LavaSkinFx. |
-| ServerScriptService > Server > DebugCommands | src/server/DebugCommands.lua | Nueva acción `Demon` en el panel F2: "Darme y equipar Demonio Ígneo". También agrega `require(script.Parent.CrateEquip)`. |
-| StarterPlayer > StarterPlayerScripts > Client > LavaSkinFx | src/client/LavaSkinFx.client.lua (nuevo) | Efectos en el cliente: el brillo late; las alas aletean, se abren al saltar y la capa se balancea; pisadas de lava, aura, estela en el dash y explosión al equipar. |
-
-Lo más seguro es copiar el código desde Studio: el place guardado tiene la versión final.
-Ojo: en Studio también están los cambios de la otra PC (por ejemplo CrateLooks, CrateEquip con CrateLooks y los premios nuevos). Hay que mezclar con cuidado y no pisar el repo de esa PC a ciegas.
-
-## Assets (no los maneja Rojo, viven en el place)
-- ReplicatedStorage > CrateAssets > Looks > FireDemon: las 12 MeshParts con su SurfaceAppearance (color, brillo, relieve y rugosidad).
-- ServerStorage > DemonMeshes_Originales: las piezas originales.
-- ServerStorage > CrateLooks_backup: el traje anterior, hecho con Parts.
-- Las texturas fuente están en esta carpeta. Las máscaras de brillo, relieve y rugosidad que se generaron están en /_emissive_tmp.
+## Assets (viven en el place, Rojo no los toca)
+- ReplicatedStorage > CrateAssets > Looks > FireDemon: 12 MeshParts con SurfaceAppearance
+  (color, máscara de brillo, relieve y rugosidad).
+- ServerStorage > DemonMeshes_Originales y ServerStorage > CrateLooks_backup: respaldos.
+- Fuentes: los PNG de esta carpeta. En generadas/ están las máscaras de brillo (_Mask),
+  los mapas de relieve (_Normal) y los de rugosidad (_Rough) que se subieron a Roblox.

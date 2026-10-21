@@ -32,6 +32,7 @@ local Weapons = require(Shared:WaitForChild("Weapons"))
 local WaveEvents = require(script.Parent.WaveEvents)
 local MasteryService = require(script.Parent.MasteryService)
 local Mastery = require(Shared:WaitForChild("Mastery"))
+local CrateEquip = require(script.Parent.CrateEquip)
 
 local DebugCommands = {}
 
@@ -86,6 +87,18 @@ local Actions: { [string]: { label: string, match: boolean?, run: (Player) -> (b
 		ChapterUnlocks.refresh(p)
 		Profiles.saveSoon(p)
 		return true, "Capítulos desbloqueados (queda guardado)"
+	end },
+	Demon = { label = "Darme y equipar Demonio Ígneo", run = function(p)
+		local data = Profiles.get(p)
+		if not data then
+			return false, "Perfil sin cargar"
+		end
+		data.Crates.Owned.FireDemon = math.max(data.Crates.Owned.FireDemon or 0, 1)
+		data.Crates.Equipped.Character = "FireDemon"
+		CrateEquip.publish(p)
+		Profiles.saveSoon(p)
+		task.spawn(CrateEquip.refreshLook, p)
+		return true, "Demonio Ígneo equipado (queda guardado)"
 	end },
 	Report = { label = "Resumen de partidas", run = function(_p)
 		local text = RunLog.report(7)
@@ -221,7 +234,7 @@ local Actions: { [string]: { label: string, match: boolean?, run: (Player) -> (b
 DebugCommands.Actions = Actions
 
 -- Orden en el panel
-DebugCommands.Order = { "Gold", "Gems", "Stones", "Levels", "Chapters", "Weapons", "Report", "SkipWave", "KillAll", "Boss", "LevelUp", "Item", "Heal", "Elite", "Horde", "Goal", "Mastery", "FxWhirl", "FxJudgment" }
+DebugCommands.Order = { "Gold", "Gems", "Stones", "Levels", "Chapters", "Weapons", "Demon", "Report", "SkipWave", "KillAll", "Boss", "LevelUp", "Item", "Heal", "Elite", "Horde", "Goal", "Mastery", "FxWhirl", "FxJudgment" }
 
 function DebugCommands.run(player: Player, action: any): (boolean, string)
 	if not DebugCommands.allowed(player) then

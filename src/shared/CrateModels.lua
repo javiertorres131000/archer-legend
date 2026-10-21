@@ -11,6 +11,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CrateItems = require(script.Parent.CrateItems)
+local CrateLooks = require(script.Parent.CrateLooks)
 
 local C = Color3.fromRGB
 local SQRT3 = math.sqrt(3)
@@ -491,6 +492,15 @@ function CrateModels.prize(prizeId: string): Model
 		else
 			petModel(model, look)
 		end
+	elseif CrateLooks.has(def.Id) then
+		-- Traje detallado (CrateLooks): cuerpo liso y encima las piezas del traje
+		humanoidModel(model, { Body = look.Body, Skin = look.Skin, Pants = look.Pants }, false)
+		for _, d in model:GetChildren() do
+			if d.Name == "Eye" then
+				d:Destroy()
+			end
+		end
+		CrateLooks.applyToBlocky(def.Id, model)
 	else
 		humanoidModel(model, look, def.Id == "LavaGolem")
 	end

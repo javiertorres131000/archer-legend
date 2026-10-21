@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local CrateItems = require(Shared:WaitForChild("CrateItems"))
 local CrateModels = require(Shared:WaitForChild("CrateModels"))
+local CrateLooks = require(Shared:WaitForChild("CrateLooks"))
 local Weapons = require(Shared:WaitForChild("Weapons"))
 local Profiles = require(script.Parent.Profiles)
 local PlayerData = require(script.Parent.PlayerData)
@@ -186,6 +187,10 @@ function CrateEquip.refreshLook(player: Player)
 		if not current then
 			originals[player] = humanoid:GetAppliedDescription()
 		end
+		if type(current) == "string" and CrateLooks.has(current) then
+			-- Sacar el traje detallado: piezas y material de la piel
+			CrateLooks.removeFromCharacter(character)
+		end
 		local old = character:FindFirstChild("CrateLook")
 		if old then
 			old:Destroy()
@@ -199,7 +204,11 @@ function CrateEquip.refreshLook(player: Player)
 			character:SetAttribute("CrateLook", nil)
 		elseif prize and original then
 			humanoid:ApplyDescriptionAsync(blockyDescription(original, prize.Look))
-			attachParts(character, id)
+			if CrateLooks.has(id) then
+				CrateLooks.applyToCharacter(id, character) -- traje detallado (CrateLooks)
+			else
+				attachParts(character, id)
+			end
 			character:SetAttribute("CrateLook", id)
 		end
 	end)
