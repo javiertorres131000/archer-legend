@@ -7,6 +7,8 @@
 -- Dos formas:
 --   · Hecho a mano: si en ServerStorage > Maps > <Id del capítulo> hay un TerrainRegion llamado
 --     "Terrain", se pega ese terreno (y los Models que haya en la carpeta, como decoración).
+--     Atributos "Color_<Material>" de la carpeta (Color3) tiñen ese material del terreno
+--     (no en el place de la Ciudadela, que comparte los colores con la isla del lobby).
 --     La altura del piso se mide con rayos contra el terreno (ver README para crearlo).
 --   · Generado: se escribe el terreno con una fórmula de relieve distinta en cada partida.
 --
@@ -236,6 +238,19 @@ function MapBuilder.build(chapter: any, seed: number, half: Vector3, propsFolder
 				-math.floor(region.SizeInCells.Z / 2)
 			)
 		terrain:PasteRegion(region, corner, true)
+		local okAttrs, attrs = pcall(function()
+			return custom:GetAttributes()
+		end)
+		if okAttrs and not workspace:FindFirstChild("Ciudadela") then
+			for name, value in attrs do
+				local material = string.match(name, "^Color_(%w+)$")
+				if material and typeof(value) == "Color3" then
+					pcall(function()
+						terrain:SetMaterialColor((Enum.Material :: any)[material], value)
+					end)
+				end
+			end
+		end
 		for _, child in custom:GetChildren() do
 			if child:IsA("Model") then
 				child:Clone().Parent = propsFolder

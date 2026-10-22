@@ -37,6 +37,15 @@ return {
 		DamageMult = 1,
 		Budget = { Base = 6, PerWave = 2, BossWaveFactor = 0.35 },
 		Interval = { 1.3, 0.75 }, -- segundos entre spawns: primera oleada -> última
+		-- Atardecer con bruma verde: el mapa hecho a mano (ServerStorage/Maps/forest) se ilumina
+		-- con sus monolitos, hongos y faroles
+		Lighting = {
+			ClockTime = 18.6,
+			Ambient = C(70, 78, 92),
+			Brightness = 2,
+			HazeColor = C(70, 90, 85),
+			HazeDensity = 0.4,
+		},
 		-- Recompensas (Rewards.lua). Se ganan aunque pierdas, por oleada superada y jefe vencido.
 		Rewards = {
 			GoldPerWave = 10,
