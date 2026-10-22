@@ -361,7 +361,7 @@ Config.Match = {
 -- Config.Match.MaxPartySize en la arena.
 Config.Places = {
 	LobbyPlaceId = 81254012896939, -- la Ciudadela (este place)
-	ArenaPlaceId = 0, -- pegá acá el Id del place de la arena (0 = todo en un mismo servidor)
+	ArenaPlaceId = 99709174908492, -- la Arena (servidores privados por grupo). 0 = todo en un mismo servidor
 	LobbyMaxPlayers = 20, -- referencia: se configura en Game Settings del place del lobby
 	InviteTime = 30, -- segundos que dura una invitación a un grupo
 	QueueMaxWait = 20, -- cola rápida: si en este tiempo no se llenó el grupo, sale igual
