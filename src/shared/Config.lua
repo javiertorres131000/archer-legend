@@ -182,7 +182,13 @@ Config.MapEvents = {
 
 Config.Waves = {
 	HealthGrowth = 0.12, -- cada oleada los enemigos comunes tienen +20% de vida
-	EnemyCountMultiplier = 10, -- más o menos enemigos por oleada en todos los capítulos (1 = original)
+	EnemyCountMultiplier = 4, -- más o menos enemigos por oleada en todos los capítulos (1 = original)
+	-- Menos bichos pero más bravos (los jefes no cambian):
+	EnemySpeedMult = 1.3, -- caminan más rápido
+	EnemyAttackCooldownMult = 0.7, -- atacan más seguido (menos espera entre ataques)
+	-- Bichos sin ataque a distancia que igual tiran algo: esta parte de ellos suma un disparo
+	ExtraShotChance = 0.45,
+	ExtraShot = { Type = "Shoot", Cooldown = { 2.6, 3.8 }, Range = 45, Telegraph = 0.45, Speed = 38, Damage = 9, Color = Color3.fromRGB(255, 90, 60) },
 	-- Entre oleadas: con UseDoors el equipo camina hasta la puerta para pasar a la sala siguiente
 	-- (y el mapa se vuelve a generar). Sin puertas (mapa abierto), la oleada siguiente arranca sola
 	-- después de BreakTime segundos.
@@ -200,8 +206,8 @@ Config.Frenzy = {
 	-- uno de los grupos sale por la espalda de ese jugador: hay que mirar a todos lados.
 	SpawnSides = 3,
 	BehindSpawnChance = 0.5,
-	EnemyHealthMult = 0.6, -- vida de los enemigos comunes (son muchos más: mueren más rápido)
-	EnemyDamageMult = 0.5, -- daño de los enemigos comunes (son muchos más: cada uno pega menos)
+	EnemyHealthMult = 1.4, -- vida de los enemigos comunes (menos bichos, cada uno aguanta más)
+	EnemyDamageMult = 0.9, -- daño de los enemigos comunes (menos bichos, cada uno pega más)
 	Knockback = 1.2, -- studs que retrocede un enemigo al recibir un flechazo (los jefes no)
 	-- Enemigo dorado: raro, brilla, aguanta más y suelta muchísimo botín
 	GoldenChance = 0.008, -- probabilidad por cada enemigo común que aparece

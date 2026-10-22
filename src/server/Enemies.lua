@@ -349,7 +349,7 @@ function Enemies.spawn(typeId: string, pos: Vector3, opts: SpawnOptions?): Enemy
 		golden = golden,
 		elite = if affix then affix.Id else nil,
 		eliteName = if affix then affix.Name else nil,
-		speedMult = if affix then affix.Speed else nil,
+		speedMult = (if affix then affix.Speed or 1 else 1) * (if def.Boss then 1 else (Config.Waves.EnemySpeedMult or 1)),
 		horde = if o.horde then true else nil,
 		showBar = showBar,
 		ai = nil,

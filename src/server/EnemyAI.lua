@@ -488,13 +488,33 @@ local function phasesOf(def)
 	return def.Phases or { { Above = 0, Move = def.Move, Attacks = def.Attacks or {}, Rest = def.Rest } }
 end
 
+local function hasRanged(attacks: { any }): boolean
+	for _, a in attacks do
+		if a.Type == "Shoot" or a.Type == "Breath" or a.Type == "Area" then
+			return true
+		end
+	end
+	return false
+end
+
 function EnemyAI.setup(e)
 	local phases = phasesOf(e.def)
+	-- Bichos comunes sin ataque a distancia: algunos suman un disparo (Config.Waves.ExtraShot).
+	-- Se copia la fase: la definición del tipo es compartida y no se toca.
+	local W = Config.Waves
+	if not e.isBoss and not e.def.Phases and W.ExtraShot and not hasRanged(phases[1].Attacks)
+		and math.random() < (W.ExtraShotChance or 0) then
+		local attacks = table.clone(phases[1].Attacks)
+		table.insert(attacks, W.ExtraShot)
+		phases = { { Above = 0, Move = phases[1].Move, Attacks = attacks, Rest = phases[1].Rest } }
+	end
+	local cooldownMult = if e.isBoss then 1 else (W.EnemyAttackCooldownMult or 1)
+	e.cooldownMult = cooldownMult
 	local cooldowns = {}
 	for _, phase in phases do
 		for _, a in phase.Attacks or {} do
 			-- Arrancan desfasados para que un grupo del mismo tipo no ataque sincronizado
-			cooldowns[a] = if e.isBoss then 0 else R(a.Cooldown, 2) * (0.3 + math.random() * 0.7)
+			cooldowns[a] = if e.isBoss then 0 else R(a.Cooldown, 2) * cooldownMult * (0.3 + math.random() * 0.7)
 		end
 	end
 	e.ai = {
@@ -595,7 +615,7 @@ local function startAttack(e, a, target, isRepeat: boolean?)
 	ai.windup = telegraph
 	if not isRepeat then
 		ai.last = a
-		ai.cooldowns[a] = R(a.Cooldown, 0)
+		ai.cooldowns[a] = R(a.Cooldown, 0) * (e.cooldownMult or 1)
 		ai.repeatsLeft = RI(a.Repeats, 1) - 1
 	end
 	ai.facing = dirTo(flat(e.part.Position), target.root.Position)
