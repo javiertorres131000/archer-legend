@@ -105,6 +105,30 @@ local function setWeather(kind: string?)
 		e.SpreadAngle = Vector2.new(15, 15)
 		e.Acceleration = Vector3.new(2, 0, 1)
 		e.Transparency = NumberSequence.new(0.1)
+	elseif kind == "Ash" then
+		-- Ceniza gris que cae lenta y se mece, con alguna brasa naranja
+		e.Color = ColorSequence.new(Color3.fromRGB(150, 145, 140))
+		e.Size = NumberSequence.new(0.22)
+		e.Rate = 70
+		e.Lifetime = NumberRange.new(7, 10)
+		e.Speed = NumberRange.new(2, 4)
+		e.EmissionDirection = Enum.NormalId.Bottom
+		e.SpreadAngle = Vector2.new(35, 35)
+		e.Acceleration = Vector3.new(1.5, 0, 0.8)
+		e.RotSpeed = NumberRange.new(-60, 60)
+		e.Transparency = NumberSequence.new(0.25)
+		local embers = Instance.new("ParticleEmitter")
+		embers.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		embers.Color = ColorSequence.new(Color3.fromRGB(255, 130, 50))
+		embers.LightEmission = 1
+		embers.Size = NumberSequence.new(0.15)
+		embers.Rate = 8
+		embers.Lifetime = NumberRange.new(5, 8)
+		embers.Speed = NumberRange.new(1, 3)
+		embers.EmissionDirection = Enum.NormalId.Bottom
+		embers.SpreadAngle = Vector2.new(40, 40)
+		embers.Acceleration = Vector3.new(1, 0.6, 0.5)
+		embers.Parent = part
 	else -- "Sand": ráfagas de arena casi horizontales
 		e.Color = ColorSequence.new(Color3.fromRGB(230, 195, 140))
 		e.Size = NumberSequence.new(0.25)

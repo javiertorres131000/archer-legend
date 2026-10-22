@@ -10,7 +10,7 @@
 --   Requires: Id del capítulo que hay que ganar para desbloquearlo
 --   Theme: decoración y materiales del mapa (Server/Arena.Props y Config.Map.Materials)
 --   Lighting (opcional): luz propia en la partida (Client/Atmosphere): ClockTime, Ambient,
---     Brightness, HazeColor, HazeDensity, Weather ("Snow" | "Sand": partículas en la cámara)
+--     Brightness, HazeColor, HazeDensity, Weather ("Snow" | "Sand" | "Ash": partículas en la cámara)
 --
 -- Las oleadas no están escritas a mano: se generan al azar en cada partida.
 -- Cada oleada tiene un "presupuesto" (Budget.Base + Budget.PerWave por oleada) que se gasta
@@ -37,14 +37,15 @@ return {
 		DamageMult = 1,
 		Budget = { Base = 6, PerWave = 2, BossWaveFactor = 0.35 },
 		Interval = { 1.3, 0.75 }, -- segundos entre spawns: primera oleada -> última
-		-- Atardecer con bruma verde: el mapa hecho a mano (ServerStorage/Maps/forest) se ilumina
-		-- con sus monolitos, hongos y faroles
+		-- Bosque quemado: atardecer naranja, bruma de humo y ceniza que cae. El mapa hecho a mano
+		-- vive en el place de la Arena (ServerStorage/Maps/forest)
 		Lighting = {
-			ClockTime = 18.6,
-			Ambient = C(88, 96, 112),
-			Brightness = 2.4,
-			HazeColor = C(70, 90, 85),
-			HazeDensity = 0.26,
+			ClockTime = 17.2,
+			Ambient = C(105, 92, 88),
+			Brightness = 2.5,
+			HazeColor = C(125, 100, 85),
+			HazeDensity = 0.3,
+			Weather = "Ash",
 		},
 		-- Recompensas (Rewards.lua). Se ganan aunque pierdas, por oleada superada y jefe vencido.
 		Rewards = {
