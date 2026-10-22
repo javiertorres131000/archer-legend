@@ -41,10 +41,10 @@ return {
 		-- con sus monolitos, hongos y faroles
 		Lighting = {
 			ClockTime = 18.6,
-			Ambient = C(70, 78, 92),
-			Brightness = 2,
+			Ambient = C(88, 96, 112),
+			Brightness = 2.4,
 			HazeColor = C(70, 90, 85),
-			HazeDensity = 0.4,
+			HazeDensity = 0.26,
 		},
 		-- Recompensas (Rewards.lua). Se ganan aunque pierdas, por oleada superada y jefe vencido.
 		Rewards = {
