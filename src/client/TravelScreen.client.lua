@@ -7,6 +7,8 @@
 --   · Al llegar al otro place, la pantalla que vino con el viaje (GetArrivingTeleportGui) se
 --     queda unos instantes y se desvanece cuando ya cargó tu personaje.
 --   · Si el viaje falla, el servidor borra Traveling y la pantalla se va.
+--   · En la Arena (PlaceRole = "Arena") la pantalla tapa todo mientras no estás jugando: así
+--     nunca se ve la sala de espera, solo "Preparando la batalla" hasta que arranca la partida.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -108,6 +110,7 @@ local function build(destination: string): ScreenGui
 		Position = UDim2.new(0, 0, 0, 92),
 		Size = UDim2.new(1, 0, 0, 56),
 		BackgroundTransparency = 1,
+		Name = "Titulo",
 		Text = if toArena then "Viajando a la Arena" else "Volviendo a la Ciudadela",
 		Font = Fonts.Title,
 		TextScaled = true,
@@ -119,6 +122,7 @@ local function build(destination: string): ScreenGui
 		Position = UDim2.new(0, 0, 0, 152),
 		Size = UDim2.new(1, 0, 0, 28),
 		BackgroundTransparency = 1,
+		Name = "Subtitulo",
 		Text = if toArena then chapterName(player:GetAttribute("PartyChapter") :: string?) else "Guardando tu progreso…",
 		Font = Fonts.Heading,
 		TextScaled = true,
@@ -199,7 +203,52 @@ local function onTraveling()
 end
 player:GetAttributeChangedSignal("Traveling"):Connect(onTraveling)
 
--- Llegada
+-- Llegada y cortina de la Arena
+local gameState = ReplicatedStorage:WaitForChild("GameState")
+local arenaCover: ScreenGui? = nil
+
+local function setLabel(gui: ScreenGui, name: string, value: string)
+	local label = gui:FindFirstChild(name, true)
+	if label and label:IsA("TextLabel") then
+		label.Text = value
+	end
+end
+
+local function updateArenaCover()
+	local isArena = gameState:GetAttribute("PlaceRole") == "Arena"
+	local need = isArena and player:GetAttribute("InMatch") ~= true and player:GetAttribute("Traveling") == nil
+	if need and not arenaCover then
+		local gui = build("Arena")
+		gui.Name = "ArenaCover"
+		gui.Parent = playerGui
+		spin(gui)
+		arenaCover = gui
+	elseif not need and arenaCover then
+		fadeOut(arenaCover, 0.2)
+		arenaCover = nil
+	end
+	local cover = arenaCover
+	if cover then
+		local state = gameState:GetAttribute("MatchState")
+		local waiting = (gameState:GetAttribute("ArenaWaiting") or "") :: string
+		if state == "STARTING" then
+			setLabel(cover, "Titulo", "¡Arranca la batalla!")
+		elseif state == "RESULTS" or state == "RETURNING" then
+			setLabel(cover, "Titulo", "Preparando la revancha")
+		else
+			setLabel(cover, "Titulo", "Preparando la batalla")
+		end
+		local chapter = chapterName(gameState:GetAttribute("SelectedChapter") :: string?)
+		setLabel(cover, "Subtitulo", chapter .. (if waiting ~= "" then "  ·  llegaron " .. waiting else ""))
+	end
+end
+for _, attr in { "PlaceRole", "MatchState", "ArenaWaiting", "SelectedChapter" } do
+	gameState:GetAttributeChangedSignal(attr):Connect(updateArenaCover)
+end
+player:GetAttributeChangedSignal("InMatch"):Connect(updateArenaCover)
+player:GetAttributeChangedSignal("Traveling"):Connect(updateArenaCover)
+updateArenaCover()
+
 local ok, arriving = pcall(function()
 	return TeleportService:GetArrivingTeleportGui()
 end)
@@ -213,6 +262,7 @@ if ok and arriving and arriving:IsA("ScreenGui") then
 		if not game:IsLoaded() then
 			game.Loaded:Wait()
 		end
-		fadeOut(arriving, 1)
+		-- en la Arena la cortina ya tapa la espera: esta se va enseguida, sin parpadeo
+		fadeOut(arriving, if arenaCover then 0.3 else 1)
 	end)
 end
