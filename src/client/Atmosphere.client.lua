@@ -139,6 +139,10 @@ local function inVolcano(): boolean
 	if not plaza or player:GetAttribute("InMatch") == true then
 		return false
 	end
+	-- Con la Ciudadela, el patio de las cajas es parte del castillo: luz normal
+	if workspace:FindFirstChild("Ciudadela") then
+		return false
+	end
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	return root ~= nil and CratePlazaLayout.contains(plaza, root.Position, 2)

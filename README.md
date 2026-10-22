@@ -6,7 +6,7 @@ Roguelite de acción cooperativo para Roblox (1 a 4 jugadores), inspirado en las
 
 ## Qué hay hoy
 
-- **Lobby** seguro con interfaz propia: equipo con quién está listo, capítulos con desbloqueo, botón **JUGAR**, cuenta regresiva de 5 s y accesos a Equipo, Talentos, Stats, Arma, **Tienda** y **Misiones**.
+- **Lobby: la Ciudadela**, una plaza de castillo sobre una isla flotante, con portal de batalla, mercado con NPCs, vitrina de skins, tablas de récords y patio del tesoro (cajas). Tiene interfaz propia: equipo con quién está listo, capítulos con desbloqueo, botón **JUGAR**, cuenta regresiva de 5 s y accesos a Equipo, Talentos, Stats, Arma, **Tienda** y **Misiones**.
 - **Ciclo de partida** controlado por el servidor: `LOBBY → PREPARING → STARTING → PLAYING → RESULTS → RETURNING`.
 - **3 capítulos**: Bosque Maldito (disponible), Ruinas Perdidas y Fortaleza Demoníaca (se desbloquean ganando el anterior).
 - **Perfil guardado** (DataStore): capítulos desbloqueados, récords, estadísticas y monedas: oro 💰, gemas 💎 y piedras de mejora 🔷.

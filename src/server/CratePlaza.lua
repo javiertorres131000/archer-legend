@@ -10,6 +10,8 @@
 --     nada: comprar es un pedido aparte que valida CrateService.
 -- La luz rojiza y la niebla las pone cada cliente al entrar (Atmosphere.client).
 -- Dónde va cada cosa: Shared/CratePlazaLayout.lua. Solo escenario: nada acá tiene lógica.
+-- Con la Ciudadela del lobby (Workspace > Ciudadela, armada en Studio) el piso, las murallas y el
+-- arco ya están hechos (el patio del tesoro): acá se arman solo las plataformas.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -192,63 +194,67 @@ function CratePlaza.build(): Folder?
 	local c = layout.Center
 	local half = layout.Size / 2
 
-	-- Piso de roca con lava en las grietas
-	local floor = solid(part(folder, "Floor", Vector3.new(layout.Size.X, 2, layout.Size.Z), CFrame.new(c - Vector3.new(0, 1, 0)), C(95, 70, 62), Enum.Material.CrackedLava))
-	floor.CanTouch = true
-	local decor = Instance.new("Folder")
-	decor.Name = "Decor"
-	decor.Parent = folder
-	for _ = 1, 16 do
-		local start = c + Vector3.new(rng:NextNumber(-half.X + 6, half.X - 20), 0.04, rng:NextNumber(-half.Z + 6, half.Z - 6))
-		crack(decor, rng, start, rng:NextInteger(3, 6))
-	end
-	-- Charcos de lava
-	for _, spot in { Vector3.new(4, 0, half.Z - 10), Vector3.new(-half.X + 14, 0, half.Z - 12), Vector3.new(half.X - 8, 0, half.Z - 6) } do
-		local d = rng:NextNumber(7, 10)
-		local pos = c + spot
-		local rim = part(decor, "PoolRim", Vector3.new(0.4, d + 2, d + 2), CFrame.new(pos + Vector3.new(0, 0.15, 0)) * CFrame.Angles(0, 0, math.rad(90)), ROCK_DARK, Enum.Material.Basalt)
-		rim.Shape = Enum.PartType.Cylinder
-		local lava = part(decor, "Lava", Vector3.new(0.4, d, d), CFrame.new(pos + Vector3.new(0, 0.22, 0)) * CFrame.Angles(0, 0, math.rad(90)), LAVA, Enum.Material.Neon)
-		lava.Shape = Enum.PartType.Cylinder
-		lava.CastShadow = false
-		lavaLight(lava, 22, 2.2)
-		CrateModels.embers(lava, C(255, 170, 60), 6, 30)
-	end
-	-- Rocas sueltas cerca de los muros
-	for _ = 1, 14 do
-		local onX = rng:NextNumber(0, 1) < 0.5
-		local x = if onX then rng:NextNumber(-half.X + 4, half.X - 4) else (if rng:NextNumber(0, 1) < 0.5 then -1 else 1) * (half.X - 4)
-		local z = if onX then (if rng:NextNumber(0, 1) < 0.5 then -1 else 1) * (half.Z - 4) else rng:NextNumber(-half.Z + 4, half.Z - 4)
-		local s = rng:NextNumber(1.8, 4.5)
-		solid(part(decor, "Rock", Vector3.new(s, s * rng:NextNumber(0.6, 1.1), s * rng:NextNumber(0.8, 1.3)), CFrame.new(c + Vector3.new(x, s * 0.3, z)) * CFrame.Angles(rng:NextNumber(-0.4, 0.4), rng:NextNumber(0, 3), rng:NextNumber(-0.4, 0.4)), ROCK, Enum.Material.Basalt))
-	end
+	local citadel = workspace:FindFirstChild("Ciudadela") ~= nil
+	if not citadel then
+		-- Piso de roca con lava en las grietas
+		local floor = solid(part(folder, "Floor", Vector3.new(layout.Size.X, 2, layout.Size.Z), CFrame.new(c - Vector3.new(0, 1, 0)), C(95, 70, 62), Enum.Material.CrackedLava))
+		floor.CanTouch = true
+		local decor = Instance.new("Folder")
+		decor.Name = "Decor"
+		decor.Parent = folder
+		for _ = 1, 16 do
+			local start = c + Vector3.new(rng:NextNumber(-half.X + 6, half.X - 20), 0.04, rng:NextNumber(-half.Z + 6, half.Z - 6))
+			crack(decor, rng, start, rng:NextInteger(3, 6))
+		end
+		-- Charcos de lava
+		for _, spot in { Vector3.new(4, 0, half.Z - 10), Vector3.new(-half.X + 14, 0, half.Z - 12), Vector3.new(half.X - 8, 0, half.Z - 6) } do
+			local d = rng:NextNumber(7, 10)
+			local pos = c + spot
+			local rim = part(decor, "PoolRim", Vector3.new(0.4, d + 2, d + 2), CFrame.new(pos + Vector3.new(0, 0.15, 0)) * CFrame.Angles(0, 0, math.rad(90)), ROCK_DARK, Enum.Material.Basalt)
+			rim.Shape = Enum.PartType.Cylinder
+			local lava = part(decor, "Lava", Vector3.new(0.4, d, d), CFrame.new(pos + Vector3.new(0, 0.22, 0)) * CFrame.Angles(0, 0, math.rad(90)), LAVA, Enum.Material.Neon)
+			lava.Shape = Enum.PartType.Cylinder
+			lava.CastShadow = false
+			lavaLight(lava, 22, 2.2)
+			CrateModels.embers(lava, C(255, 170, 60), 6, 30)
+		end
+		-- Rocas sueltas cerca de los muros
+		for _ = 1, 14 do
+			local onX = rng:NextNumber(0, 1) < 0.5
+			local x = if onX then rng:NextNumber(-half.X + 4, half.X - 4) else (if rng:NextNumber(0, 1) < 0.5 then -1 else 1) * (half.X - 4)
+			local z = if onX then (if rng:NextNumber(0, 1) < 0.5 then -1 else 1) * (half.Z - 4) else rng:NextNumber(-half.Z + 4, half.Z - 4)
+			local s = rng:NextNumber(1.8, 4.5)
+			solid(part(decor, "Rock", Vector3.new(s, s * rng:NextNumber(0.6, 1.1), s * rng:NextNumber(0.8, 1.3)), CFrame.new(c + Vector3.new(x, s * 0.3, z)) * CFrame.Angles(rng:NextNumber(-0.4, 0.4), rng:NextNumber(0, 3), rng:NextNumber(-0.4, 0.4)), ROCK, Enum.Material.Basalt))
+		end
 
-	-- Muros (con la puerta del lado del lobby)
-	local walls = Instance.new("Folder")
-	walls.Name = "Walls"
-	walls.Parent = folder
-	local x0, x1 = c.X - half.X, c.X + half.X
-	local z0, z1 = c.Z - half.Z, c.Z + half.Z
-	local t = 3
-	wallSegment(walls, rng, Vector3.new(x0, 0, z0 - t / 2), Vector3.new(x1 + t, 0, z0 - t / 2), t)
-	wallSegment(walls, rng, Vector3.new(x0, 0, z1 + t / 2), Vector3.new(x1 + t, 0, z1 + t / 2), t)
-	wallSegment(walls, rng, Vector3.new(x1 + t / 2, 0, z0), Vector3.new(x1 + t / 2, 0, z1), t)
-	local doorHalf = layout.DoorWidth / 2
-	local wx = x0 + t / 2
-	wallSegment(walls, rng, Vector3.new(wx, 0, z0), Vector3.new(wx, 0, c.Z - doorHalf), t)
-	wallSegment(walls, rng, Vector3.new(wx, 0, c.Z + doorHalf), Vector3.new(wx, 0, z1), t)
+		-- Muros (con la puerta del lado del lobby)
+		local walls = Instance.new("Folder")
+		walls.Name = "Walls"
+		walls.Parent = folder
+		local x0, x1 = c.X - half.X, c.X + half.X
+		local z0, z1 = c.Z - half.Z, c.Z + half.Z
+		local t = 3
+		wallSegment(walls, rng, Vector3.new(x0, 0, z0 - t / 2), Vector3.new(x1 + t, 0, z0 - t / 2), t)
+		wallSegment(walls, rng, Vector3.new(x0, 0, z1 + t / 2), Vector3.new(x1 + t, 0, z1 + t / 2), t)
+		wallSegment(walls, rng, Vector3.new(x1 + t / 2, 0, z0), Vector3.new(x1 + t / 2, 0, z1), t)
+		local doorHalf = layout.DoorWidth / 2
+		local wx = x0 + t / 2
+		wallSegment(walls, rng, Vector3.new(wx, 0, z0), Vector3.new(wx, 0, c.Z - doorHalf), t)
+		wallSegment(walls, rng, Vector3.new(wx, 0, c.Z + doorHalf), Vector3.new(wx, 0, z1), t)
 
-	-- Arco de entrada con el cartel
-	local archH = 12
-	for _, side in { -1, 1 } do
-		solid(part(folder, "ArchPillar", Vector3.new(3.5, archH, 3.5), CFrame.new(Vector3.new(wx, archH / 2, c.Z + side * (doorHalf + 1.5))), ROCK_DARK, Enum.Material.Basalt))
-		local brazier = CrateModels.torch(folder, CFrame.new(Vector3.new(wx, archH + 2.4, c.Z + side * (doorHalf + 1.5))), 0.4)
-		brazier.model.Name = "ArchFire"
+		-- Arco de entrada con el cartel
+		local archH = 12
+		for _, side in { -1, 1 } do
+			solid(part(folder, "ArchPillar", Vector3.new(3.5, archH, 3.5), CFrame.new(Vector3.new(wx, archH / 2, c.Z + side * (doorHalf + 1.5))), ROCK_DARK, Enum.Material.Basalt))
+			local brazier = CrateModels.torch(folder, CFrame.new(Vector3.new(wx, archH + 2.4, c.Z + side * (doorHalf + 1.5))), 0.4)
+			brazier.model.Name = "ArchFire"
+		end
+		local lintel = solid(part(folder, "ArchTop", Vector3.new(4, 2.4, layout.DoorWidth + 7), CFrame.new(Vector3.new(wx, archH + 1.2, c.Z)), ROCK, Enum.Material.Basalt))
+		part(folder, "ArchLava", Vector3.new(4.2, 0.3, layout.DoorWidth + 5), CFrame.new(Vector3.new(wx, archH + 0.4, c.Z)), LAVA, Enum.Material.Neon).CastShadow = false
+		local archSign = sign(lintel, Vector3.new(0, 4.5, 0), UDim2.fromScale(20, 5), 160)
+		label(archSign, "🔥 CRATES 🔥", C(255, 150, 60), UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), Enum.Font.GothamBlack)
+
 	end
-	local lintel = solid(part(folder, "ArchTop", Vector3.new(4, 2.4, layout.DoorWidth + 7), CFrame.new(Vector3.new(wx, archH + 1.2, c.Z)), ROCK, Enum.Material.Basalt))
-	part(folder, "ArchLava", Vector3.new(4.2, 0.3, layout.DoorWidth + 5), CFrame.new(Vector3.new(wx, archH + 0.4, c.Z)), LAVA, Enum.Material.Neon).CastShadow = false
-	local archSign = sign(lintel, Vector3.new(0, 4.5, 0), UDim2.fromScale(20, 5), 160)
-	label(archSign, "🔥 CRATES 🔥", C(255, 150, 60), UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), Enum.Font.GothamBlack)
 
 	-- Plataformas
 	local stations = Instance.new("Folder")

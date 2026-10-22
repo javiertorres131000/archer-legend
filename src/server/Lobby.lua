@@ -4,6 +4,11 @@
 -- Construye la zona segura donde se aparece y se prepara la partida.
 -- Está lejos de la arena (Config.Lobby.Center): nunca se ven entre sí.
 -- Es solo escenario: acá nadie recibe daño porque PlayerLife solo daña a participantes.
+--
+-- Ciudadela: si en el place existe Workspace > Ciudadela (armada en Studio: murallas, portal,
+-- mercado, vitrina, tablas de récords y el patio de las cajas), se usa esa y no se arma la plaza
+-- de abajo. Su SpawnLocation se llama LobbySpawn. La vida de la ciudadela (NPCs, vitrina,
+-- tablas y portal) está en LobbyWorld.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
@@ -33,7 +38,22 @@ local function part(parent: Instance, name: string, size: Vector3, cframe: CFram
 	return p
 end
 
+-- Lobby armado en Studio (Workspace > Ciudadela), o nil
+function Lobby.citadel(): Model?
+	local m = workspace:FindFirstChild("Ciudadela")
+	return if m and m:IsA("Model") then m else nil
+end
+
 function Lobby.build()
+	local citadel = Lobby.citadel()
+	if citadel then
+		local spawn = citadel:FindFirstChild("LobbySpawn", true)
+		if spawn and spawn:IsA("SpawnLocation") then
+			spawnLocation = spawn
+			return
+		end
+		warn("[Lobby] La Ciudadela no tiene LobbySpawn: se arma el lobby simple")
+	end
 	local folder = Instance.new("Folder")
 	folder.Name = "Lobby"
 	folder.Parent = workspace

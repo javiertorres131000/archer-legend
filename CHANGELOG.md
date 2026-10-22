@@ -1,5 +1,25 @@
 # Cambios
 
+## 2026-10-21 · Lobby nuevo: la Ciudadela
+
+- **Ciudadela** (`Workspace/Ciudadela`, armada en Studio: vive en el place): una isla flotante con una plaza de castillo.
+  - Murallas almenadas, 4 torres, portón y fuente con cristal mágico, faroles y árboles.
+  - Al norte, el **Portal de batalla**: su prompt JUGAR te pone LISTO.
+  - Al oeste, el mercado: el **Mercader** abre la Tienda y el **Capitán de la Guardia** abre las Misiones, con un "!" cuando hay para cobrar.
+  - Al este, la **vitrina** con las 3 skins míticas girando y el arco al **patio del tesoro**, que es la plaza de cajas rehecha en mármol con alfombra roja.
+  - Los modelos detallados (fuente, puesto, tablón, faroles, árboles, torre, portón y NPCs) se generaron con IA y la biblioteca está en `ServerStorage/CiudadelaModelos`.
+- **Tablas de récords**: top 10 global de nivel de cuenta y de piso de la torre (OrderedDataStore). Sin acceso a DataStore muestran a los jugadores del servidor.
+- **`Server/LobbyWorld`** (nuevo): NPCs, portal, vitrina y tablas. **`LobbyWorld.client`** (nuevo): prompts, vitrina que gira y aviso de misiones.
+- **`Lobby`**: con la Ciudadela usa su `LobbySpawn` y no arma la plaza vieja. **`CratePlaza`**: con la Ciudadela arma solo las plataformas. **`Atmosphere`**: sin luz volcánica en el patio del tesoro.
+- **Interfaz del lobby rehecha** (`LobbyUI`), con el centro libre para ver la ciudadela:
+  - Tarjeta del jugador con avatar, nivel y barra de XP.
+  - Monedas en chips.
+  - Botonera vertical con avisos de talentos y misiones.
+  - Equipo compacto con avatares.
+  - Tarjeta **BATALLA** con el capítulo elegido y una ventana para cambiarlo.
+  - Botón JUGAR con brillo.
+- `RewardsUI`: arreglado un "Label" suelto que se veía en pantalla.
+
 ## 2026-10-21 · Skins Mago Cósmico y Necromante
 
 - **2 premios Mythic nuevos:** Mago Cósmico (`CosmicMage`) y Necromante (`Necromancer`). Salen de las cajas Epic, Legendary y Secret con las mismas chances que el Demonio Ígneo.

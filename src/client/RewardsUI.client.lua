@@ -14,7 +14,7 @@ local toast = Theme.panel({ AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.
 Theme.make("UISizeConstraint", { MaxSize = Vector2.new(480, 70), Parent = toast })
 local title = Theme.text({ Size = UDim2.new(1, -16, 0, 32), Position = UDim2.fromOffset(8, 5), TextSize = 21, TextScaled = true, Parent = toast })
 local subtitle = Theme.text({ Size = UDim2.new(1, -16, 0, 24), Position = UDim2.fromOffset(8, 39), TextSize = 15, Parent = toast })
-local bag = Theme.text({ RichText = true, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0.3, 0), Size = UDim2.new(0.3, 0, 0, 190), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true, Parent = gui })
+local bag = Theme.text({ Text = "", RichText = true, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0.3, 0), Size = UDim2.new(0.3, 0, 0, 190), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true, Parent = gui })
 local owned, queue = {}, {}
 local showing = false
 local gameState = ReplicatedStorage:WaitForChild("GameState")

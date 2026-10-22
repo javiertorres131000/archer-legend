@@ -8,6 +8,7 @@
 --   Profiles     perfil guardado (DataStore): monedas, capítulos y estadísticas
 --   CratePlaza / CrateService   plaza volcánica del lobby y compra/apertura de cajas
 --   MissionService / ShopService   misiones diarias y semanales, tienda del lobby
+--   LobbyWorld   vida de la Ciudadela del lobby (NPCs, portal, vitrina y tablas de récords)
 
 local RunService = game:GetService("RunService")
 
@@ -23,10 +24,12 @@ local CrateService = require(script.Parent.CrateService)
 local Remotes = require(script.Parent.Remotes)
 local MissionService = require(script.Parent.MissionService)
 local ShopService = require(script.Parent.ShopService)
+local LobbyWorld = require(script.Parent.LobbyWorld)
 
 Run.init() -- arena y motor de combate (borra el Baseplate y el spawn de la plantilla)
 Lobby.build() -- después de la arena: el único SpawnLocation del juego es el del lobby
 CratePlaza.build() -- pegada al lobby (Config.Crates.Enabled)
+LobbyWorld.init() -- Ciudadela: NPCs, portal, vitrina y tablas de récords (si existe)
 CrateService.init()
 MissionService.init(Remotes) -- misiones diarias y semanales
 ShopService.init(Remotes) -- tienda del lobby (sin Robux)
@@ -35,6 +38,7 @@ MatchManager.init()
 Profiles.init() -- guardado automático y al cerrar el servidor
 Profiles.onLoaded(MatchManager.onProfileLoaded)
 Profiles.onLoaded(CrateService.onProfileLoaded) -- monedas de prueba
+Profiles.onLoaded(LobbyWorld.onProfileLoaded) -- tablas de récords
 DebugCommands.init() -- panel de prueba (F2): solo Studio o Config.Debug.Admins
 
 PlayerData.init(function(player)
@@ -46,6 +50,7 @@ end, function(player)
 	MatchManager.onPlayerRemoving(player)
 	PlayerLife.onPlayerRemoving(player)
 	CrateService.onPlayerRemoving(player)
+	LobbyWorld.onPlayerRemoving(player) -- guarda su puntaje de las tablas
 	Profiles.onPlayerRemoving(player) -- último: guarda y suelta el perfil
 end)
 
