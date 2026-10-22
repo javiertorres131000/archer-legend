@@ -19,6 +19,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Weapons = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Weapons"))
 local PlayerData = require(script.Parent.PlayerData)
 local CombatFeed = require(script.Parent.CombatFeed)
 local SkillEffects = require(script.Parent.SkillEffects)
@@ -357,6 +358,12 @@ function PlayerLife.damage(target: PlayerData.Target, amount: number)
 	state.lastHurt = now
 	-- Habilidades: esquiva, escudo de maná, armadura, contraataque
 	amount = SkillEffects.incoming(target, amount)
+	-- Cuerpo a cuerpo (espada, puños): aguantan más porque tienen que acercarse
+	local weaponId = target.player:GetAttribute("Weapon")
+	local weaponDef = type(weaponId) == "string" and Weapons.ById[weaponId] or nil
+	if weaponDef and weaponDef.Kind == "Melee" and Config.Melee then
+		amount *= Config.Melee.DamageTaken
+	end
 	if amount <= 0 then
 		return
 	end

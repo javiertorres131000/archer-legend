@@ -180,6 +180,13 @@ Config.MapEvents = {
 	},
 }
 
+-- Ventajas de pelear cuerpo a cuerpo (espada y puños): hay que acercarse, así que aguantan más
+Config.Melee = {
+	DamageTaken = 0.7, -- reciben un 30% menos de daño
+	Lifesteal = 0.04, -- cada golpe que conecta cura este porcentaje del daño hecho
+	SwordCutsProjectiles = true, -- el tajo de espada destruye los disparos enemigos en su arco
+}
+
 Config.Waves = {
 	HealthGrowth = 0.12, -- cada oleada los enemigos comunes tienen +20% de vida
 	EnemyCountMultiplier = 4, -- más o menos enemigos por oleada en todos los capítulos (1 = original)

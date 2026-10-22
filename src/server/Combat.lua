@@ -254,6 +254,7 @@ function Combat.meleeSwing(t: PlayerData.Target, dir: Vector3, weapon: any, opts
 	damage *= SkillEffects.swingMult(state) -- Contraataque
 	local origin = flat(t.root.Position)
 	local hits = 0
+	local dealtTotal = 0
 	for _, e in table.clone(Enemies.list) do
 		if not e.alive or e.hidden then
 			continue
@@ -278,9 +279,11 @@ function Combat.meleeSwing(t: PlayerData.Target, dir: Vector3, weapon: any, opts
 		local crit = math.random() < stats.critChance
 		local amount = if crit then dealt * stats.critMultiplier else dealt
 		Enemies.damage(e, amount, t.player, if crit then "crit" else "hit")
+		dealtTotal += amount
 		-- Doble golpe (puños): pega otra vez
 		if e.alive and SkillEffects.doubleHit(stats) then
 			Enemies.damage(e, amount, t.player, if crit then "crit" else "hit")
+			dealtTotal += amount
 		end
 		SkillEffects.onHit(t.player, stats, e, amount, "melee", origin)
 		if not e.alive then
@@ -301,6 +304,25 @@ function Combat.meleeSwing(t: PlayerData.Target, dir: Vector3, weapon: any, opts
 	if hits > 0 then
 		state.combo = (state.combo or 0) + 1
 		state.lastHitAt = now
+	end
+	-- Robo de vida del cuerpo a cuerpo (Config.Melee.Lifesteal)
+	local MeleeCfg = Config.Melee
+	if MeleeCfg and dealtTotal > 0 and t.humanoid.Health > 0 and state.life == "ALIVE" then
+		t.humanoid.Health = math.min(t.humanoid.MaxHealth, t.humanoid.Health + dealtTotal * MeleeCfg.Lifesteal)
+	end
+	-- La espada corta los disparos enemigos que estén en el arco del tajo
+	if MeleeCfg and MeleeCfg.SwordCutsProjectiles and Weapons.baseOf(weapon.Id) == "Sword" then
+		for i = #enemyProjectiles, 1, -1 do
+			local p = enemyProjectiles[i]
+			local offset = flat(p.pos) - origin
+			local d = offset.Magnitude
+			if d <= range + p.radius + 1 and (d < 2 or offset.Unit:Dot(dir) >= minDot) then
+				table.remove(enemyProjectiles, i)
+				if remotes then
+					remotes.ProjectileEnded:FireAllClients(p.id) -- el cliente lo hace estallar en chispas
+				end
+			end
+		end
 	end
 	if remotes then
 		remotes.MeleeSwing:FireAllClients(t.player.UserId, t.root.Position, dir, range, arc, weapon.Id)

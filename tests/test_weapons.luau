@@ -128,8 +128,8 @@ test("en partida: con espada no dispara flechas, golpea al que entra en alcance"
 	far.part.Position = V(0, far.part.Position.Y, 6)
 	Combat.update(0.01, { target }, 101, false)
 	assert(swings == 1 and fired == 0)
-	-- Cadencia: con la espada tarda más que el arco
-	Combat.update(0.01, { target }, 101 + state.stats.attackInterval, false)
+	-- Cadencia: la de la espada (IntervalMult)
+	Combat.update(0.01, { target }, 101 + state.stats.attackInterval * Weapons.ById.Sword.IntervalMult - 0.02, false)
 	assert(swings == 1)
 	Combat.update(0.01, { target }, 101 + state.stats.attackInterval * Weapons.ById.Sword.IntervalMult + 0.01, false)
 	assert(swings == 2)

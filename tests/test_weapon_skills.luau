@@ -128,13 +128,21 @@ test("espada: hoja larga, ejecución y sed de sangre", function()
 	local before = weak.health
 	Combat.meleeSwing(target, V(0, 0, 1), sword, { now = 3 })
 	assert(math.abs(before - weak.health - state.stats.damage * sword.DamageMult * 1.6) < 0.01)
-	-- Sed de sangre
+	-- Sed de sangre (sin el robo de vida del cuerpo a cuerpo, para medir solo esto)
+	local lifesteal = Config.Melee.Lifesteal
+	Config.Melee.Lifesteal = 0
 	state.stats.healOnKill = 4
 	target.humanoid.Health = 50
 	local victim = Enemies.spawn("HordeSkeleton", V(0, 0, 4))
 	victim.health = 1
 	Combat.meleeSwing(target, V(0, 0, 1), sword, { now = 4 })
 	assert(not victim.alive and target.humanoid.Health == 54)
+	Config.Melee.Lifesteal = lifesteal
+	-- Robo de vida: cada golpe que conecta cura un poco
+	target.humanoid.Health = 50
+	local dummy = Enemies.spawn("HeavyKnight", V(0, 0, 4))
+	Combat.meleeSwing(target, V(0, 0, 1), sword, { now = 6 })
+	assert(dummy.health < dummy.maxHealth and target.humanoid.Health > 50)
 	target.humanoid.Health = target.humanoid.MaxHealth
 end)
 
