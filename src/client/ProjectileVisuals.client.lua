@@ -3,6 +3,7 @@
 -- Dibuja los proyectiles que simula el servidor. Son solo visuales: el daño lo decide el servidor.
 -- La trayectoria se calcula igual que en el servidor: tramos rectos con zigzag opcional;
 -- cuando el servidor avisa un rebote o una vuelta, empieza un tramo nuevo.
+-- Las flechas de quien tiene una skin con efectos (Shared/SkinFx) se visten con Client/SkinArrowFx.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -10,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local FxQuality = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FxQuality"))
+local SkinArrowFx = require(script.Parent:WaitForChild("SkinArrowFx"))
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local projectileFired = remotes:WaitForChild("ProjectileFired") :: RemoteEvent
 local projectileEnded = remotes:WaitForChild("ProjectileEnded") :: RemoteEvent
@@ -22,6 +24,7 @@ local lights = 0 -- luces en proyectiles enemigos (con muchas, cuesta rendimient
 local MAX_LIGHTS = 10
 local pools = { Arrow = {}, EnemyOrb = {}, Wave = {} }
 local MAX_POOL = if low then 40 else 100
+local TRAIL_LIFE = 0.15 -- estela de la flecha común
 
 -- Estela de color detrás de la flecha (no en calidad baja)
 local function addTrail(part: Part, color: Color3, width: number)
@@ -34,7 +37,7 @@ local function addTrail(part: Part, color: Color3, width: number)
 	local trail = Instance.new("Trail")
 	trail.Attachment0 = a0
 	trail.Attachment1 = a1
-	trail.Lifetime = 0.15
+	trail.Lifetime = TRAIL_LIFE
 	trail.LightEmission = 1
 	trail.FaceCamera = true
 	trail.Color = ColorSequence.new(color)
@@ -76,6 +79,8 @@ local function dressArrow(part: Part, scale: number, featherColor: Color3)
 	local length = part.Size.Z
 	-- (con la pieza principal en el origen, mirando a -Z: la punta va adelante)
 	h.Size = Vector3.new(0.22, 0.22, 0.45) * scale
+	h.Material = Enum.Material.Metal
+	h.Color = Color3.fromRGB(190, 195, 205)
 	h.CFrame = part.CFrame * CFrame.new(0, 0, -length / 2 - 0.15 * scale)
 	f.Size = Vector3.new(0.04, 0.3, 0.5) * scale
 	f.Color = featherColor
@@ -98,6 +103,7 @@ type Visual = {
 	zigAmp: number,
 	zigFreq: number,
 	above: number?, -- altura sobre el piso al salir (sigue el relieve)
+	skin: any?, -- skin del arquero (SkinFx) si la flecha tiene efectos propios
 }
 local visuals: { [number]: Visual } = {}
 
@@ -113,6 +119,11 @@ end
 local function removeVisual(id: number)
 	local v = visuals[id]
 	if v then
+		if v.skin then
+			-- Antes del final de su alcance = pegó en algo: explosión. Si no, se apaga sola.
+			SkinArrowFx.impact(v.part.Position, v.skin, v.age < v.lifetime - 0.05, low)
+			SkinArrowFx.clear(v.part)
+		end
 		local light = v.part:FindFirstChildOfClass("PointLight")
 		if light and light.Enabled then lights -= 1; light.Enabled = false end
 		local trail = v.part:FindFirstChildOfClass("Trail")
@@ -137,6 +148,7 @@ projectileFired.OnClientEvent:Connect(
 		local isEnemy = ownerUserId == 0 -- 0 = proyectil enemigo
 		local isWave = not isEnemy and style ~= nil and style.wave == true -- Onda cortante (espada)
 		local kind = if isEnemy then "EnemyOrb" elseif isWave then "Wave" else "Arrow"
+		local skin = if kind == "Arrow" then SkinArrowFx.forOwner(ownerUserId) else nil
 		local part = table.remove(pools[kind]) or Instance.new("Part")
 		part.Name = kind
 		part.Anchored = true
@@ -186,7 +198,28 @@ projectileFired.OnClientEvent:Connect(
 			dressArrow(part, scale, feather)
 			if not low then
 				local trail = part:FindFirstChildOfClass("Trail")
-				if trail then trail.Enabled = true; trail.Color = ColorSequence.new(feather) else addTrail(part, feather, 0.3) end
+				if not trail then
+					addTrail(part, feather, 0.3)
+					trail = part:FindFirstChildOfClass("Trail")
+				end
+				if trail then
+					trail.Enabled = true
+					if skin then
+						local color, life, width = SkinArrowFx.trailStyle(skin)
+						trail.Color = color
+						trail.Lifetime = life
+						trail.WidthScale = NumberSequence.new(width, width * 0.25)
+					else
+						trail.Color = ColorSequence.new(feather)
+						trail.Lifetime = TRAIL_LIFE
+						trail.WidthScale = NumberSequence.new(1)
+					end
+				end
+			end
+			if skin then
+				-- Vara, punta, llamas, brasas y luz de la skin (las plumas siguen diciendo de quién es)
+				SkinArrowFx.decorate(part, skin, low)
+				SkinArrowFx.launch(origin, skin, low)
 			end
 		end
 		part.CFrame = CFrame.lookAt(origin, origin + dir)
@@ -202,6 +235,7 @@ projectileFired.OnClientEvent:Connect(
 			segAge = 0,
 			zigAmp = style and style.zigAmp or 0,
 			zigFreq = style and style.zigFreq or 0,
+			skin = skin,
 			above = (function()
 				local g = groundAt(origin)
 				return g and math.max(1, origin.Y - g)

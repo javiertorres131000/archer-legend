@@ -7,7 +7,7 @@
 --     PointLight, con el atributo GlowBase) pulsa alrededor de su valor.
 --   · Balanceo: las Welds con tag "LavaSway" (alas y capa) se mueven con el tiempo y la velocidad.
 --     Las alas se abren al saltar (aletazos fuertes subiendo, planeo cayendo).
---   · Para los personajes con un traje de SKINS: pisadas de lava, aura en el piso, estela en el
+--   · Para los personajes con una skin de Shared/SkinFx: pisadas de lava, aura en el piso, estela en el
 --     dash y explosión de brasas al equiparlo.
 
 local CollectionService = game:GetService("CollectionService")
@@ -15,15 +15,17 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local SkinFx = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SkinFx"))
 
 local C = Color3.fromRGB
 
--- Trajes con efectos de movimiento (Id del premio -> colores)
-local SKINS: { [string]: { hot: Color3, mid: Color3, dark: Color3 } } = {
-	FireDemon = { hot = C(255, 190, 70), mid = C(255, 80, 20), dark = C(120, 15, 5) },
-	CosmicMage = { hot = C(220, 200, 255), mid = C(130, 100, 255), dark = C(60, 20, 120) },
-	Necromancer = { hot = C(190, 255, 200), mid = C(60, 230, 100), dark = C(10, 70, 25) },
-}
+-- Trajes con efectos de movimiento: los colores salen de Shared/SkinFx (Id del premio -> paleta)
+local function colorsOf(id: any): SkinFx.Palette?
+	local skin = SkinFx.get(id)
+	return skin and skin.Colors
+end
 
 local FAR = 160 -- más lejos que esto de la cámara no se anima nada
 local STEP_EVERY = 0.3 -- segundos entre pisadas
@@ -199,7 +201,7 @@ local function updateSways(dt: number)
 end
 
 ---------------------------------------------------------------------
--- Efectos de movimiento (solo trajes de SKINS)
+-- Efectos de movimiento (solo skins de Shared/SkinFx)
 ---------------------------------------------------------------------
 
 type Colors = { hot: Color3, mid: Color3, dark: Color3 }
@@ -346,7 +348,7 @@ end
 
 local function startTracking(character: Model, skin: string, burst: boolean)
 	stopTracking(character)
-	local colors = SKINS[skin]
+	local colors = colorsOf(skin)
 	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not colors or not root or not humanoid then
@@ -482,7 +484,7 @@ end
 
 local function refresh(character: Model, burst: boolean)
 	local id = character:GetAttribute("CrateLook")
-	if type(id) == "string" and SKINS[id] then
+	if type(id) == "string" and colorsOf(id) then
 		local tr = tracked[character]
 		if not tr or tr.skin ~= id then
 			-- espera a que estén las piezas del avatar
@@ -528,7 +530,7 @@ local function updateMovement(now: number)
 		if (root.Position - camPos).Magnitude > FAR then
 			continue
 		end
-		local colors = SKINS[tr.skin]
+		local colors = colorsOf(tr.skin) :: Colors
 		local v = root.AssemblyLinearVelocity
 		local speed = Vector3.new(v.X, 0, v.Z).Magnitude
 		local grounded = humanoid.FloorMaterial ~= Enum.Material.Air

@@ -27,6 +27,7 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `Crates` | Las 5 cajas: precio, colores y tabla de premios con probabilidades; `rates`, `pick` (tirada ponderada) y formatos |
 | `CrateItems` | Rarezas de las cajas (Common → Secret) y los premios (tipo, rareza y aspecto) |
 | `CrateModels` | Piezas 3D con Parts: hexágonos, antorchas, cofres y premios de bloques (o modelos propios de `CrateAssets`) |
+| `SkinFx` | Colores y efectos de cada skin (paleta para pisadas/aura y flechas propias); `get` y `forCharacter` (atributo `CrateLook`) |
 | `CrateLooks` | Trajes detallados de premios de personaje (piezas por segmento): se aplican al avatar R15 y a las vistas previas |
 | `CratePlazaLayout` | Dónde va la plaza de las cajas y cada plataforma (servidor y cliente calculan igual) |
 | `UITheme` | Colores, tipografías, íconos y constructores de UI (fantasía oscura y dorado) |
@@ -89,7 +90,8 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `Pickups` | Dibuja orbes de XP (y su vuelo al jugador) y adorna los cofres |
 | `Atmosphere` | Luz de día, bloom suave, bruma y tinte del capítulo; luz y cielo volcánicos en la plaza de las cajas |
 | `Sfx` | Sonidos (definidos en `Shared/Sounds.lua`), con mínimo de tiempo entre repeticiones; nota ascendente por racha y redoble antes de una legendaria (`LegendaryReveal`) |
-| `ProjectileVisuals` | Dibuja los proyectiles; pools separados de flechas y balas enemigas |
+| `ProjectileVisuals` | Dibuja los proyectiles; pools separados de flechas y balas enemigas. Las flechas de quien tiene una skin con `Arrow` las viste `SkinArrowFx` |
+| `SkinArrowFx` | Flechas con la skin del arquero: vara, punta, estela, llamas, brasas y luz en vuelo; chispazo al disparar y explosión al pegar (tope de luces, calidad baja) |
 | `EquipmentUI` | Inventario, espacios, mejoras, confirmación de fusión y reciclaje |
 | `WeaponUI` / `MeleeVisuals` | Elegir arma en el lobby y dibujar los golpes cuerpo a cuerpo |
 | `StatsUI` | Panel de stats (lobby y Tab en partida) |

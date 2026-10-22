@@ -1,5 +1,17 @@
 # Cambios
 
+## 2026-10-22 · Flechas con la skin: Demonio Ígneo
+
+- **Flechas de fuego** para quien tiene puesto el Demonio Ígneo (`Client/SkinArrowFx`, nuevo):
+  - Vara de basalto, punta de neón naranja y estela de fuego más ancha y larga.
+  - En vuelo: llamas (flipbook del estilo Inferno), brasas y una luz que acompaña a la flecha.
+  - Al disparar: chispazo en el arco. Al pegar: llamarada, anillo, destello, humo y un fogonazo de luz. Si la flecha llega al final de su alcance sin pegar, se apaga con unas chispas.
+  - Las plumas siguen diciendo de quién es la flecha (tuya, compañero, gigante).
+  - Calidad baja (celulares): solo los colores de la vara y la punta, y chispas al pegar; sin partículas ni luces en vuelo. Hasta 6 luces de flechas a la vez.
+- **`Shared/SkinFx` (nuevo):** colores y efectos de cada skin en un solo lugar. Las pisadas, el aura y la estela de `LavaSkinFx` ahora toman los colores de acá (Demonio Ígneo, Mago Cósmico y Necromante). Para darle flechas propias a otra skin alcanza con sumarle `Arrow`.
+- Todo es visual y lo dibuja cada cliente: no cambia el daño ni lo que hace el servidor.
+- Pruebas: `test_skinfx` (6): datos de cada skin, la skin sale del atributo `CrateLook`, solo las flechas del que la tiene puesta, vestir y limpiar flechas del pool, calidad baja y tope de luces (34/34 archivos OK). Probado en Studio: en partida las flechas salen vestidas (vara, punta, estela, llamas y luz) y los impactos aparecen; se vio en pantalla una ráfaga de prueba con el mismo módulo. Sin errores en la consola.
+
 ## 2026-10-21 · Ciudadela y Arena separadas: grupos y cola rápida
 
 - **Dos places, el mismo código.** El rol lo decide `Server/Places`:

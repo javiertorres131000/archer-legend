@@ -327,6 +327,8 @@ Al este del lobby hay una puerta a la **plaza volcánica**: una plataforma por c
 
 **Antes de publicar:** dejá `TestGoldOnlyInStudio = true` (o `TestGold = 0`).
 
+**Efectos de las skins:** `src/shared/SkinFx.lua`. Cada skin tiene su paleta (`Colors`: pisadas, aura y estela de `LavaSkinFx`) y, si querés, flechas propias (`Arrow`: vara, punta, estilo de texturas de `FxStyles`, llamas, brasas, luz, estela e impacto). Hoy el Demonio Ígneo tiene flechas de fuego; el Mago Cósmico y el Necromante solo la paleta. Es todo visual: lo dibuja cada cliente (`Client/SkinArrowFx`) y en calidad baja se simplifica. Para probar: panel F2 → "Darme y equipar Demonio Ígneo" y jugá una partida con arco.
+
 **Cofres y huevos:** en `src/shared/Crates.lua` cada entrada tiene `Type`: `"Crate"` (cofre de skins: personajes y unidades) o `"Egg"` (huevo de mascotas). Cada tipo tiene su fila en la plaza, su pestaña en el menú (Skin Crates / Pet Eggs) y su animación. Un cofre no puede dar mascotas ni un huevo skins (la prueba lo revisa).
 
 **Cómo se paga cada caja:** `PayWith` en `src/shared/Crates.lua`. Hoy Common (100), Rare (500) y Epic (25.000) se abren con monedas del juego; Legendary y Secret solo con Robux. Para cambiar una caja de forma de pago, cambiá `PayWith` ("Coins" o "Robux").

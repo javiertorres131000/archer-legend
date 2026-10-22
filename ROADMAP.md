@@ -29,6 +29,8 @@
 - [ ] Cofres gratuitos y especiales (hechas: cajas con monedas en la plaza volcánica, 5 rarezas de caja y 7 de premio, animación de apertura)
 - [x] Premios equipables: mascota que sigue y da daño, personaje que cambia el avatar; cajas por Robux con recibos seguros
 - [x] Huevos de mascotas (4, con animación de ruptura); los cofres quedan solo para skins
+- [x] Efectos de skins: flechas de fuego del Demonio Ígneo (Shared/SkinFx + Client/SkinArrowFx)
+- [ ] Flechas propias del Mago Cósmico y el Necromante (sumar `Arrow` en Shared/SkinFx)
 - [ ] Crear los Developer Products en el Creator Dashboard y pegar los ProductId (Shared/Crates.lua) — Legendary Crate, Secret Crate y Mythic Egg
 - [x] Más premios y formas de ganar monedas jugando (misiones diarias)
 - [x] Reciclaje de equipo (por pieza y en lote) — 8a
