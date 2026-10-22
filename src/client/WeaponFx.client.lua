@@ -342,6 +342,16 @@ local function ensure(weapon: string, id: string)
 	end
 	for _, it in items do
 		it.model.Parent = folder
+		if weapon == "Fists" then
+			-- Sin guante de boxeo: se ven las manos del personaje (los brazos de tu color)
+			for _, d in it.model:GetDescendants() do
+				if d:IsA("BasePart") then
+					d.Transparency = 1
+				elseif d:IsA("Decal") or d:IsA("Texture") then
+					d.Transparency = 1
+				end
+			end
+		end
 	end
 	local arrow, arrowParts = nil, {}
 	if weapon == "Bow" then
@@ -572,9 +582,44 @@ end)
 player:GetAttributeChangedSignal("Weapon"):Connect(clear)
 player.CharacterAdded:Connect(clear)
 
+-- Predicción: con espada o puños comunes, el brazo se mueve apenas hacés click (el aviso del
+-- servidor de ese mismo golpe se saltea). Si estás en recarga, espera al aviso del servidor.
+local UserInputService = game:GetService("UserInputService")
+local predictedUntil = 0
+local readyAt = 0
+UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
+	if processed or player:GetAttribute("InMatch") ~= true then
+		return
+	end
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.KeyCode ~= Enum.KeyCode.ButtonR2 then
+		return
+	end
+	local id = player:GetAttribute("Weapon")
+	local def = type(id) == "string" and Weapons.ById[id] or nil
+	if not def or def.Kind ~= "Melee" or def.Fx then
+		return
+	end
+	local now = os.clock()
+	if now < readyAt then
+		return
+	end
+	readyAt = now + Config.Player.AttackInterval * (def.IntervalMult or 1) * 0.9
+	predictedUntil = now + 0.3
+	if def.Id == "Fists" then
+		play("punch", 0.14)
+	else
+		play("slash", 0.22)
+	end
+end)
+
 -- Ataques propios (los confirma el servidor)
 meleeSwing.OnClientEvent:Connect(function(userId, _origin, _dir, _range, arc, weaponId)
 	if userId ~= player.UserId then
+		return
+	end
+	local def0 = Weapons.ById[weaponId]
+	if arc ~= 360 and os.clock() < predictedUntil and def0 and not def0.Fx then
+		predictedUntil = 0 -- este golpe ya se animó al hacer click
 		return
 	end
 	if Weapons.baseOf(weaponId) == "Sword" then

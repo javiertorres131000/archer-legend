@@ -231,6 +231,8 @@ end
 local UserInputService = game:GetService("UserInputService")
 local localPlayer = Players.LocalPlayer
 local skipEchoUntil = 0
+local readyAt = 0 -- cuándo puede salir el próximo golpe (cadencia del arma, estimada)
+local Config = require(Shared:WaitForChild("Config"))
 UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
 	if processed or localPlayer:GetAttribute("InMatch") ~= true then
 		return
@@ -243,8 +245,9 @@ UserInputService.InputBegan:Connect(function(input: InputObject, processed: bool
 	if not def or def.Kind ~= "Melee" or hasAnimeFx(weaponId) then
 		return
 	end
-	if os.clock() < skipEchoUntil then
-		return -- todavía no terminó el golpe anterior
+	local now = os.clock()
+	if now < readyAt then
+		return -- en recarga: el servidor guarda el click y lo dibuja su aviso cuando salga
 	end
 	local character = localPlayer.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -260,7 +263,8 @@ UserInputService.InputBegan:Connect(function(input: InputObject, processed: bool
 	else
 		sword(root.Position, dir, range, def.Arc or 120)
 	end
-	skipEchoUntil = os.clock() + 0.35
+	skipEchoUntil = now + 0.3
+	readyAt = now + Config.Player.AttackInterval * (def.IntervalMult or 1) * 0.9
 end)
 
 remote.OnClientEvent:Connect(function(userId, origin, dir, range, arc, weaponId)
