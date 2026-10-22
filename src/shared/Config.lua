@@ -146,6 +146,40 @@ Config.Hazards = {
 	ZoneTick = 0.25, -- cada cuánto dañan las zonas (segundos)
 }
 
+-- Mecánicas propias de cada mapa (Server/MapEvents), por tema del capítulo. Pasan solo durante
+-- las oleadas y dañan a jugadores Y enemigos. Daño a enemigos: fracción de su vida máxima
+-- (EnemyFrac; los jefes, BossFrac).
+Config.MapEvents = {
+	forest = {
+		FirstDelay = 6, -- segundos de respiro al empezar cada oleada
+		LavaVents = { -- grietas de lava que erupcionan cerca de los jugadores
+			Every = { 9, 13 },
+			Count = 2, -- +1 con 3 o más jugadores
+			Offset = { 3, 12 }, -- distancia al jugador elegido
+			Radius = 9,
+			Warn = 1.8, -- segundos de aviso (círculo que se llena)
+			Damage = 18, -- a jugadores, al erupcionar
+			FireTime = 4, -- fuego que queda
+			FireDps = 8,
+			EnemyFrac = 0.45,
+			EnemyBurnFrac = 0.08, -- quemadura por segundo mientras dura el fuego
+			BossFrac = 0.03,
+		},
+		FallingTrees = { -- árboles calcinados que caen sobre la pelea
+			Every = { 15, 22 },
+			Reach = 55, -- solo árboles a esta distancia de algún jugador
+			Warn = 2.2,
+			FallTime = 0.55,
+			Width = 8,
+			MaxLength = 34,
+			Damage = 32,
+			EnemyFrac = 1.2, -- aplasta a casi todo lo común
+			BossFrac = 0.08,
+			LyingTime = 7, -- queda tirado y después desaparece
+		},
+	},
+}
+
 Config.Waves = {
 	HealthGrowth = 0.12, -- cada oleada los enemigos comunes tienen +20% de vida
 	EnemyCountMultiplier = 10, -- más o menos enemigos por oleada en todos los capítulos (1 = original)

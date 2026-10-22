@@ -260,6 +260,11 @@ local function shade(color: Color3, rng: Random): Color3
 	return Color3.new(math.clamp(color.R * k, 0, 1), math.clamp(color.G * k, 0, 1), math.clamp(color.B * k, 0, 1))
 end
 
+-- Carpeta con la decoración del mapa actual (MapEvents busca ahí los árboles que caen).
+function Arena.props(): Instance?
+	return roomFolder
+end
+
 -- Arma el mapa del capítulo: terreno con relieve y decoración (MapBuilder). roomIndex cambia la
 -- semilla: con puertas (Config.Waves.UseDoors) cada sala es un mapa nuevo.
 function Arena.buildRoom(chapter, roomIndex: number)

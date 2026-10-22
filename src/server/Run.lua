@@ -32,6 +32,7 @@ local Grab = require(script.Parent.Grab)
 local Ping = require(script.Parent.Ping)
 local SkillEffects = require(script.Parent.SkillEffects)
 local WaveEvents = require(script.Parent.WaveEvents)
+local MapEvents = require(script.Parent.MapEvents)
 local Rarities = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Rarities"))
 local Modes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Modes"))
 
@@ -239,6 +240,7 @@ local function clearWorld()
 	ItemService.reset()
 	Enemies.clear()
 	Hazards.clear()
+	MapEvents.clear()
 	Combat.clear()
 	Boss.update()
 	Waves.reset()
@@ -271,6 +273,7 @@ function Run.start(index: number, participants: { Player }, mode: string?)
 	enteringUntil = nil
 	Arena.closeDoor()
 	Arena.buildRoom(ch, roomIndex)
+	MapEvents.reset(ch, Arena.props())
 	Remotes.GameState:SetAttribute("RoomIndex", roomIndex)
 	-- Cada uno en su punto de la entrada, con vida, XP y habilidades de partida en cero
 	for _, p in participants do
@@ -418,6 +421,7 @@ function Run.step(dt: number): Result?
 	Combat.update(dt, targets, now, frozen)
 	if not frozen then
 		Hazards.update(dt, targets)
+		MapEvents.update(dt, targets, phase)
 	end
 	if not frozen then
 		Orbs.update(targets)
@@ -541,6 +545,7 @@ function Run.updateDoor(now: number, targets)
 		Hazards.clear()
 		roomIndex += 1
 		Arena.buildRoom(Waves.currentChapter(), roomIndex)
+		MapEvents.reset(Waves.currentChapter(), Arena.props())
 		Remotes.GameState:SetAttribute("RoomIndex", roomIndex)
 		Remotes.GameState:SetAttribute("DoorEnd", 0)
 		local points = Arena.spawnPoints(#targets)
@@ -562,6 +567,7 @@ function Run.rebuildForFloor(floor: number)
 	roomIndex += 1
 	local def = Modes.towerChapter(floor)
 	Arena.buildRoom(def, roomIndex)
+	MapEvents.reset(def, Arena.props())
 	Remotes.GameState:SetAttribute("RoomIndex", roomIndex)
 	Remotes.GameState:SetAttribute("Chapter", def.ThemeIndex)
 	local participants = PlayerLife.participants()
