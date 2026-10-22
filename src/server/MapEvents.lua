@@ -16,6 +16,7 @@
 -- Run llama a reset() al armar un mapa, update() cada frame de combate y clear() al terminar.
 
 local Debris = game:GetService("Debris")
+local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Remotes = require(script.Parent.Remotes)
@@ -122,6 +123,94 @@ local function burstFx(pos: Vector3, size: number)
 		sparks:Emit(40)
 	end)
 	Debris:AddItem(p, 1.6)
+
+	-- Pilar de lava: sale disparado hacia arriba, se ensancha y se apaga
+	local function neon(color: Color3): Part
+		local n = Instance.new("Part")
+		n.Anchored = true
+		n.CanCollide = false
+		n.CanQuery = false
+		n.CanTouch = false
+		n.CastShadow = false
+		n.Material = Enum.Material.Neon
+		n.Shape = Enum.PartType.Cylinder
+		n.Color = color
+		n.Parent = folder
+		return n
+	end
+	local up = CFrame.Angles(0, 0, math.rad(90)) -- el cilindro tiene el eje en X
+	local HEIGHT = 26
+	local core = neon(Color3.fromRGB(255, 220, 120))
+	local shell = neon(LAVA)
+	shell.Transparency = 0.35
+	for _, part in { core, shell } do
+		local w = if part == core then 2.5 else 5
+		part.Size = Vector3.new(0.5, w, w)
+		part.CFrame = CFrame.new(pos) * up
+		local info = TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		TweenService:Create(part, info, {
+			Size = Vector3.new(HEIGHT, w * 1.4, w * 1.4),
+			CFrame = CFrame.new(pos + Vector3.new(0, HEIGHT / 2, 0)) * up,
+		}):Play()
+		task.delay(0.3, function()
+			local out = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+			TweenService:Create(part, out, {
+				Size = Vector3.new(HEIGHT * 0.3, 0.3, 0.3),
+				CFrame = CFrame.new(pos + Vector3.new(0, HEIGHT * 0.15, 0)) * up,
+				Transparency = 1,
+			}):Play()
+		end)
+		Debris:AddItem(part, 1.1)
+	end
+	-- Onda en el piso
+	local ring = neon(LAVA)
+	ring.Size = Vector3.new(0.2, 2, 2)
+	ring.CFrame = CFrame.new(pos + Vector3.new(0, 0.15, 0)) * up
+	ring.Transparency = 0.2
+	TweenService:Create(ring, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = Vector3.new(0.2, size * 3.2, size * 3.2),
+		Transparency = 1,
+	}):Play()
+	Debris:AddItem(ring, 0.5)
+	-- Gotas de lava que caen alrededor
+	local blobs = Instance.new("ParticleEmitter")
+	blobs.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	blobs.Color = ColorSequence.new(Color3.fromRGB(255, 160, 60), Color3.fromRGB(200, 50, 20))
+	blobs.LightEmission = 1
+	blobs.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 0.4) })
+	blobs.Lifetime = NumberRange.new(1, 1.6)
+	blobs.Speed = NumberRange.new(25, 40)
+	blobs.SpreadAngle = Vector2.new(25, 25)
+	blobs.Acceleration = Vector3.new(0, -60, 0)
+	blobs.EmissionDirection = Enum.NormalId.Top
+	blobs.Rate = 0
+	blobs.Parent = p
+	pcall(function()
+		blobs:Emit(18)
+	end)
+end
+
+-- Bicho alcanzado: se prende fuego unos segundos (se ve desde lejos)
+local function igniteFx(enemy: any, duration: number)
+	local part = enemy.part
+	if not part or not part.Parent or part:FindFirstChild("LavaFuego") then
+		return
+	end
+	local fire = Instance.new("Fire")
+	fire.Name = "LavaFuego"
+	fire.Size = math.clamp((enemy.radius or 2) * 2, 3, 10)
+	fire.Heat = fire.Size * 1.5
+	fire.Color = LAVA
+	fire.SecondaryColor = Color3.fromRGB(255, 210, 90)
+	fire.Parent = part
+	local light = Instance.new("PointLight")
+	light.Name = "LavaLuz"
+	light.Color = LAVA
+	light.Range = 10
+	light.Brightness = 1.5
+	light.Parent = part
+	Debris:AddItem(fire, duration)
+	Debris:AddItem(light, duration)
 end
 
 local function dustFx(pos: Vector3)
@@ -184,6 +273,7 @@ local function updateVents()
 				if (flat(e.part.Position) - v.pos).Magnitude <= c.Radius + (e.radius or 0) * 0.5 then
 					hurtEnemy(e, c.EnemyFrac, c.BossFrac)
 					if e.alive then
+						igniteFx(e, c.FireTime)
 						Enemies.applyBurn(e, e.maxHealth * (if e.isBoss then c.BossFrac * 0.2 else c.EnemyBurnFrac), c.FireTime)
 					end
 				end
