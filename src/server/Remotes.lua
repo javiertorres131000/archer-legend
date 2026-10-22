@@ -23,6 +23,9 @@ local function func(name: string): RemoteFunction
 end
 
 local Remotes = {
+	-- servidor -> jugador: ({ PartyId, From, FromId, Chapter, Size, Expires }) te invitaron a un grupo.
+	-- Se responde por LobbyRequest: ("AcceptInvite", PartyId) o ("DeclineInvite", PartyId). Ver PartyService.
+	PartyInvite = event("PartyInvite"),
 	-- jugador -> servidor (RemoteFunction): ("Open", Id de la caja) → resultado de la tirada ·
 	-- ("Collection") → premios que tenés. Lo valida todo CrateService (ver ahí el formato).
 	CrateRequest = func("CrateRequest"),

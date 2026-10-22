@@ -349,6 +349,28 @@ Config.Match = {
 	RequestCooldown = 0.25, -- tiempo mínimo entre peticiones de un mismo jugador
 }
 
+-- Places de la experiencia: la Ciudadela (lobby, muchos jugadores) y la Arena (partidas privadas
+-- de un grupo). Server/Places decide el rol de cada servidor:
+--   · Place de la arena (ArenaPlaceId) publicado: "Arena" (recibe al grupo, juega y lo devuelve).
+--   · Cualquier otro (el lobby, y siempre en Studio): "Lobby" (grupos, invitaciones y cola). Si se
+--     puede teletransportar (no es Studio y ArenaPlaceId no es 0) el grupo viaja a una arena
+--     privada; si no, la partida se juega en este mismo servidor (una a la vez).
+-- Cómo armarlo: en el Creator Dashboard (o en Studio: Asset Manager › Places › Add New Place)
+-- creá el place de la arena dentro de la misma experiencia, publicale este mismo código con la
+-- arena y pegá acá su Id. En Game Settings poné Max Players = LobbyMaxPlayers en el lobby y
+-- Config.Match.MaxPartySize en la arena.
+Config.Places = {
+	LobbyPlaceId = 81254012896939, -- la Ciudadela (este place)
+	ArenaPlaceId = 0, -- pegá acá el Id del place de la arena (0 = todo en un mismo servidor)
+	LobbyMaxPlayers = 20, -- referencia: se configura en Game Settings del place del lobby
+	InviteTime = 30, -- segundos que dura una invitación a un grupo
+	QueueMaxWait = 20, -- cola rápida: si en este tiempo no se llenó el grupo, sale igual
+	QueueStartDelay = 3, -- cuenta regresiva corta cuando la cola arma un grupo
+	ArenaWaitMax = 25, -- arena: segundos máximos esperando que llegue todo el grupo
+	ArenaCountdown = 3, -- arena: cuenta regresiva cuando llegó todo el grupo
+	TeleportRetries = 3, -- intentos si un teletransporte falla
+}
+
 -- Lobby físico: lejos de la arena para que nunca se vean
 Config.Lobby = {
 	Center = Vector3.new(0, 0, 400),

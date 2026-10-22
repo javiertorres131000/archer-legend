@@ -18,6 +18,15 @@
 -- Los clientes solo PIDEN cosas por Remotes.LobbyRequest (listo, elegir capítulo, volver);
 -- el servidor valida tipo, estado, permisos y frecuencia, y publica el resultado en
 -- atributos (GameState y cada Player) que los clientes leen.
+--
+-- Según el rol del servidor (Server/Places):
+--   · "Classic" (pruebas): lo de arriba tal cual: todo el servidor es un equipo.
+--   · "Lobby": los listos y el capítulo los maneja PartyService (grupos). Acá solo se juega la
+--     partida local que pide un grupo (MatchManager.startWith) cuando no se puede viajar a una
+--     arena; al volver, los de OTRA se le pasan a PartyService (MatchManager.onReturned).
+--   · "Arena": el grupo llega teletransportado (Teleporter.joinData: capítulo y quiénes son).
+--     Cuando llegaron todos (o pasó Config.Places.ArenaWaitMax) quedan listos solos y arranca.
+--     Al terminar, los que apretaron OTRA juegan de nuevo acá y el resto vuelve a la Ciudadela.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -35,6 +44,8 @@ local Runes = require(script.Parent.Runes)
 local Run = require(script.Parent.Run)
 local RunLog = require(script.Parent.RunLog)
 local MissionService = require(script.Parent.MissionService)
+local Places = require(script.Parent.Places)
+local Teleporter = require(script.Parent.Teleporter)
 
 local MatchCfg = Config.Match
 
@@ -54,6 +65,14 @@ local againReady: { [Player]: boolean } = {} -- quedaron listos solos por OTRA
 local selectedChapter: string = Chapters[1].Id
 local leader: Player? = nil
 local matchesStarted = 0 -- para las pruebas: cuántas partidas arrancaron
+-- Arena: quiénes tienen que llegar, desde cuándo se espera y quiénes se están yendo al lobby
+local arenaExpected: { [number]: boolean } = {}
+local arenaSince: number? = nil
+local leaving: { [Player]: boolean } = {}
+-- Lobby: a quién avisarle cuando una partida local termina (recibe los que apretaron OTRA)
+local returnedCallback: ((again: { Player }) -> ())? = nil
+local arenaTick: () -> ()
+local arenaAfterMatch: () -> ()
 
 local function now(): number
 	return os.clock()
@@ -74,7 +93,7 @@ local function lobbyPlayers(): { Player }
 	local list = {}
 	for _, p in joinOrder do
 		local s = PlayerData.get(p)
-		if s and not s.inMatch then
+		if s and not s.inMatch and not leaving[p] then
 			table.insert(list, p)
 		end
 	end
@@ -211,6 +230,14 @@ local function startMatch()
 
 	local _, index, mode = chapterById(selectedChapter)
 	if not index or not ChapterUnlocks.partyCanPlay(participants, selectedChapter) then
+		if Places.role() == "Arena" then
+			-- En la arena el capítulo vino con el viaje: el que no lo tiene vuelve a la Ciudadela
+			for _, p in participants do
+				if not ChapterUnlocks.isUnlocked(p, selectedChapter) then
+					notify(p, "No tenés desbloqueado ese capítulo: volvés a la Ciudadela.")
+				end
+			end
+		end
 		for _, p in participants do
 			notify(p, "Ese capítulo no está disponible para todo el equipo.")
 		end
@@ -304,6 +331,116 @@ local function enterReturning()
 end
 
 ---------------------------------------------------------------------
+-- Arena
+---------------------------------------------------------------------
+
+-- Manda de vuelta a la Ciudadela (reintenta hasta que se vayan)
+local function sendToLobby(players: { Player })
+	if #players == 0 then
+		return
+	end
+	for _, p in players do
+		leaving[p] = true
+		p:SetAttribute("Ready", false)
+	end
+	task.spawn(function()
+		local pending = players
+		for _ = 1, 8 do
+			local ok = Teleporter.toLobby(pending)
+			if ok then
+				return
+			end
+			task.wait(5)
+			local still = {}
+			for _, p in pending do
+				if p.Parent then
+					table.insert(still, p)
+				end
+			end
+			pending = still
+			if #pending == 0 then
+				return
+			end
+		end
+		for _, p in pending do
+			p:Kick("No pudimos llevarte de vuelta a la Ciudadela. Volvé a entrar al juego.")
+		end
+	end)
+end
+
+-- ¿Ya llegó el grupo? Entonces quedan todos listos y arranca la cuenta corta.
+arenaTick = function()
+	if Run.isActive() or not arenaSince then
+		return
+	end
+	local present = lobbyPlayers()
+	if #present == 0 then
+		return
+	end
+	local allHere = true
+	for userId in arenaExpected do
+		local p = game:GetService("Players"):GetPlayerByUserId(userId)
+		if not p or leaving[p] then
+			allHere = false
+		end
+	end
+	local loaded = {}
+	for _, p in present do
+		if Profiles.isLoaded(p) then
+			table.insert(loaded, p)
+		end
+	end
+	local waited = now() - (arenaSince :: number) >= Config.Places.ArenaWaitMax
+	gameState:SetAttribute("ArenaWaiting", string.format("%d/%d", #present, math.max(#present, (function()
+		local n = 0
+		for _ in arenaExpected do
+			n += 1
+		end
+		return n
+	end)())))
+	if not ((allHere and #loaded == #present) or (waited and #loaded > 0)) then
+		return
+	end
+	-- Los que no tienen el capítulo (o no cargaron) vuelven a la Ciudadela
+	local back = {}
+	for _, p in present do
+		if not Profiles.isLoaded(p) or not ChapterUnlocks.isUnlocked(p, selectedChapter) then
+			table.insert(back, p)
+		end
+	end
+	sendToLobby(back)
+	for _, p in lobbyPlayers() do
+		setReady(p, true)
+	end
+	refreshPreparation()
+	if state == "STARTING" then
+		gameState:SetAttribute("CountdownEnd", workspace:GetServerTimeNow() + Config.Places.ArenaCountdown)
+		arenaSince = nil
+		gameState:SetAttribute("ArenaWaiting", "")
+	end
+end
+
+-- Terminó una partida en la arena: los de OTRA siguen acá, el resto vuelve a la Ciudadela
+arenaAfterMatch = function()
+	local stay, go = {}, {}
+	for _, p in lobbyPlayers() do
+		if againVotes[p] then
+			table.insert(stay, p)
+		else
+			table.insert(go, p)
+		end
+	end
+	table.clear(againVotes)
+	sendToLobby(go)
+	table.clear(arenaExpected)
+	for _, p in stay do
+		arenaExpected[p.UserId] = true
+	end
+	arenaSince = if #stay > 0 then now() else nil
+	updateLeader()
+end
+
+---------------------------------------------------------------------
 -- Peticiones de los clientes
 ---------------------------------------------------------------------
 
@@ -335,6 +472,9 @@ local function handleRequest(player: Player, action: any, arg: any)
 		return
 	end
 
+	if (action == "SetReady" or action == "SelectChapter") and Places.role() ~= "Classic" then
+		return -- en el lobby lo maneja PartyService; en la arena es automático
+	end
 	if action == "SetReady" then
 		if typeof(arg) ~= "boolean" then
 			return
@@ -403,6 +543,8 @@ end
 ---------------------------------------------------------------------
 
 function MatchManager.init()
+	gameState:SetAttribute("PlaceRole", Places.role())
+	gameState:SetAttribute("ArenaWaiting", "")
 	setState("LOBBY")
 	setChapter(selectedChapter)
 	gameState:SetAttribute("CountdownEnd", 0)
@@ -413,6 +555,25 @@ end
 
 function MatchManager.onPlayerAdded(player: Player)
 	table.insert(joinOrder, player)
+	if Places.role() == "Arena" then
+		local data = Teleporter.joinData(player)
+		if data then
+			if not arenaSince and not Run.isActive() and state == "LOBBY" then
+				arenaSince = now()
+				if chapterById(data.chapter) then
+					setChapter(data.chapter)
+				end
+			end
+			for _, id in data.members do
+				if type(id) == "number" then
+					arenaExpected[id] = true
+				end
+			end
+		else
+			-- Entró directo a la arena (sin viaje): se lo manda a la Ciudadela
+			task.defer(sendToLobby, { player })
+		end
+	end
 	ChapterUnlocks.onPlayerAdded(player)
 	player:SetAttribute("Ready", false)
 	updateLeader()
@@ -438,6 +599,7 @@ function MatchManager.onPlayerRemoving(player: Player)
 	readyAt[player] = nil
 	returnVotes[player] = nil
 	againVotes[player] = nil
+	leaving[player] = nil
 	againReady[player] = nil
 	lastRequest[player] = nil
 	local i = table.find(joinOrder, player)
@@ -474,12 +636,76 @@ function MatchManager.update(dt: number)
 	elseif state == "RETURNING" then
 		if now() - stateSince >= MatchCfg.ReturnDelay then
 			setState("LOBBY")
-			updateLeader()
-			ensurePlayableChapter()
-			applyAgainVotes() -- OTRA: listos solos
-			refreshPreparation()
+			local role = Places.role()
+			if role == "Lobby" then
+				-- Los grupos los maneja PartyService: se le pasan los de OTRA
+				local again = {}
+				for p in againVotes do
+					if p.Parent then
+						table.insert(again, p)
+					end
+				end
+				table.clear(againVotes)
+				if returnedCallback then
+					task.spawn(returnedCallback, again)
+				end
+			elseif role == "Arena" then
+				arenaAfterMatch()
+			else
+				updateLeader()
+				ensurePlayableChapter()
+				applyAgainVotes() -- OTRA: listos solos
+				refreshPreparation()
+			end
+		end
+	elseif Places.role() == "Arena" and (state == "LOBBY" or state == "PREPARING") then
+		arenaTick()
+	end
+end
+
+---------------------------------------------------------------------
+-- Lobby: partidas locales que pide un grupo (PartyService)
+---------------------------------------------------------------------
+
+-- ¿Se puede arrancar una partida en este servidor ahora?
+function MatchManager.isFree(): boolean
+	return state == "LOBBY" and not Run.isActive()
+end
+
+-- Arranca ya una partida con estos jugadores y este capítulo (lo pide PartyService).
+-- Devuelve si arrancó y, si no, por qué.
+function MatchManager.startWith(participants: { Player }, chapterId: string): (boolean, string?)
+	if not MatchManager.isFree() then
+		return false, "La arena está ocupada: arrancan apenas termine la partida en curso."
+	end
+	local list = {}
+	for _, p in participants do
+		local st = PlayerData.get(p)
+		if p.Parent and st and not st.inMatch then
+			table.insert(list, p)
 		end
 	end
+	if #list == 0 then
+		return false, "No hay nadie para jugar."
+	end
+	local _, index, mode = chapterById(chapterId)
+	if not index or not ChapterUnlocks.partyCanPlay(list, chapterId) then
+		return false, "Ese capítulo no está disponible para todo el grupo."
+	end
+	setChapter(chapterId)
+	clearAllReady()
+	table.clear(returnVotes)
+	table.clear(againVotes)
+	matchesStarted += 1
+	setState("PLAYING")
+	gameState:SetAttribute("CountdownEnd", 0)
+	Run.start(index :: number, list, mode)
+	return true, nil
+end
+
+-- Al volver de una partida local: f(jugadores que apretaron OTRA)
+function MatchManager.onReturned(f: (again: { Player }) -> ())
+	returnedCallback = f
 end
 
 -- Para pruebas y diagnóstico

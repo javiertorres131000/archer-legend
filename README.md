@@ -6,7 +6,7 @@ Roguelite de acción cooperativo para Roblox (1 a 4 jugadores), inspirado en las
 
 ## Qué hay hoy
 
-- **Lobby: la Ciudadela**, una plaza de castillo sobre una isla flotante, con portal de batalla, mercado con NPCs, vitrina de skins, tablas de récords y patio del tesoro (cajas). Tiene interfaz propia: equipo con quién está listo, capítulos con desbloqueo, botón **JUGAR**, cuenta regresiva de 5 s y accesos a Equipo, Talentos, Stats, Arma, **Tienda** y **Misiones**.
+- **Lobby: la Ciudadela**, una plaza de castillo sobre una isla flotante, con portal de batalla, mercado con NPCs, vitrina de skins, tablas de récords y patio del tesoro (cajas). Hasta 20 jugadores, cada uno en su **grupo** (invitaciones y cola rápida **BUSCAR GRUPO**) que viaja a una **arena privada**. Tiene interfaz propia: grupo con quién está listo, capítulos con desbloqueo, botón **JUGAR**, cuenta regresiva de 5 s y accesos a Equipo, Talentos, Stats, Arma, **Tienda** y **Misiones**.
 - **Ciclo de partida** controlado por el servidor: `LOBBY → PREPARING → STARTING → PLAYING → RESULTS → RETURNING`.
 - **3 capítulos**: Bosque Maldito (disponible), Ruinas Perdidas y Fortaleza Demoníaca (se desbloquean ganando el anterior).
 - **Perfil guardado** (DataStore): capítulos desbloqueados, récords, estadísticas y monedas: oro 💰, gemas 💎 y piedras de mejora 🔷.
@@ -21,12 +21,25 @@ Roguelite de acción cooperativo para Roblox (1 a 4 jugadores), inspirado en las
 ## Cómo correrlo
 
 1. `rojo serve` en esta carpeta y **Connect** desde el plugin de Rojo en Studio.
-2. En **Game Settings › Places › Max Players** poné **4** (el juego arma equipos de hasta 4).
+2. En **Game Settings › Places › Max Players** poné **20** en la Ciudadela (ver "Ciudadela y Arena" abajo; los grupos son de hasta 4).
 3. **Play** (F5) para uno solo, o **Test › Clients and Servers › 2 Players › Start** para cooperativo.
 
 **Cámara:** la arena se juega en primera persona; cada jugador puede pasar a tercera persona (detrás del hombro) y volver con la tecla **V** (o R3 en el joystick). Teclas, distancia y hombro en `Config.Camera`. Para volver a la vista desde arriba: `Config.Camera.Mode = "TopDown"`. **Ataque manual:** click izquierdo (R2 en el joystick, botón ATACAR en el celular) para atacar hacia donde apunta la mira; mantener apretado sigue atacando a la cadencia del arma, y un click durante la recarga sale apenas se pueda. Sirve para las tres armas y también caminando. En cenital se apunta con el mouse. Para volver al ataque automático: `Config.Player.FireMode = "Auto"` (ahí en primera persona apunta solo a lo que tenés delante, cono en `Config.Player.AimConeFirstPerson`). En primera persona el mouse no se ve dentro de la arena; aparece solo al elegir habilidad, en los resultados o al quedar eliminado.
 
 Para probar rápido: `Config.Debug.UnlockAllChapters = true` deja elegir cualquier capítulo y `Config.Debug.StartWave` arranca en otra oleada (por ejemplo 10 para ir directo al jefe). Volvé a `false` y `1` para jugar normal.
+
+## Ciudadela y Arena (dos places)
+
+La Ciudadela (lobby) y la Arena son dos places de la misma experiencia, y los dos usan este mismo código. El rol lo decide `Server/Places` según el `PlaceId`. En Studio todo funciona en un solo place: los grupos juegan ahí mismo.
+
+Para publicarlo:
+
+1. En el Creator Hub, dentro de esta experiencia, **creá un place nuevo** para la Arena y copiá su ID.
+2. Poné ese ID en `Config.Places.ArenaPlaceId` (en `src/shared/Config.lua`). `LobbyPlaceId` ya es el place actual.
+3. **Ciudadela:** Game Settings › Places › Max Players **20**. **Arena:** Max Players **4**.
+4. Publicá el código en **los dos** places: abrí cada uno en Studio, conectá Rojo y publicá. La Arena no lleva el modelo `Ciudadela` (sin él, se arma el lobby simple de siempre).
+
+Cómo se juega: en la Ciudadela cada uno arranca en su grupo. **JUGAR** te pone listo y, cuando todo tu grupo lo está, viajan juntos a una arena privada. **＋ Invitar** suma amigos al grupo, y **BUSCAR GRUPO** (el líder) completa el grupo con otros jugadores del mismo capítulo. Ajustes en `Config.Places`: tiempo de invitación, espera máxima de la cola, espera en la arena y reintentos.
 
 ## Guardado (etapa 6): cómo activarlo en Studio
 

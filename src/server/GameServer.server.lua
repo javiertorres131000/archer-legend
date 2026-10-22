@@ -9,6 +9,7 @@
 --   CratePlaza / CrateService   plaza volcánica del lobby y compra/apertura de cajas
 --   MissionService / ShopService   misiones diarias y semanales, tienda del lobby
 --   LobbyWorld   vida de la Ciudadela del lobby (NPCs, portal, vitrina y tablas de récords)
+--   Places / PartyService / Teleporter   rol del servidor (Lobby o Arena), grupos y viajes
 
 local RunService = game:GetService("RunService")
 
@@ -25,28 +26,36 @@ local Remotes = require(script.Parent.Remotes)
 local MissionService = require(script.Parent.MissionService)
 local ShopService = require(script.Parent.ShopService)
 local LobbyWorld = require(script.Parent.LobbyWorld)
+local PartyService = require(script.Parent.PartyService)
+local Places = require(script.Parent.Places)
 
 Run.init() -- arena y motor de combate (borra el Baseplate y el spawn de la plantilla)
 Lobby.build() -- después de la arena: el único SpawnLocation del juego es el del lobby
-CratePlaza.build() -- pegada al lobby (Config.Crates.Enabled)
-LobbyWorld.init() -- Ciudadela: NPCs, portal, vitrina y tablas de récords (si existe)
+if Places.role() ~= "Arena" then
+	CratePlaza.build() -- pegada al lobby (Config.Crates.Enabled)
+	LobbyWorld.init() -- Ciudadela: NPCs, portal, vitrina y tablas de récords (si existe)
+end
 CrateService.init()
 MissionService.init(Remotes) -- misiones diarias y semanales
 ShopService.init(Remotes) -- tienda del lobby (sin Robux)
 PlayerLife.init()
 MatchManager.init()
+PartyService.init() -- grupos, invitaciones y cola rápida (solo en el lobby)
 Profiles.init() -- guardado automático y al cerrar el servidor
 Profiles.onLoaded(MatchManager.onProfileLoaded)
 Profiles.onLoaded(CrateService.onProfileLoaded) -- monedas de prueba
 Profiles.onLoaded(LobbyWorld.onProfileLoaded) -- tablas de récords
+Profiles.onLoaded(PartyService.onProfileLoaded) -- capítulo del grupo según desbloqueos
 DebugCommands.init() -- panel de prueba (F2): solo Studio o Config.Debug.Admins
 
 PlayerData.init(function(player)
 	PlayerLife.onPlayerAdded(player) -- aparece en el lobby
 	MatchManager.onPlayerAdded(player)
+	PartyService.onPlayerAdded(player) -- su propio grupo
 	CrateService.onPlayerAdded(player) -- leaderstats
 	task.spawn(Profiles.load, player) -- puede tardar: no frena al resto
 end, function(player)
+	PartyService.onPlayerRemoving(player)
 	MatchManager.onPlayerRemoving(player)
 	PlayerLife.onPlayerRemoving(player)
 	CrateService.onPlayerRemoving(player)
@@ -56,4 +65,5 @@ end)
 
 RunService.Heartbeat:Connect(function(dt)
 	MatchManager.update(dt)
+	PartyService.update(dt)
 end)

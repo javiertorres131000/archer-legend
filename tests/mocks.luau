@@ -345,6 +345,9 @@ M.Instance = {
 -- Servicios
 ---------------------------------------------------------------------
 local workspaceInst = newInstance("Workspace", { Name = "Workspace" })
+-- Las pruebas usan el lobby de antes (todo el servidor es un equipo) salvo que lo apaguen
+-- antes de cargar el juego (ver Server/Places y test_parties.luau).
+workspaceInst:SetAttribute("TestClassicLobby", true)
 newInstance("Terrain", { Name = "Terrain" }).Parent = workspaceInst
 function methods:BulkMoveTo(parts, cframes)
 	for i, p in parts do

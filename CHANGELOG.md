@@ -1,5 +1,29 @@
 # Cambios
 
+## 2026-10-21 · Ciudadela y Arena separadas: grupos y cola rápida
+
+- **Dos places, el mismo código.** El rol lo decide `Server/Places`:
+  - **Ciudadela** (lobby, hasta 20 jugadores): cada uno está en su grupo y nadie te arrastra a su partida.
+  - **Arena** (servidor privado por grupo): recibe al grupo teletransportado, juega y lo devuelve.
+  - En Studio, o mientras `Config.Places.ArenaPlaceId` sea `0`, el grupo juega en el mismo servidor, como antes.
+- **Grupos** (`Server/PartyService`, nuevo): invitar desde la lista de jugadores, aceptar o rechazar (la invitación vence en 30 s), salir y expulsar.
+  - El líder elige el capítulo. Cuando todos están LISTOS, salen juntos con la cuenta de 5 s.
+- **Cola rápida (BUSCAR GRUPO):** junta grupos y jugadores sueltos del mismo capítulo hasta 4.
+  - Si en 20 s no se llena, sale con los que haya.
+  - Si alguien cancela en la cuenta, los demás vuelven a la cola sin perder su lugar.
+- **Viajes** (`Server/Teleporter`, nuevo): servidor reservado con los datos del grupo (capítulo e integrantes) y reintentos. Si el viaje falla, avisa y el grupo queda en la Ciudadela.
+- **En la Arena** (`MatchManager`):
+  - Espera a que llegue todo el grupo (o 25 s como máximo) y arranca solo con una cuenta de 3 s.
+  - Al terminar, los que eligen **¡OTRA!** se quedan y juegan de nuevo; el resto vuelve a la Ciudadela.
+  - Quien entra a la Arena sin viaje vuelve a la Ciudadela.
+- **Interfaz:**
+  - Panel **GRUPO** con lugares libres, botones Invitar, Salir y Expulsar, y la ventana "Invitar al grupo".
+  - Tarjeta de invitación recibida con tiempo.
+  - Botón **BUSCAR GRUPO** y JUGAR con el tiempo en cola y Cancelar.
+  - En la Arena: "Preparando la batalla (2/3 llegaron)".
+- **`TravelScreen.client`** (nuevo): pantalla de viaje "Viajando a la Arena" o "Volviendo a la Ciudadela" que se ve durante el teletransporte.
+- **Pruebas nuevas:** `test_parties` (grupos, invitaciones, cola, viaje falso) y `test_arena_place` (llegada, espera, OTRA y vuelta). Las pruebas viejas usan el modo "Classic" (`TestClassicLobby` en `tests/mocks.luau`).
+
 ## 2026-10-21 · Lobby nuevo: la Ciudadela
 
 - **Ciudadela** (`Workspace/Ciudadela`, armada en Studio: vive en el place): una isla flotante con una plaza de castillo.
