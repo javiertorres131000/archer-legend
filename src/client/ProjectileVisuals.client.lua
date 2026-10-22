@@ -45,6 +45,147 @@ local function addTrail(part: Part, color: Color3, width: number)
 	trail.Parent = part
 end
 
+-- Proyectil enemigo con efectos: según el color del ataque es fuego (rojo/naranja), rayo
+-- (violeta/celeste), veneno (verde) o hielo (blanco/azul claro). Estela gruesa, llamas o chispas
+-- que salen de atrás y un núcleo más claro. Se arma una vez por pieza del pool y se recolorea.
+local FIRE_TEX = "rbxasset://textures/particles/fire_main.dds"
+local SPARK_TEX = "rbxasset://textures/particles/sparkles_main.dds"
+local SMOKE_TEX = "rbxasset://textures/particles/smoke_main.dds"
+
+local function kindOf(c: Color3): string
+	local h, s, _v = c:ToHSV()
+	if s < 0.25 then
+		return "ice"
+	elseif h < 0.12 or h > 0.92 then
+		return "fire"
+	elseif h < 0.45 then
+		return if h < 0.2 then "fire" else "poison"
+	elseif h < 0.6 then
+		return "ice"
+	end
+	return "bolt"
+end
+
+local function lighten(c: Color3, k: number): Color3
+	return c:Lerp(Color3.new(1, 1, 1), k)
+end
+
+local function dressEnemyOrb(part: Part, color: Color3)
+	local kind = kindOf(color)
+	local fx = part:FindFirstChild("Fx")
+	if not fx then
+		fx = Instance.new("Attachment")
+		fx.Name = "Fx"
+		fx.Parent = part
+		local a0 = Instance.new("Attachment")
+		a0.Name = "T0"
+		a0.Parent = part
+		local a1 = Instance.new("Attachment")
+		a1.Name = "T1"
+		a1.Parent = part
+		local trail = Instance.new("Trail")
+		trail.Name = "Estela"
+		trail.Attachment0 = a0
+		trail.Attachment1 = a1
+		trail.LightEmission = 1
+		trail.FaceCamera = true
+		trail.Parent = part
+		local flames = Instance.new("ParticleEmitter")
+		flames.Name = "Llamas"
+		flames.EmissionDirection = Enum.NormalId.Back
+		flames.LightEmission = 1
+		flames.Parent = fx
+		local sparks = Instance.new("ParticleEmitter")
+		sparks.Name = "Chispas"
+		sparks.Texture = SPARK_TEX
+		sparks.LightEmission = 1
+		sparks.Parent = fx
+	end
+	local size = part.Size.X
+	local trail = part:FindFirstChild("Estela") :: Trail
+	local flames = (fx :: Instance):FindFirstChild("Llamas") :: ParticleEmitter
+	local sparks = (fx :: Instance):FindFirstChild("Chispas") :: ParticleEmitter
+	;(part:FindFirstChild("T0") :: Attachment).Position = Vector3.new(0, size * 0.45, 0)
+	;(part:FindFirstChild("T1") :: Attachment).Position = Vector3.new(0, -size * 0.45, 0)
+	trail.Lifetime = if kind == "bolt" then 0.12 else 0.3
+	trail.Color = ColorSequence.new(lighten(color, 0.5), color)
+	trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
+	trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
+	trail.Enabled = true
+	-- Llamas (fuego), humo de colores (veneno), escarcha (hielo) o chispazos (rayo)
+	flames.Texture = if kind == "fire" then FIRE_TEX elseif kind == "poison" then SMOKE_TEX else SPARK_TEX
+	flames.Color = ColorSequence.new(lighten(color, 0.6), color)
+	flames.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, size * 0.9), NumberSequenceKeypoint.new(1, size * 0.2) })
+	flames.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+	flames.Lifetime = NumberRange.new(0.25, 0.45)
+	flames.Speed = NumberRange.new(2, 5)
+	flames.SpreadAngle = Vector2.new(20, 20)
+	flames.RotSpeed = NumberRange.new(-180, 180)
+	flames.Rate = if kind == "bolt" then 40 else 60
+	flames.Enabled = not low
+	sparks.Color = ColorSequence.new(lighten(color, 0.4))
+	sparks.Size = NumberSequence.new(if kind == "bolt" then 0.35 else 0.2)
+	sparks.Lifetime = NumberRange.new(0.2, 0.4)
+	sparks.Speed = NumberRange.new(if kind == "bolt" then 10 else 4, if kind == "bolt" then 18 else 8)
+	sparks.SpreadAngle = Vector2.new(180, 180)
+	sparks.Rate = if kind == "bolt" then 45 else 15
+	sparks.Enabled = not low
+	-- Núcleo más claro: la bola brilla en el centro
+	part.Color = lighten(color, 0.25)
+end
+
+-- Explosión chica donde pegó un proyectil enemigo (pool de piezas)
+local burstPool: { Part } = {}
+local function enemyBurst(pos: Vector3, color: Color3)
+	if low then
+		return
+	end
+	local p = table.remove(burstPool)
+	if not p then
+		p = Instance.new("Part")
+		p.Name = "Impacto"
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.Transparency = 1
+		p.Size = Vector3.one
+		local e = Instance.new("ParticleEmitter")
+		e.Texture = SPARK_TEX
+		e.LightEmission = 1
+		e.Rate = 0
+		e.Lifetime = NumberRange.new(0.25, 0.5)
+		e.Speed = NumberRange.new(10, 22)
+		e.SpreadAngle = Vector2.new(180, 180)
+		e.Drag = 4
+		e.Parent = p
+		local f = Instance.new("ParticleEmitter")
+		f.Name = "Bola"
+		f.Texture = FIRE_TEX
+		f.LightEmission = 1
+		f.Rate = 0
+		f.Lifetime = NumberRange.new(0.2, 0.35)
+		f.Speed = NumberRange.new(1, 3)
+		f.SpreadAngle = Vector2.new(180, 180)
+		f.Parent = p
+	end
+	p.Position = pos
+	p.Parent = workspace
+	local e = p:FindFirstChildOfClass("ParticleEmitter") :: ParticleEmitter
+	local f = p:FindFirstChild("Bola") :: ParticleEmitter
+	e.Color = ColorSequence.new(lighten(color, 0.4))
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
+	f.Color = ColorSequence.new(lighten(color, 0.5), color)
+	f.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2), NumberSequenceKeypoint.new(1, 4) })
+	f.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+	e:Emit(14)
+	f:Emit(6)
+	task.delay(0.6, function()
+		p.Parent = nil
+		if #burstPool < 20 then table.insert(burstPool, p) else p:Destroy() end
+	end)
+end
+
 -- Flecha de verdad: vara de madera (la pieza principal), punta de metal y plumas, soldadas.
 -- Se arman una vez por pieza del pool; solo se ajusta el tamaño y el color de las plumas.
 local function dressArrow(part: Part, scale: number, featherColor: Color3)
@@ -103,6 +244,7 @@ type Visual = {
 	zigAmp: number,
 	zigFreq: number,
 	above: number?, -- altura sobre el piso al salir (sigue el relieve)
+	color: Color3?, -- color del ataque (proyectiles enemigos)
 	skin: any?, -- skin del arquero (SkinFx) si la flecha tiene efectos propios
 }
 local visuals: { [number]: Visual } = {}
@@ -123,6 +265,17 @@ local function removeVisual(id: number)
 			-- Antes del final de su alcance = pegó en algo: explosión. Si no, se apaga sola.
 			SkinArrowFx.impact(v.part.Position, v.skin, v.age < v.lifetime - 0.05, low)
 			SkinArrowFx.clear(v.part)
+		end
+		if v.part.Name == "EnemyOrb" then
+			if v.age < v.lifetime - 0.05 then
+				enemyBurst(v.part.Position, v.color or v.part.Color) -- pegó en algo
+			end
+			local fx = v.part:FindFirstChild("Fx")
+			if fx then
+				for _, e in fx:GetChildren() do
+					if e:IsA("ParticleEmitter") then e.Enabled = false; e:Clear() end
+				end
+			end
 		end
 		local light = v.part:FindFirstChildOfClass("PointLight")
 		if light and light.Enabled then lights -= 1; light.Enabled = false end
@@ -160,14 +313,15 @@ projectileFired.OnClientEvent:Connect(
 		if isEnemy then
 			part.Shape = Enum.PartType.Ball
 			part.Size = Vector3.one * (style and style.size or 1.4)
-			part.Color = style and style.color or Color3.fromRGB(255, 60, 110)
+			part.Color = style and style.color or Color3.fromRGB(255, 110, 40)
+			dressEnemyOrb(part, part.Color)
 			if not low and lights < MAX_LIGHTS then
 				lights += 1
 				local light = part:FindFirstChildOfClass("PointLight") or Instance.new("PointLight")
 				light.Enabled = true
 				light.Color = part.Color
-				light.Range = 8
-				light.Brightness = 2
+				light.Range = 12
+				light.Brightness = 3
 				light.Parent = part
 			end
 		elseif isWave then
@@ -236,6 +390,7 @@ projectileFired.OnClientEvent:Connect(
 			zigAmp = style and style.zigAmp or 0,
 			zigFreq = style and style.zigFreq or 0,
 			skin = skin,
+			color = if isEnemy then (style and style.color or Color3.fromRGB(255, 110, 40)) else nil,
 			above = (function()
 				local g = groundAt(origin)
 				return g and math.max(1, origin.Y - g)
