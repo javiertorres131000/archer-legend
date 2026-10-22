@@ -1,5 +1,16 @@
 # Cambios
 
+## 2026-10-21 · Skins Mago Cósmico y Necromante
+
+- **2 premios Mythic nuevos:** Mago Cósmico (`CosmicMage`) y Necromante (`Necromancer`). Salen de las cajas Epic, Legendary y Secret con las mismas chances que el Demonio Ígneo.
+- **Trajes de cuerpo completo** (`Body` en `Shared/CrateLooks.lua`): 16 mallas, una por parte R15 más el báculo, en `CrateAssets/Looks/<Id>`.
+  - En el avatar se esconden las partes de Roblox y se sueldan las mallas.
+  - El avatar crece un 23% (`BodyScale`) para que las mallas calcen a su tamaño original.
+  - La emisión de colores está horneada en la textura de color (`src/assets/<skin>/generadas`).
+- **Partículas nuevas:** `Stars` (estrellitas) y `Wisps` (espíritus de humo). Todas aceptan `Colors`.
+- **`LavaSkinFx`:** pisadas, aura, estela y explosión al equipar en violeta (mago) y verde (necromante).
+- Panel F2: **Darme y equipar Mago Cósmico** y **Darme y equipar Necromante**.
+
 ## 2026-10-21 · Skin Demonio Ígneo con mallas, y unión de fase2 con detalles
 
 - **Demonio Ígneo con modelos 3D** (`Shared/CrateLooks.lua`): el traje ahora son 12 mallas (máscara, torso, capa, alas, hombreras, brazales, grebas y taparrabos) con textura, brillo de lava, relieve y rugosidad. Viven en el place (`ReplicatedStorage/CrateAssets/Looks/FireDemon`); las fuentes están en `src/assets/demon`.

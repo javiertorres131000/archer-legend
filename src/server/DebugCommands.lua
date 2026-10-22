@@ -50,6 +50,20 @@ local function inMatch(player: Player): boolean
 	return state ~= nil and state.inMatch and Run.isActive()
 end
 
+-- Da un premio de personaje y lo equipa (queda guardado)
+local function giveSkin(p: Player, id: string, name: string): (boolean, string)
+	local data = Profiles.get(p)
+	if not data then
+		return false, "Perfil sin cargar"
+	end
+	data.Crates.Owned[id] = math.max(data.Crates.Owned[id] or 0, 1)
+	data.Crates.Equipped.Character = id
+	CrateEquip.publish(p)
+	Profiles.saveSoon(p)
+	task.spawn(CrateEquip.refreshLook, p)
+	return true, name .. " equipado (queda guardado)"
+end
+
 -- Cada acción devuelve (ok, mensaje). Las de partida solo andan con una partida en curso.
 local Actions: { [string]: { label: string, match: boolean?, run: (Player) -> (boolean, string) } } = {
 	Gold = { label = "+5000 oro", run = function(p)
@@ -89,16 +103,13 @@ local Actions: { [string]: { label: string, match: boolean?, run: (Player) -> (b
 		return true, "Capítulos desbloqueados (queda guardado)"
 	end },
 	Demon = { label = "Darme y equipar Demonio Ígneo", run = function(p)
-		local data = Profiles.get(p)
-		if not data then
-			return false, "Perfil sin cargar"
-		end
-		data.Crates.Owned.FireDemon = math.max(data.Crates.Owned.FireDemon or 0, 1)
-		data.Crates.Equipped.Character = "FireDemon"
-		CrateEquip.publish(p)
-		Profiles.saveSoon(p)
-		task.spawn(CrateEquip.refreshLook, p)
-		return true, "Demonio Ígneo equipado (queda guardado)"
+		return giveSkin(p, "FireDemon", "Demonio Ígneo")
+	end },
+	Mage = { label = "Darme y equipar Mago Cósmico", run = function(p)
+		return giveSkin(p, "CosmicMage", "Mago Cósmico")
+	end },
+	Necro = { label = "Darme y equipar Necromante", run = function(p)
+		return giveSkin(p, "Necromancer", "Necromante")
 	end },
 	Report = { label = "Resumen de partidas", run = function(_p)
 		local text = RunLog.report(7)
@@ -234,7 +245,7 @@ local Actions: { [string]: { label: string, match: boolean?, run: (Player) -> (b
 DebugCommands.Actions = Actions
 
 -- Orden en el panel
-DebugCommands.Order = { "Gold", "Gems", "Stones", "Levels", "Chapters", "Weapons", "Demon", "Report", "SkipWave", "KillAll", "Boss", "LevelUp", "Item", "Heal", "Elite", "Horde", "Goal", "Mastery", "FxWhirl", "FxJudgment" }
+DebugCommands.Order = { "Gold", "Gems", "Stones", "Levels", "Chapters", "Weapons", "Demon", "Mage", "Necro", "Report", "SkipWave", "KillAll", "Boss", "LevelUp", "Item", "Heal", "Elite", "Horde", "Goal", "Mastery", "FxWhirl", "FxJudgment" }
 
 function DebugCommands.run(player: Player, action: any): (boolean, string)
 	if not DebugCommands.allowed(player) then

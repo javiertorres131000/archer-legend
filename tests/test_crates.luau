@@ -130,7 +130,7 @@ test("trajes detallados (CrateLooks): de premios que existen, con piezas válida
 			local prize = CrateItems.ById[id]
 			assert(prize, "traje de un premio que no existe: " .. id)
 			assert(prize.Kind ~= "Pet", id .. ": los trajes son para personajes")
-			assert(#look.Parts > 0, id)
+			assert(#look.Parts > 0 or type(look.Body) == "string", id .. ": sin piezas ni cuerpo")
 			for _, part in look.Parts do
 				assert(segs[part.Seg], id .. ": segmento " .. tostring(part.Seg))
 				assert(part.Size.X > 0 and part.Size.Y > 0 and part.Size.Z > 0, id .. ": " .. part.Name)
@@ -138,6 +138,8 @@ test("trajes detallados (CrateLooks): de premios que existen, con piezas válida
 		end
 	end
 	assert(CrateLooks.has("FireDemon") and not CrateLooks.has("Recruit"))
+	assert(CrateLooks.has("CosmicMage") and CrateLooks.has("Necromancer"), "trajes de cuerpo completo")
+	assert(CrateLooks.bodyScale("CosmicMage").Height > 1 and CrateLooks.bodyScale("FireDemon") == nil, "escala del cuerpo")
 	assert(count >= 1)
 end)
 

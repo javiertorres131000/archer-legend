@@ -1,7 +1,7 @@
 --!strict
 -- LavaSkinFx (LocalScript)
 -- Ubicación: StarterPlayer > StarterPlayerScripts > Client > LavaSkinFx
--- Efectos visuales de los trajes de lava (CrateLooks). Todo corre en cada cliente, nada se
+-- Efectos visuales de los trajes con brillo (CrateLooks): Demonio Ígneo, Mago Cósmico y Necromante. Todo corre en cada cliente, nada se
 -- replica ni toca la jugabilidad:
 --   · Brillo que late: todo lo que CrateLooks marca con el tag "LavaGlow" (SurfaceAppearance o
 --     PointLight, con el atributo GlowBase) pulsa alrededor de su valor.
@@ -21,6 +21,8 @@ local C = Color3.fromRGB
 -- Trajes con efectos de movimiento (Id del premio -> colores)
 local SKINS: { [string]: { hot: Color3, mid: Color3, dark: Color3 } } = {
 	FireDemon = { hot = C(255, 190, 70), mid = C(255, 80, 20), dark = C(120, 15, 5) },
+	CosmicMage = { hot = C(220, 200, 255), mid = C(130, 100, 255), dark = C(60, 20, 120) },
+	Necromancer = { hot = C(190, 255, 200), mid = C(60, 230, 100), dark = C(10, 70, 25) },
 }
 
 local FAR = 160 -- más lejos que esto de la cámara no se anima nada

@@ -198,6 +198,7 @@ function CrateEquip.refreshLook(player: Player)
 			for _, d in character:GetChildren() do
 				if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then
 					d.Material = Enum.Material.Plastic
+					d.Transparency = 0 -- los trajes de cuerpo completo esconden el cuerpo
 				end
 			end
 		end
@@ -207,7 +208,16 @@ function CrateEquip.refreshLook(player: Player)
 			end
 			character:SetAttribute("CrateLook", nil)
 		elseif prize and original then
-			humanoid:ApplyDescriptionAsync(blockyDescription(original, prize.Look))
+			local desc = blockyDescription(original, prize.Look)
+			local scale = CrateLooks.bodyScale(id)
+			if scale then
+				-- Trajes de cuerpo completo: el avatar crece para que las mallas calcen
+				desc.HeightScale = scale.Height
+				desc.WidthScale = scale.Width or 1
+				desc.DepthScale = scale.Depth or 1
+				desc.HeadScale = scale.Head or 1
+			end
+			humanoid:ApplyDescriptionAsync(desc)
 			if CrateLooks.has(id) then
 				CrateLooks.applyToCharacter(id, character) -- traje detallado (CrateLooks)
 				local head = character:FindFirstChild("Head")

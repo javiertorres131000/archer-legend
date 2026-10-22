@@ -20,12 +20,21 @@
 -- pegada al frente de la cara (su Z se calcula sola según la cabeza).
 -- Tags para el cliente (LavaSkinFx): "LavaGlow" (brillo/luz que late, atributo GlowBase) y
 -- "LavaSway" (Welds de alas y capa).
+--
+-- TRAJES DE CUERPO COMPLETO (Body = "<carpeta>"): la carpeta CrateAssets > Looks > <carpeta> tiene
+-- una MeshPart por parte R15 (Head, UpperTorso, ..., RightFoot, y extras como RightHand_Baculo),
+-- con los atributos AttachTo (parte R15 a la que se suelda), AttachOffset (CFrame respecto de esa
+-- parte en un cuerpo R15 de bloques) y Rest (posición en la vista previa, pies en y = 0).
+-- En el avatar se esconden las partes de Roblox y se sueldan las mallas. BodyFx agrega partículas
+-- y luces a piezas puntuales: { [nombre de la pieza] = { Fx?, Light? } }.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 
 local CrateLooks = {}
 
+-- Partículas: Kind = "Flames" | "Embers" | "Smoke" | "Stars" | "Wisps"; Colors = { claro, medio, oscuro? }
+export type FxDef = { Kind: string, Rate: number, Size: number?, Colors: { Color3 }? }
 export type LookPart = {
 	Seg: string,
 	Name: string,
@@ -39,7 +48,7 @@ export type LookPart = {
 	Shape: (Enum.PartType | "Wedge")?,
 	Mesh: string?,
 	Glow: { Tint: Color3, Strength: number }?,
-	Fx: { { Kind: string, Rate: number, Size: number? } }?,
+	Fx: { FxDef }?,
 	Sway: { Kind: string, Pivot: Vector3, Side: number? }?,
 }
 export type Look = {
@@ -48,6 +57,11 @@ export type Look = {
 	Parts: { LookPart },
 	Embers: { Colors: { Color3 }, Rate: number }?, -- brasas que salen del pecho
 	MeshFolder: string?, -- carpeta en ReplicatedStorage > CrateAssets > Looks con las mallas
+	Body: string?, -- traje de cuerpo completo: carpeta en CrateAssets > Looks (ver arriba)
+	BodyFx: { [string]: { Fx: { FxDef }?, Light: { Color: Color3, Range: number, Brightness: number }? } }?,
+	-- Escala del avatar mientras tiene el traje (las mallas de cuerpo completo vienen hechas para un
+	-- cuerpo más alto: así calzan con las articulaciones a su tamaño original)
+	BodyScale: { Height: number, Width: number?, Depth: number?, Head: number? }?,
 }
 
 local C = Color3.fromRGB
@@ -66,7 +80,7 @@ do
 	local wingGlow = { Tint = C(255, 45, 10), Strength = 1.3 }
 	local warmLight = { Color = C(255, 80, 20), Range = 6, Brightness = 1 }
 	local chestLight = { Color = C(255, 80, 20), Range = 8, Brightness = 1 }
-	type FxList = { { Kind: string, Rate: number, Size: number? } }
+	type FxList = { FxDef }
 	local wingFx: FxList = { { Kind = "Flames", Rate = 18, Size = 0.9 }, { Kind = "Embers", Rate = 6 } }
 	local shoulderFx: FxList = { { Kind = "Embers", Rate = 4 }, { Kind = "Smoke", Rate = 1.5, Size = 0.4 } }
 
@@ -108,6 +122,48 @@ do
 			mesh("RightLeg", "Greba_R", CFrame.new(0, -0.5, 0)),
 		},
 		Embers = { Colors = { lava, gold }, Rate = 6 },
+	} :: Look
+end
+
+---------------------------------------------------------------------
+-- Mago Cósmico y Necromante: cuerpos completos de mallas (CrateAssets > Looks > CosmicMage /
+-- Necromancer). El brillo viene en la textura de color (la emisión de colores está horneada).
+---------------------------------------------------------------------
+do
+	local cosmic = { C(200, 170, 255), C(120, 110, 255), C(255, 90, 210) }
+	CrateLooks.CosmicMage = {
+		Skin = C(25, 18, 40),
+		SkinMaterial = Enum.Material.SmoothPlastic,
+		Parts = {},
+		Body = "CosmicMage",
+		BodyScale = { Height = 1.235 },
+		BodyFx = {
+			RightHand_Baculo = {
+				Fx = { { Kind = "Stars", Rate = 10, Size = 0.3, Colors = cosmic } },
+				Light = { Color = C(150, 130, 255), Range = 9, Brightness = 1.4 },
+			},
+			UpperTorso = { Fx = { { Kind = "Stars", Rate = 4, Size = 0.2, Colors = cosmic } } },
+			LowerTorso = { Fx = { { Kind = "Wisps", Rate = 2, Size = 0.6, Colors = { C(110, 90, 220), C(60, 30, 140) } } } },
+			Head = { Light = { Color = C(170, 140, 255), Range = 5, Brightness = 0.8 } },
+		},
+	} :: Look
+
+	local necro = { C(170, 255, 190), C(70, 230, 110), C(10, 80, 30) }
+	CrateLooks.Necromancer = {
+		Skin = C(15, 25, 18),
+		SkinMaterial = Enum.Material.SmoothPlastic,
+		Parts = {},
+		Body = "Necromancer",
+		BodyScale = { Height = 1.236 },
+		BodyFx = {
+			RightHand_Baculo = {
+				Fx = { { Kind = "Flames", Rate = 14, Size = 0.6, Colors = necro }, { Kind = "Wisps", Rate = 3, Size = 0.5, Colors = necro } },
+				Light = { Color = C(80, 255, 120), Range = 9, Brightness = 1.4 },
+			},
+			UpperTorso = { Fx = { { Kind = "Wisps", Rate = 3, Size = 0.7, Colors = necro } } },
+			LowerTorso = { Fx = { { Kind = "Smoke", Rate = 3, Size = 0.8, Colors = { C(20, 40, 25), C(5, 15, 8) } } } },
+			Head = { Light = { Color = C(90, 255, 130), Range = 5, Brightness = 0.8 } },
+		},
 	} :: Look
 end
 
@@ -176,12 +232,51 @@ local function blocky(model: Model): Resolver
 end
 
 -- Partículas de una pieza: llamas, brasas o humo
-local function addFx(part: BasePart, fx: { Kind: string, Rate: number, Size: number? })
+local function addFx(part: BasePart, fx: FxDef)
 	local e = Instance.new("ParticleEmitter")
 	e.LightEmission = 1
 	e.LightInfluence = 0
 	e.Rate = fx.Rate
-	if fx.Kind == "Flames" then
+	local cols = fx.Colors
+	if fx.Kind == "Stars" then
+		-- estrellitas que titilan y flotan
+		local s = fx.Size or 0.25
+		local a, b = (cols and cols[1]) or C(220, 200, 255), (cols and cols[2]) or C(140, 120, 255)
+		e.Name = "FxEstrellas"
+		e.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		e.Lifetime = NumberRange.new(1.2, 2.4)
+		e.Speed = NumberRange.new(0.2, 0.7)
+		e.SpreadAngle = Vector2.new(180, 180)
+		e.Acceleration = Vector3.new(0, 0.4, 0)
+		e.Color = ColorSequence.new(a, (cols and cols[3]) or b)
+		e.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(0.3, s),
+			NumberSequenceKeypoint.new(0.6, s * 0.4),
+			NumberSequenceKeypoint.new(1, 0),
+		})
+		e.Transparency = NumberSequence.new(0, 0.6)
+		e.RotSpeed = NumberRange.new(-90, 90)
+	elseif fx.Kind == "Wisps" then
+		-- espíritus de humo luminoso que suben
+		local s = fx.Size or 0.6
+		local a, b = (cols and cols[1]) or C(160, 255, 190), (cols and cols[#cols]) or C(20, 80, 40)
+		e.Name = "FxEspiritus"
+		e.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		e.Lifetime = NumberRange.new(1.2, 2)
+		e.Speed = NumberRange.new(0.5, 1.2)
+		e.SpreadAngle = Vector2.new(20, 20)
+		e.Acceleration = Vector3.new(0, 1.5, 0)
+		e.Color = ColorSequence.new(a, b)
+		e.Size = NumberSequence.new(s * 0.5, s * 2)
+		e.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.25, 0.6),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		e.Rotation = NumberRange.new(0, 360)
+		e.RotSpeed = NumberRange.new(-40, 40)
+	elseif fx.Kind == "Flames" then
 		local s = fx.Size or 0.6
 		e.Name = "FxLlamas"
 		e.Texture = "rbxasset://textures/particles/fire_main.dds"
@@ -190,9 +285,9 @@ local function addFx(part: BasePart, fx: { Kind: string, Rate: number, Size: num
 		e.SpreadAngle = Vector2.new(15, 15)
 		e.Acceleration = Vector3.new(0, 4, 0)
 		e.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, C(255, 170, 60)),
-			ColorSequenceKeypoint.new(0.5, C(255, 70, 15)),
-			ColorSequenceKeypoint.new(1, C(120, 10, 5)),
+			ColorSequenceKeypoint.new(0, (cols and cols[1]) or C(255, 170, 60)),
+			ColorSequenceKeypoint.new(0.5, (cols and cols[2]) or C(255, 70, 15)),
+			ColorSequenceKeypoint.new(1, (cols and cols[3]) or C(120, 10, 5)),
 		})
 		e.Size = NumberSequence.new(s, 0)
 		e.Transparency = NumberSequence.new(0.3, 1)
@@ -208,7 +303,7 @@ local function addFx(part: BasePart, fx: { Kind: string, Rate: number, Size: num
 		e.Speed = NumberRange.new(0.4, 1)
 		e.SpreadAngle = Vector2.new(25, 25)
 		e.Acceleration = Vector3.new(0, 1.2, 0)
-		e.Color = ColorSequence.new(C(40, 25, 22), C(15, 10, 10))
+		e.Color = ColorSequence.new((cols and cols[1]) or C(40, 25, 22), (cols and cols[#cols]) or C(15, 10, 10))
 		e.Size = NumberSequence.new(s, s * 2.5)
 		e.Transparency = NumberSequence.new({
 			NumberSequenceKeypoint.new(0, 1),
@@ -224,7 +319,7 @@ local function addFx(part: BasePart, fx: { Kind: string, Rate: number, Size: num
 		e.Speed = NumberRange.new(1, 3)
 		e.SpreadAngle = Vector2.new(35, 35)
 		e.Acceleration = Vector3.new(0, 3, 0)
-		e.Color = ColorSequence.new(C(255, 200, 80), C(255, 40, 10))
+		e.Color = ColorSequence.new((cols and cols[1]) or C(255, 200, 80), (cols and cols[2]) or C(255, 40, 10))
 		e.Size = NumberSequence.new(fx.Size or 0.18, 0)
 		e.Transparency = NumberSequence.new(0, 1)
 		e.RotSpeed = NumberRange.new(-120, 120)
@@ -384,6 +479,68 @@ local function build(look: Look, folder: Instance, resolve: Resolver, weld: bool
 	end
 end
 
+local function looksFolder(name: string?): Instance?
+	local assets = ReplicatedStorage:FindFirstChild("CrateAssets")
+	local looks = assets and assets:FindFirstChild("Looks")
+	return looks and name and looks:FindFirstChild(name)
+end
+
+local function addLight(part: BasePart, light: { Color: Color3, Range: number, Brightness: number })
+	local l = Instance.new("PointLight")
+	l.Color = light.Color
+	l.Range = light.Range
+	l.Brightness = light.Brightness
+	l:SetAttribute("GlowBase", light.Brightness)
+	CollectionService:AddTag(l, "LavaGlow")
+	l.Parent = part
+end
+
+-- Cuerpo completo de mallas. character: avatar R15 (se sueldan a cada parte); si no, vista previa
+-- anclada sobre `origin` (pies en y = 0).
+local function buildBody(look: Look, folder: Instance, character: Model?, origin: CFrame?)
+	local src = looksFolder(look.Body)
+	if not src then
+		return
+	end
+	for _, t in src:GetChildren() do
+		if not t:IsA("MeshPart") then
+			continue
+		end
+		local m = t:Clone()
+		m.CanCollide = false
+		m.CanTouch = false
+		m.CanQuery = false
+		m.Massless = true
+		if character then
+			local base = find(character, t:GetAttribute("AttachTo") :: string? or t.Name)
+			local offset = t:GetAttribute("AttachOffset")
+			if not base or typeof(offset) ~= "CFrame" then
+				m:Destroy()
+				continue
+			end
+			m.CFrame = base.CFrame * offset
+			m.Anchored = false
+			weldTo(base, m)
+		else
+			local rest = t:GetAttribute("Rest")
+			m.CFrame = (origin or CFrame.new()) * (if typeof(rest) == "CFrame" then rest else t.CFrame)
+			m.Anchored = true
+		end
+		local extra = look.BodyFx and look.BodyFx[t.Name]
+		if extra then
+			if extra.Light then
+				addLight(m, extra.Light)
+			end
+			if extra.Fx then
+				for _, fx in extra.Fx do
+					addFx(m, fx)
+				end
+			end
+		end
+		m.Parent = folder
+	end
+end
+
 -- Pone el traje en un avatar R15 (soldado, sigue las animaciones). Devuelve la carpeta creada.
 function CrateLooks.applyToCharacter(prizeId: string, character: Model): Folder?
 	local look = (CrateLooks :: any)[prizeId] :: Look?
@@ -402,6 +559,15 @@ function CrateLooks.applyToCharacter(prizeId: string, character: Model): Folder?
 	end
 	local folder = Instance.new("Folder")
 	folder.Name = "CrateLook"
+	if look.Body then
+		-- Cuerpo completo: se esconden las partes de Roblox (las tapa la malla)
+		for _, d in character:GetChildren() do
+			if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then
+				d.Transparency = 1
+			end
+		end
+		buildBody(look, folder, character, nil)
+	end
 	build(look, folder, r15(character), true)
 	folder.Parent = character
 	return folder
@@ -417,6 +583,7 @@ function CrateLooks.removeFromCharacter(character: Model)
 	for _, d in character:GetChildren() do
 		if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then
 			d.Material = Enum.Material.Plastic
+			d.Transparency = 0
 		end
 	end
 end
@@ -425,6 +592,17 @@ end
 function CrateLooks.applyToBlocky(prizeId: string, model: Model)
 	local look = (CrateLooks :: any)[prizeId] :: Look?
 	if type(look) ~= "table" then
+		return
+	end
+	if look.Body then
+		-- Cuerpo completo: se sacan los bloques y se ponen las mallas (pies en el piso del modelo)
+		local root = model.PrimaryPart
+		for _, c in model:GetChildren() do
+			if c:IsA("BasePart") and c ~= root then
+				c:Destroy()
+			end
+		end
+		buildBody(look, model, nil, if root then root.CFrame else model:GetPivot())
 		return
 	end
 	for _, name in { "Torso", "Head", "Arm", "Leg", "Hand" } do
@@ -436,6 +614,12 @@ function CrateLooks.applyToBlocky(prizeId: string, model: Model)
 		end
 	end
 	build(look, model, blocky(model), false)
+end
+
+-- Escala del avatar para este traje (nil = la normal)
+function CrateLooks.bodyScale(prizeId: string): { Height: number, Width: number?, Depth: number?, Head: number? }?
+	local look = (CrateLooks :: any)[prizeId]
+	return if type(look) == "table" then look.BodyScale else nil
 end
 
 function CrateLooks.has(prizeId: string): boolean
