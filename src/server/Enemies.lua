@@ -411,7 +411,23 @@ function Enemies.damage(enemy: Enemy, amount: number, attacker: Player?, kind: s
 		enemy.alive = false
 		local pos = enemy.part.Position
 		EnemyAI.cleanup(enemy)
-		enemy.part:Destroy()
+		local corpse = enemy.part :: any
+		if enemy.def.DeathAnim and corpse.SetAttribute then
+			-- El jefe se desploma con su animación antes de desaparecer (solo visual: ya no
+			-- recibe golpes, no cuenta como enemigo y se borra solo)
+			enemy.barGui.Enabled = false
+			corpse.CanQuery = false
+			corpse:SetAttribute("BossAnim", string.format("%s|0|%.3f", enemy.def.DeathAnim, workspace:GetServerTimeNow()))
+			local tumba = workspace:FindFirstChild("BossCorpses") or Instance.new("Folder")
+			tumba.Name = "BossCorpses"
+			tumba.Parent = workspace
+			corpse.Parent = tumba
+			task.delay(enemy.def.DeathTime or 6, function()
+				corpse:Destroy()
+			end)
+		else
+			enemy.part:Destroy()
+		end
 
 		-- Se divide al morir (slimes, calaveras...)
 		local split = enemy.def.OnDeath and enemy.def.OnDeath.Split

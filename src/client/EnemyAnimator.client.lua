@@ -70,7 +70,7 @@ local function register(hitbox: BasePart)
 		return
 	end
 	local look = hitbox:FindFirstChild("Look")
-	if not look then
+	if not look or look:GetAttribute("AnimData") then -- los jefes con rig propio los anima AzrakothAnimator
 		return
 	end
 	local gait = (hitbox:GetAttribute("Gait") :: string?) or "Walk"

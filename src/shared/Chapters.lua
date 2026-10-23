@@ -27,7 +27,7 @@ return {
 		Theme = "forest", -- decoración de las salas (Arena.lua)
 		Accent = C(90, 255, 160), -- neón de la sala y tinte de la luz (modo frenético)
 		Name = "Bosque Maldito",
-		Description = "Slimes, murciélagos y plantas venenosas. Lo protege el Guardián Treant.",
+		Description = "Slimes, murciélagos y plantas venenosas. Lo protege Azrakoth, el Serafín del Eclipse.",
 		Icon = "🌲",
 		UnlockedByDefault = true,
 		Floor = C(70, 100, 60),
@@ -58,7 +58,7 @@ return {
 			Boss = { Gold = 60, Stones = 2 },
 		},
 		MiniBoss = { Wave = 5, Type = "KingSlime" },
-		Boss = { Wave = 10, Type = "Treant" },
+		Boss = { Wave = 10, Type = "Azrakoth" }, -- antes: Treant
 		Pool = {
 			{ Type = "Grabber", From = 3, Weight = 0.6 }, -- te agarra: hace falta el compañero
 			{ Type = "HordeSkeleton", From = 1, Weight = 3 },

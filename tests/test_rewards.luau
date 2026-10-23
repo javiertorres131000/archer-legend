@@ -36,14 +36,14 @@ test("derrota después del mini-jefe: oro y piedras del mini-jefe", function()
 end)
 
 test("primera victoria: todo + gemas de primera vez", function()
-	local r = Rewards.compute(forest, { result = "Victory", wavesCleared = 10, bossesKilled = { "KingSlime", "Treant" }, kills = 0 }, true)
+	local r = Rewards.compute(forest, { result = "Victory", wavesCleared = 10, bossesKilled = { "KingSlime", "Azrakoth" }, kills = 0 }, true)
 	eq(r.Gold, 100 + 30 + 60 + 100, "oro")
 	eq(r.Gems, 5 + 50, "gemas")
 	eq(r.Stones, 1 + 2, "piedras")
 end)
 
 test("victoria repetida: sin gemas de primera vez", function()
-	local r = Rewards.compute(forest, { result = "Victory", wavesCleared = 10, bossesKilled = { "KingSlime", "Treant" }, kills = 0 }, false)
+	local r = Rewards.compute(forest, { result = "Victory", wavesCleared = 10, bossesKilled = { "KingSlime", "Azrakoth" }, kills = 0 }, false)
 	eq(r.Gems, 5, "gemas")
 end)
 

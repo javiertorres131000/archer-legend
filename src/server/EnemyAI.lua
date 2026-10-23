@@ -605,6 +605,14 @@ local function pickAttack(e, phase, dist: number)
 	return nil
 end
 
+-- Animación propia del jefe (ver Client/AzrakothAnimator): "Nombre|aviso|hora del servidor"
+local function bossAnim(e, texto: string)
+	local part = e.part :: any
+	if part.SetAttribute then -- (las pruebas usan cajas de imitación sin atributos)
+		part:SetAttribute("BossAnim", string.format("%s|%.3f", texto, workspace:GetServerTimeNow()))
+	end
+end
+
 local function startAttack(e, a, target, isRepeat: boolean?)
 	local ai = e.ai
 	ai.attack = a
@@ -619,6 +627,11 @@ local function startAttack(e, a, target, isRepeat: boolean?)
 		ai.repeatsLeft = RI(a.Repeats, 1) - 1
 	end
 	ai.facing = dirTo(flat(e.part.Position), target.root.Position)
+	-- Jefes con animaciones propias (Azrakoth): el cliente la reproduce y hace caer el golpe al
+	-- terminar el aviso. "Nombre|aviso|hora del servidor"
+	if a.Anim and not isRepeat then
+		bossAnim(e, string.format("%s|%.3f", a.Anim, telegraph))
+	end
 	local handler = Attacks[a.Type]
 	assert(handler, "Tipo de ataque desconocido: " .. tostring(a.Type))
 	if handler.prepare then
@@ -654,7 +667,11 @@ function EnemyAI.step(e, dt: number, targets: { PlayerData.Target }): (Vector3, 
 	local ai = e.ai
 	local pos = flat(e.part.Position)
 
-	ai.phase = currentPhase(e)
+	local fase = currentPhase(e)
+	if ai.phase and fase ~= ai.phase and e.def.PhaseAnim then
+		bossAnim(e, e.def.PhaseAnim .. "|0")
+	end
+	ai.phase = fase
 	local phase = ai.phases[ai.phase]
 	for a, t in ai.cooldowns do
 		ai.cooldowns[a] = t - dt

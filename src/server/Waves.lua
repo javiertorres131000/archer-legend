@@ -196,13 +196,18 @@ local function startWave(n: number, targets: { PlayerData.Target })
 
 	-- El jefe aparece antes de anunciar la oleada, así el HUD ya sabe su nombre.
 	local bossType = bossFor(ch, localWave(ch, n))
+	-- Jefe con Alone = true (Azrakoth): pelea solo, sin otros enemigos ni eventos en su oleada
+	local alone = bossType ~= nil and EnemyTypes[bossType].Alone == true
+	if alone then
+		spawnQueue = {}
+	end
 	if bossType then
 		local half = Enemies.getHalf()
 		local pos = Enemies.findSpawnPosition(targets) or Vector3.new(0, 0, -half.Z * 0.6)
 		Enemies.spawn(bossType, pos, { healthMult = ch.HealthMult * scale.Health, dmgMult = ch.DamageMult })
 	end
 	-- Élites, horda y meta de equipo de esta oleada
-	WaveEvents.onWaveStart({
+	if not alone then WaveEvents.onWaveStart({
 		wave = n,
 		localWave = localWave(ch, n),
 		chapter = ch,
@@ -211,7 +216,7 @@ local function startWave(n: number, targets: { PlayerData.Target })
 		bossWave = bossType ~= nil,
 		healthMult = healthMultFor(n),
 		dmgMult = ch.DamageMult * Config.Frenzy.EnemyDamageMult,
-	})
+	}) end
 
 	setPhase("Wave")
 	updateEnemiesLeft()

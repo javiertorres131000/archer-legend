@@ -1,5 +1,32 @@
 # Cambios
 
+## 2026-10-23 · Azrakoth, jefe del capítulo 1 (oleada 10)
+
+- **Azrakoth, Serafín del Eclipse** (`Data/EnemyTypes`) reemplaza al Guardián Treant como jefe de la oleada 10 del capítulo 1. El Treant sigue en el catálogo.
+  - 7000 de vida y tres fases (70 % y 35 %). Usa los tipos de ataque que ya existen:
+    - **Juicio Carmesí:** área bajo el jugador más una onda de proyectiles.
+    - **Danza del Verdugo:** dos embestidas y un golpe en área.
+    - **Tormenta de Alas:** abanico de plumas y zonas de fuego.
+    - **Cadenas del Abismo:** círculos que estallan.
+    - **Caída del Serafín:** se teletransporta y golpea con zona de fuego.
+    - **Corazón del Eclipse:** anillos de proyectiles con aviso de 2 s.
+    - **Legión de los Condenados:** invoca 4 esqueletos.
+    - **Rayo del Eclipse:** aliento giratorio, solo en la fase 3.
+- **Modelo:** `ServerStorage > EnemyModels > Azrakoth`, ya armado en el place Arena. Son las 43 piezas de `assets/azrakoth` unidas con Motor6D, más una raíz y un `Humanoid` para que `EnemyVisuals` lo trate como rig. Se escala a la altura `Height = 34`, que incluye las alas.
+- **Animaciones:**
+  - `Client/AzrakothAnimator` lo anima con `Shared/AzrakothAnimData`, exportado de Blender: Idle o Walk según se mueva, y la animación de cada ataque.
+  - Cada ataque lleva `Anim`, y `EnemyAI` publica el atributo `BossAnim` ("Nombre|aviso|hora"). El cliente acelera o frena la animación para que el golpe coincida con el final del aviso.
+  - `PhaseAnim` reproduce `PhaseTransform` al cambiar de fase.
+  - `EnemyAnimator` ignora los modelos con el atributo `AnimData`.
+- **Pelea solo:** `Alone = true` en `EnemyTypes`; en `Waves`, su oleada no trae otros enemigos ni eventos.
+- **Muerte:** `DeathAnim`/`DeathTime` en `Enemies.damage`. La caja pasa a `workspace.BossCorpses`, sin barra ni colisión, y se desploma con la animación de muerte antes de borrarse.
+- **Animación más viva** (`AzrakothAnimator`):
+  - Cada hueso sigue su pose con un resorte, y alas y telas llegan tarde.
+  - La velocidad del jefe se suaviza; antes alternaba entre Walk e Idle en cada cuadro y se veía quieto.
+  - Cuando está quieto, respira y mira alrededor.
+- **Efectos** (`AzrakothVFX`): ondas, rocas, columnas de fuego, círculos, rayo del halo, destellos y temblor de cámara, disparados por las marcas de cada animación.
+- **Pruebas:** `test_integration` y `test_rewards` esperan ahora a Azrakoth (35/35 OK). **Sin probar en Studio.**
+
 ## 2026-10-22 · Seraphiel, Ángel Celestial (skin Mythic) y la Espada Celestial
 
 - **Seraphiel** (`Shared/CrateItems`, Mythic, personaje): sale en los cofres Epic (0,3%), Legendary (3,5%) y Secret (15%), igual que los otros tres Mythic. Las tablas siguen sumando 100: se les sacó a Leñador (Epic), Paladín (Legendary) y Paladín, Rey Dorado y Valquiria (Secret).

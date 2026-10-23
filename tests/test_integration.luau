@@ -163,7 +163,7 @@ else
 end
 check(s.maxBreak < Config.Rooms.DoorTimeout, string.format("los descansos no se trabaron (máx %.1f s)", s.maxBreak))
 check(s.bosses["Rey Slime"] == true, "apareció el mini-jefe (oleada 5)")
-check(s.bosses["Guardián Treant"] == true, "apareció el jefe (oleada 10)")
+check(s.bosses["Azrakoth, Serafín del Eclipse"] == true, "apareció el jefe (oleada 10)")
 check(runEnded ~= nil and runEnded.result == "Victory", "terminó en victoria con resumen")
 check(runEnded ~= nil and runEnded.rewards ~= nil and (runEnded.rewards.Gold or 0) > 0, "recompensas en el resumen")
 check(A:GetAttribute("Gold") > 0 and B:GetAttribute("Gold") > 0, "los dos cobraron oro")

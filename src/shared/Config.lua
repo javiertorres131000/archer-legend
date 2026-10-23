@@ -612,7 +612,7 @@ Config.Profiles = {
 Config.Debug = {
 	ShowPerformance = false, -- FPS, peor frame, enemigos y proyectiles; sólo diagnóstico
 	UnlockAllChapters = false, -- todos los capítulos elegibles desde el lobby
-	StartWave = 1, -- oleada con la que arranca cada partida
+	StartWave = 10, -- oleada con la que arranca cada partida (PRUEBA de Azrakoth: volver a 1)
 	-- Panel de prueba (F2): monedas, niveles, saltar oleada, jefe, etc. Lo valida el servidor.
 	-- Funciona siempre en Studio; en un servidor publicado, solo para los UserId de Admins.
 	Commands = true,

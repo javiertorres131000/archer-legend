@@ -810,6 +810,100 @@ T.Treant = {
 	},
 }
 
+-- Capítulo 1 · jefe de la oleada 10: Azrakoth, el Serafín del Eclipse Carmesí (assets/azrakoth).
+-- Modelo en ServerStorage > EnemyModels > Azrakoth (piezas unidas con Motor6D); lo anima
+-- Client/AzrakothAnimator con Shared/AzrakothAnimData. Cada ataque lleva Anim = nombre de la
+-- animación: el golpe de la animación cae justo cuando termina el aviso (Telegraph).
+-- Tres fases (70 % y 35 % de vida); al cambiar de fase hace "PhaseTransform" (PhaseAnim).
+T.Azrakoth = {
+	Name = "Azrakoth, Serafín del Eclipse",
+	Boss = true,
+	Health = 7000,
+	Size = 14,
+	Height = 34, -- altura del modelo con las alas (el cuerpo mide ~26 studs)
+	Color = C(140, 20, 15),
+	ContactDamage = 26,
+	XP = 60,
+	Alone = true, -- su oleada no trae otros enemigos ni eventos (Waves)
+	PhaseAnim = "PhaseTransform",
+	DeathAnim = "Death", -- al morir se desploma (5,3 s) y se desvanece
+	DeathTime = 5.8,
+	Phases = {
+		{ -- El Guardián Despierta
+			Above = 0.7,
+			Rest = { 1.3, 1.9 },
+			Move = { Type = "Chase", Speed = 5 },
+			Attacks = {
+				-- Juicio Carmesí: espadón al suelo + onda expansiva
+				{ Type = "Area", Anim = "AttackVertical", Telegraph = 1.5, Count = 1, FirstExact = true, Radius = 9, Delay = 0.3,
+					Damage = 30, WarnColor = FIRE, Recover = 0.6, Weight = 2,
+					Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.05, Count = 18, Speed = 20, Damage = 12, Color = FIRE } },
+				-- Danza del Verdugo: dos estocadas rápidas y un tercer golpe con carga larga
+				{ Type = "Dash", Anim = "Combo3", Telegraph = 0.6, Repeats = 2, RepeatTelegraph = 0.35, Distance = 16, Speed = 40,
+					Damage = 24, Range = 40,
+					Then = { Type = "Area", Target = "Self", Telegraph = 1.0, Radius = 11, Delay = 0.3, Damage = 30, WarnColor = FIRE } },
+				-- Tormenta de Alas: plumas de fuego y zonas incendiadas
+				{ Type = "Shoot", Anim = "WingsOpen", Telegraph = 1.0, Count = 9, Spread = 110, Bursts = 3, BurstDelay = 0.4,
+					Speed = 30, Damage = 12, Color = FIRE,
+					Then = { Type = "Area", Target = "Random", Telegraph = 0.2, Count = 5, Radius = 4, Delay = 1.0, Damage = 14,
+						WarnColor = FIRE, Zone = { Duration = 3, Dps = 8, Color = FIRE } } },
+			},
+		},
+		{ -- El Eclipse Desciende
+			Above = 0.35,
+			Rest = { 1.0, 1.5 },
+			Move = { Type = "Chase", Speed = 6 },
+			Attacks = {
+				{ Type = "Area", Anim = "AttackVertical", Telegraph = 1.3, Count = 1, FirstExact = true, Radius = 10, Delay = 0.3,
+					Damage = 32, WarnColor = FIRE,
+					Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.05, Count = 22, Bursts = 2, BurstDelay = 0.35,
+						Rotate = 8, Speed = 22, Damage = 12, Color = FIRE } },
+				{ Type = "Dash", Anim = "Combo3", Telegraph = 0.55, Repeats = 2, RepeatTelegraph = 0.3, Distance = 18, Speed = 44,
+					Damage = 26, Range = 40,
+					Then = { Type = "Area", Target = "Self", Telegraph = 0.9, Radius = 12, Delay = 0.3, Damage = 32, WarnColor = FIRE } },
+				-- Cadenas del Abismo: círculos que estallan debajo de los jugadores
+				{ Type = "Area", Anim = "ChainSummon", Telegraph = 1.1, Count = { 3, 4 }, FirstExact = true, Scatter = 6, Radius = 4,
+					Delay = 1.3, Damage = 22, WarnColor = DARK },
+				-- Caída del Serafín: desaparece en el cielo y cae sobre un jugador
+				{ Type = "Teleport", Anim = "SeraphFall", Telegraph = 1.0, Distance = 4, Duration = 1.2,
+					Then = { Type = "Area", Target = "Self", Telegraph = 0.9, Radius = 13, Delay = 0.3, Damage = 34, WarnColor = FIRE,
+						Zone = { Duration = 3, Dps = 10, Color = FIRE } } },
+				-- Corazón del Eclipse: el núcleo se carga y explota en anillos
+				{ Type = "Shoot", Anim = "CoreCharge", Pattern = "Radial", Telegraph = 2.0, Count = 24, Bursts = 4, BurstDelay = 0.3,
+					Rotate = 7, Speed = 24, Damage = 13, Color = DARK, Cooldown = { 10, 14 } },
+				-- Legión de los Condenados
+				{ Type = "Summon", Anim = "SummonSoldiers", Telegraph = 1.3, Spawn = "HordeSkeleton", Count = 4, Max = 6,
+					Cooldown = { 14, 18 } },
+			},
+		},
+		{ -- El Último Juicio (Ira del Serafín Caído: todo más rápido y potenciado)
+			Above = 0,
+			Rest = { 0.7, 1.1 },
+			Move = { Type = "Chase", Speed = 7 },
+			Attacks = {
+				-- Rayo del Eclipse: barrido de rayos desde el halo
+				{ Type = "Breath", Anim = "BeamFire", Telegraph = 1.5, Duration = 2.8, Spin = 55, Rate = 0.05, Spread = 8,
+					Speed = 34, Damage = 10, Color = DARK, Cooldown = { 9, 12 }, Weight = 2 },
+				{ Type = "Area", Anim = "AttackVertical", Telegraph = 1.1, Count = 1, FirstExact = true, Radius = 11, Delay = 0.3,
+					Damage = 34, WarnColor = FIRE,
+					Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.05, Count = 26, Bursts = 3, BurstDelay = 0.3,
+						Rotate = 7, Speed = 24, Damage = 13, Color = FIRE } },
+				{ Type = "Dash", Anim = "Combo3", Telegraph = 0.5, Repeats = 2, RepeatTelegraph = 0.28, Distance = 20, Speed = 48,
+					Damage = 28, Range = 42,
+					Then = { Type = "Area", Target = "Self", Telegraph = 0.8, Radius = 13, Delay = 0.3, Damage = 34, WarnColor = FIRE,
+						Zone = { Duration = 3, Dps = 10, Color = FIRE } } },
+				{ Type = "Teleport", Anim = "SeraphFall", Telegraph = 0.9, Distance = 4, Duration = 1.0,
+					Then = { Type = "Area", Target = "Self", Telegraph = 0.8, Radius = 14, Delay = 0.3, Damage = 36, WarnColor = FIRE,
+						Zone = { Duration = 4, Dps = 12, Color = FIRE } } },
+				{ Type = "Area", Anim = "ChainSummon", Telegraph = 1.0, Count = { 4, 5 }, FirstExact = true, Scatter = 7, Radius = 4,
+					Delay = 1.2, Damage = 24, WarnColor = DARK },
+				{ Type = "Summon", Anim = "SummonSoldiers", Telegraph = 1.2, Spawn = "HordeSkeleton", Count = 4, Max = 8,
+					Cooldown = { 12, 16 } },
+			},
+		},
+	},
+}
+
 -- Capítulo 2 · mini-jefe: tres estrellas lentas y tres rápidas que rebotan
 T.CyclopsMage = {
 	Name = "Mago Cíclope",
