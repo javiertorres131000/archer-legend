@@ -15,6 +15,9 @@
 -- Las oleadas no están escritas a mano: se generan al azar en cada partida.
 -- Cada oleada tiene un "presupuesto" (Budget.Base + Budget.PerWave por oleada) que se gasta
 -- comprando enemigos del Pool (cada uno cuesta su Cost en EnemyTypes).
+--   CountMult (opcional): multiplica la cantidad de enemigos de este capítulo.
+--   Toughness (opcional): multiplica la vida de los enemigos comunes (no la de los jefes).
+--     Juntos sirven para "menos bichos pero más duros".
 --   Pool: Type = enemigo, From = primera oleada en la que puede salir, Weight = qué tan seguido.
 --   Un enemigo nuevo sale al menos una vez en su oleada de debut, así se presenta.
 --   En las oleadas de jefe el presupuesto se multiplica por Budget.BossWaveFactor.
@@ -24,11 +27,14 @@ local C = Color3.fromRGB
 return {
 	{
 		Id = "forest",
+		Tagline = "Azrakoth · Serafín del Eclipse", -- línea corta de la tarjeta del lobby
+		Banner = "rbxassetid://140105413301518",
 		Theme = "forest", -- decoración de las salas (Arena.lua)
 		Accent = C(90, 255, 160), -- neón de la sala y tinte de la luz (modo frenético)
-		Name = "Bosque Maldito",
-		Description = "Slimes, murciélagos y plantas venenosas. Lo protege Azrakoth, el Serafín del Eclipse.",
-		Icon = "🌲",
+		Name = "Bosque Calcinado",
+		Description = "Slimes, murciélagos y plantas venenosas entre árboles quemados. Lo protege Azrakoth, el Serafín del Eclipse.",
+		Icon = "🔥", -- si hay Image, el lobby muestra la imagen en vez del emoji
+		Image = "", -- rbxassetid de assets/ui/BosqueCalcinado.png (subirla con el Asset Manager)
 		UnlockedByDefault = true,
 		Floor = C(70, 100, 60),
 		Wall = C(70, 50, 35),
@@ -79,6 +85,8 @@ return {
 	},
 	{
 		Id = "ruins",
+		Tagline = "Gólems · Magos · Esqueletos", -- línea corta de la tarjeta del lobby
+		Banner = "rbxassetid://80757689415650",
 		Theme = "ruins",
 		Accent = C(255, 190, 60), -- neón de la sala y tinte de la luz (modo frenético)
 		Name = "Ruinas Perdidas",
@@ -123,28 +131,93 @@ return {
 		},
 	},
 	{
-		Id = "fortress",
-		Theme = "fortress",
-		Accent = C(255, 60, 120), -- neón de la sala y tinte de la luz (modo frenético)
-		Name = "Fortaleza Demoníaca",
-		Description = "Fuego, bombas y torres arcanas. Te espera el Demonio de Fuego.",
-		Icon = "🔥",
+		Id = "glacier",
+		Tagline = "Ventisca · Hielo · Reina de Hielo", -- línea corta de la tarjeta del lobby
+		Banner = "rbxassetid://127764064275227",
+		Theme = "glacier", -- mecánicas de hielo: Config.MapEvents.glacier y Config.Chill
+		Accent = C(120, 210, 255), -- neón de la sala y tinte de la luz
+		Name = "Glaciar Eterno",
+		Description = "Lagos congelados donde te resbalás, ventiscas que te congelan y carámbanos que caen del cielo. Todo acá es de hielo, hasta los enemigos. Reina la Reina de Hielo.",
+		Icon = "❄️",
 		Requires = "ruins",
-		Floor = C(75, 45, 40),
-		Wall = C(40, 25, 25),
+		Floor = C(200, 225, 240),
+		Wall = C(90, 120, 150),
 		Waves = 10,
-		HealthMult = 1.8,
-		DamageMult = 1.3,
-		Budget = { Base = 9, PerWave = 2.6, BossWaveFactor = 0.35 },
-		Interval = { 1.1, 0.65 },
+		HealthMult = 2.1,
+		DamageMult = 1.4,
+		CountMult = 0.45, -- menos de la mitad de enemigos...
+		Toughness = 2, -- ...pero cada uno aguanta el doble
+		Budget = { Base = 10, PerWave = 2.8, BossWaveFactor = 0.35 },
+		Interval = { 1, 0.55 },
+		Lighting = {
+			ClockTime = 19.8, -- crepúsculo azul: la nieve en penumbra hace resaltar enemigos, avisos, fogatas y la aurora
+			Ambient = C(95, 112, 150),
+			Brightness = 1.2,
+			HazeColor = C(70, 92, 135),
+			HazeDensity = 0.22,
+			Weather = "Snow",
+		},
 		Rewards = {
 			GoldPerWave = 25,
-			LootMult = 2.5, -- multiplica el botín de los enemigos (Config.Loot)
+			LootMult = 2.5,
 			VictoryGold = 250,
 			VictoryGems = 12,
 			FirstClearGems = 100,
 			MiniBoss = { Gold = 80, Stones = 3 },
 			Boss = { Gold = 150, Stones = 5 },
+		},
+		MiniBoss = { Wave = 5, Type = "Yeti" },
+		Boss = { Wave = 10, Type = "FrostQueen" },
+		-- Solo enemigos de hielo (las variantes "Frost..." son los roles comunes hechos de hielo)
+		Pool = {
+			{ Type = "FrostGrabber", From = 3, Weight = 0.6 },
+			{ Type = "FrostSkeleton", From = 1, Weight = 3 },
+			{ Type = "IceSlime", From = 1, Weight = 4 },
+			{ Type = "FrostBat", From = 1, Weight = 3 },
+			{ Type = "Penguin", From = 2, Weight = 3 },
+			{ Type = "IceArcher", From = 2, Weight = 2 },
+			{ Type = "SnowWolf", From = 3, Weight = 2 },
+			{ Type = "IceMage", From = 4, Weight = 2 },
+			{ Type = "FrostKnight", From = 4, Weight = 0.8 },
+			{ Type = "IceGolem", From = 5, Weight = 1.2 },
+			{ Type = "FrostCaptain", From = 6, Weight = 0.5 },
+			{ Type = "IceWraith", From = 7, Weight = 1.5 },
+		},
+	},
+	{
+		Id = "fortress",
+		Tagline = "Demonios · Fuego · Segadores", -- línea corta de la tarjeta del lobby
+		Banner = "rbxassetid://123385256216961",
+		Theme = "fortress",
+		Accent = C(255, 60, 120), -- neón de la sala y tinte de la luz (modo frenético)
+		Name = "Fortaleza Demoníaca",
+		Description = "Fuego, bombas y torres arcanas. Te espera el Demonio de Fuego.",
+		Icon = "🔥",
+		Requires = "glacier",
+		Floor = C(75, 45, 40),
+		Wall = C(40, 25, 25),
+		Waves = 10,
+		HealthMult = 2.5,
+		DamageMult = 1.5,
+		Budget = { Base = 10.5, PerWave = 2.9, BossWaveFactor = 0.35 },
+		Interval = { 1, 0.55 },
+		-- Fortaleza en llamas: cielo rojo, bruma de humo y ceniza
+		Lighting = {
+			ClockTime = 18.4,
+			Ambient = C(120, 70, 60),
+			Brightness = 2.2,
+			HazeColor = C(140, 60, 45),
+			HazeDensity = 0.34,
+			Weather = "Ash",
+		},
+		Rewards = {
+			GoldPerWave = 35,
+			LootMult = 3.3, -- multiplica el botín de los enemigos (Config.Loot)
+			VictoryGold = 350,
+			VictoryGems = 16,
+			FirstClearGems = 125,
+			MiniBoss = { Gold = 110, Stones = 4 },
+			Boss = { Gold = 200, Stones = 6 },
 		},
 		MiniBoss = { Wave = 5, Type = "Reaper" },
 		Boss = { Wave = 10, Type = "FlameDemon" },
@@ -169,62 +242,15 @@ return {
 		},
 	},
 	{
-		Id = "glacier",
-		Theme = "glacier",
-		Accent = C(120, 210, 255), -- neón de la sala y tinte de la luz
-		Name = "Glaciar Eterno",
-		Description = "Lobos de las nieves, gólems de hielo y una tormenta que no para. Reina ahí la Reina de Hielo.",
-		Icon = "❄️",
-		Requires = "fortress",
-		Floor = C(200, 225, 240),
-		Wall = C(90, 120, 150),
-		Waves = 10,
-		HealthMult = 2.3,
-		DamageMult = 1.45,
-		Budget = { Base = 10, PerWave = 2.8, BossWaveFactor = 0.35 },
-		Interval = { 1.05, 0.6 },
-		Lighting = {
-			ClockTime = 16.5,
-			Ambient = C(150, 170, 200),
-			Brightness = 2.4,
-			HazeColor = C(215, 235, 255),
-			HazeDensity = 0.38,
-			Weather = "Snow",
-		},
-		Rewards = {
-			GoldPerWave = 35,
-			LootMult = 3.3,
-			VictoryGold = 350,
-			VictoryGems = 16,
-			FirstClearGems = 125,
-			MiniBoss = { Gold = 110, Stones = 4 },
-			Boss = { Gold = 200, Stones = 6 },
-		},
-		MiniBoss = { Wave = 5, Type = "Yeti" },
-		Boss = { Wave = 10, Type = "FrostQueen" },
-		Pool = {
-			{ Type = "Grabber", From = 3, Weight = 0.6 },
-			{ Type = "HordeSkeleton", From = 1, Weight = 2 },
-			{ Type = "HeavyKnight", From = 4, Weight = 0.7 },
-			{ Type = "EliteCaptain", From = 6, Weight = 0.5 },
-			{ Type = "IceSlime", From = 1, Weight = 4 },
-			{ Type = "FrostBat", From = 1, Weight = 3 },
-			{ Type = "Penguin", From = 2, Weight = 3 },
-			{ Type = "SnowWolf", From = 3, Weight = 2 },
-			{ Type = "IceMage", From = 4, Weight = 2 },
-			{ Type = "IceGolem", From = 6, Weight = 1.2 },
-			{ Type = "WhiteGolem", From = 7, Weight = 1 },
-			{ Type = "BlueGolem", From = 8, Weight = 1 },
-		},
-	},
-	{
 		Id = "desert",
+		Tagline = "Momias · Escorpiones · Faraón", -- línea corta de la tarjeta del lobby
+		Banner = "", -- rbxassetid de assets/ui/banners (imagen grande de la tarjeta)
 		Theme = "desert",
 		Accent = C(255, 200, 80), -- neón de la sala y tinte de la luz
 		Name = "Desierto de los Reyes",
 		Description = "Escorpiones, momias y gusanos bajo la arena. En la pirámide espera el Faraón Eterno.",
 		Icon = "🏜️",
-		Requires = "glacier",
+		Requires = "fortress",
 		Floor = C(225, 190, 130),
 		Wall = C(150, 110, 70),
 		Waves = 10,

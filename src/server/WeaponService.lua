@@ -18,6 +18,7 @@
 local Players = game:GetService("Players")
 local Weapons = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Weapons"))
 local CrateItems = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CrateItems"))
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local Profiles = require(script.Parent.Profiles)
 local PlayerData = require(script.Parent.PlayerData)
 
@@ -30,7 +31,7 @@ function WeaponService.owns(data: any, def: any): boolean
 	if not def then
 		return false
 	end
-	if not def.Prize then
+	if not def.Prize or Config.Debug.UnlockAllWeapons then
 		return true
 	end
 	return data ~= nil and ((data.Crates.Owned[def.Prize] :: number?) or 0) > 0

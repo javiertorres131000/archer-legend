@@ -17,6 +17,7 @@
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local PlayerData = require(script.Parent.PlayerData)
+local Weapons = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Weapons"))
 
 local ProjCfg = Config.Projectile
 local flat = PlayerData.flat
@@ -61,6 +62,181 @@ local function blast(owner: Player, center: Vector3, radius: number, amount: num
 	end
 end
 SkillEffects.blast = blast
+
+---------------------------------------------------------------------
+-- Poderes de las armas especiales (campo Power en Shared/Weapons.lua)
+-- Lo que se ve (fuego, rayos, esferas, grietas) ahora también hace daño de verdad:
+--   Burn / Bleed: cada golpe quema / hace sangrar (fracción del golpe por segundo, 3 s)
+--   Slow: cada golpe frena al enemigo
+--   ChainChance: el golpe salta como rayo a ChainTargets enemigos cercanos (ChainMult del daño)
+--   Finisher: el remate: el 3er tajo del combo (como SwingCombo del cliente) o cada Every golpes
+--     Kind "Blast": explosión de radio Radius, Ahead studs adelante, Mult del daño
+--     Kind "Strike": rayos que caen sobre Targets enemigos a menos de Range, Mult del daño
+--     Kind "Eruption": el piso erupciona alrededor del jugador (Radius, Mult, quema con Burn)
+--   StrikeEvery (arcos): cada N impactos cae un rayo con explosión (StrikeRadius, StrikeMult)
+--   Rift (arcos): cada impacto abre una grieta que daña (DpsMult) y atrae (Pull) un rato
+---------------------------------------------------------------------
+
+type Rift = { pos: Vector3, untilT: number, tick: number, dps: number, radius: number, pull: number, color: Color3 }
+type WeaponState = { combo: number, lastSwing: number, hits: number, rifts: { Rift } }
+local weaponStates: { [Player]: WeaponState } = setmetatable({}, { __mode = "k" }) :: any
+local COMBO_RESET = 1.2 -- igual que SwingCombo.RESET del cliente
+
+local function wstate(p: Player): WeaponState
+	local s = weaponStates[p]
+	if not s then
+		s = { combo = 0, lastSwing = 0, hits = 0, rifts = {} }
+		weaponStates[p] = s
+	end
+	return s
+end
+
+local function powerOf(owner: Player?): any
+	if not owner then
+		return nil
+	end
+	local id = owner:GetAttribute("Weapon")
+	local def = if type(id) == "string" then Weapons.ById[id] else nil
+	return def and def.Power
+end
+
+-- Daño en área con quemadura opcional (fracción del golpe por segundo)
+local function area(owner: Player, center: Vector3, radius: number, amount: number, burnFrac: number?)
+	local c = flat(center)
+	for _, e in table.clone(Enemies.list) do
+		if e.alive and not e.hidden and (flat(e.part.Position) - c).Magnitude <= radius + e.radius then
+			Enemies.damage(e, amount, owner, "crit")
+			if burnFrac and e.alive then
+				Enemies.applyBurn(e, amount * burnFrac, 3, owner)
+			end
+		end
+	end
+end
+
+local function chainFrom(owner: Player, e: any, dealt: number, targets: number, mult: number, range: number)
+	local from = e.part.Position
+	local hit: { [any]: boolean } = { [e] = true }
+	for _ = 1, targets do
+		local n = Enemies.nearest(from, hit, range)
+		if not n then
+			break
+		end
+		hit[n] = true
+		local to = n.part.Position
+		fx("Chain", from, to)
+		Enemies.damage(n, dealt * mult, owner, "hit")
+		from = to
+	end
+end
+
+local function weaponOnHit(owner: Player, e: any, dealt: number, source: string)
+	local power = powerOf(owner)
+	if not power or (source ~= "melee" and source ~= "arrow") then
+		return
+	end
+	local pos = e.part.Position
+	if e.alive then
+		if power.Burn then
+			Enemies.applyBurn(e, dealt * power.Burn, 3, owner)
+		end
+		if power.Bleed then
+			Enemies.applyBurn(e, dealt * power.Bleed, 3, owner)
+		end
+		if power.Slow then
+			e.slowUntil = os.clock() + 2
+			e.slowAmount = math.max(e.slowAmount or 0, power.Slow)
+		end
+	end
+	if power.ChainChance and math.random() < power.ChainChance then
+		chainFrom(owner, e, dealt, power.ChainTargets or 2, power.ChainMult or 0.4, power.ChainRange or 14)
+	end
+	if source == "arrow" and power.StrikeEvery then
+		local s = wstate(owner)
+		s.hits += 1
+		if s.hits % power.StrikeEvery == 0 then
+			fx("Chain", pos + Vector3.new(0, 45, 0), pos)
+			fx("Blast", pos, power.StrikeRadius, power.Color)
+			area(owner, pos, power.StrikeRadius, dealt * power.StrikeMult)
+		end
+	end
+	if source == "arrow" and power.Rift then
+		local r = power.Rift
+		local s = wstate(owner)
+		if #s.rifts >= r.Max then
+			table.remove(s.rifts, 1)
+		end
+		table.insert(s.rifts, { pos = flat(pos), untilT = os.clock() + r.Duration, tick = 0, dps = dealt * r.DpsMult, radius = r.Radius, pull = r.Pull, color = power.Color })
+		fx("Blast", pos, r.Radius, power.Color)
+	end
+end
+
+local function weaponFinisher(t: any, dir: Vector3, damage: number)
+	local power = powerOf(t.player)
+	local f = power and power.Finisher
+	if not f then
+		return
+	end
+	local s = wstate(t.player)
+	local now = os.clock()
+	if now - s.lastSwing > COMBO_RESET then
+		s.combo = 0
+	end
+	s.lastSwing = now
+	s.combo += 1
+	if s.combo < (f.Every or 3) then
+		return
+	end
+	s.combo = 0
+	local origin = t.root.Position
+	if f.Kind == "Blast" then
+		local center = origin + Vector3.new(dir.X, 0, dir.Z).Unit * (f.Ahead or 5)
+		fx("Blast", center, f.Radius, power.Color)
+		area(t.player, center, f.Radius, damage * f.Mult, power.Burn)
+	elseif f.Kind == "Eruption" then
+		fx("Wave", origin, f.Radius, power.Color)
+		fx("Blast", origin, f.Radius * 0.6, power.Color)
+		area(t.player, origin, f.Radius, damage * f.Mult, power.Burn)
+	elseif f.Kind == "Strike" then
+		local hit: { [any]: boolean } = {}
+		for _ = 1, f.Targets do
+			local e = Enemies.nearest(origin, hit, f.Range)
+			if not e then
+				break
+			end
+			hit[e] = true
+			local pos = e.part.Position
+			fx("Chain", pos + Vector3.new(0, 45, 0), pos)
+			fx("Blast", pos, 4, power.Color)
+			area(t.player, pos, 4, damage * f.Mult)
+		end
+	end
+end
+
+local function updateRifts(t: any, now: number)
+	local s = weaponStates[t.player]
+	if not s or #s.rifts == 0 then
+		return
+	end
+	for i = #s.rifts, 1, -1 do
+		local r = s.rifts[i]
+		if now >= r.untilT then
+			table.remove(s.rifts, i)
+		elseif now >= r.tick then
+			r.tick = now + 0.5
+			for _, e in table.clone(Enemies.list) do
+				if e.alive and not e.hidden then
+					local offset = r.pos - flat(e.part.Position)
+					if offset.Magnitude <= r.radius + e.radius then
+						Enemies.damage(e, r.dps * 0.5, t.player, "hit")
+						if e.alive and not e.isBoss and offset.Magnitude > 0.5 then
+							Enemies.knockback(e, offset.Unit, math.min(offset.Magnitude, r.pull * 0.5)) -- la grieta los atrae
+						end
+					end
+				end
+			end
+		end
+	end
+end
 
 ---------------------------------------------------------------------
 -- Golpes
@@ -116,6 +292,8 @@ function SkillEffects.onHit(owner: Player, stats: any, e: any, dealt: number, so
 			from = to
 		end
 	end
+	-- Poder del arma especial (fuego, sangrado, rayos, grietas...)
+	weaponOnHit(owner, e, dealt, source)
 end
 
 ---------------------------------------------------------------------
@@ -211,6 +389,7 @@ end
 
 -- Después de cada tajo o golpe (cuerpo a cuerpo). damage: daño base del golpe.
 function SkillEffects.afterSwing(t: any, dir: Vector3, damage: number)
+	weaponFinisher(t, dir, damage) -- remate del arma especial (3er tajo)
 	local state = t.state
 	local stats = state.stats
 	local attacks = state.attacks or 0
@@ -252,6 +431,7 @@ end
 ---------------------------------------------------------------------
 
 function SkillEffects.update(t: any, now: number)
+	updateRifts(t, os.clock()) -- grietas del Arco del Vacío
 	local state = t.state
 	local stats = state.stats
 	local origin = t.root.Position

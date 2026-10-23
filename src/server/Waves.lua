@@ -82,7 +82,7 @@ end
 -- countMult agranda el presupuesto según la cantidad de jugadores (1 = solo).
 -- Es una función pura (no toca el juego), así se puede probar sola.
 function Waves.buildQueue(ch, n: number, countMult: number?): { string }
-	local budget = (ch.Budget.Base + (n - 1) * ch.Budget.PerWave) * (countMult or 1) * WavesCfg.EnemyCountMultiplier
+	local budget = (ch.Budget.Base + (n - 1) * ch.Budget.PerWave) * (countMult or 1) * WavesCfg.EnemyCountMultiplier * (ch.CountMult or 1)
 	if bossFor(ch, n) then
 		budget *= ch.Budget.BossWaveFactor or 0.35
 	end
@@ -136,7 +136,7 @@ end
 local function healthMultFor(n: number): number
 	local ch = chapter()
 	n = localWave(ch, n)
-	return ch.HealthMult * (1 + (n - 1) * WavesCfg.HealthGrowth) * scale.Health * Config.Frenzy.EnemyHealthMult
+	return ch.HealthMult * (1 + (n - 1) * WavesCfg.HealthGrowth) * scale.Health * Config.Frenzy.EnemyHealthMult * (ch.Toughness or 1)
 end
 
 local function spawnInterval(n: number): number
@@ -204,7 +204,42 @@ local function startWave(n: number, targets: { PlayerData.Target })
 	if bossType then
 		local half = Enemies.getHalf()
 		local pos = Enemies.findSpawnPosition(targets) or Vector3.new(0, 0, -half.Z * 0.6)
-		Enemies.spawn(bossType, pos, { healthMult = ch.HealthMult * scale.Health, dmgMult = ch.DamageMult })
+		-- Jefe con entrada: aparece cerca, delante del primer jugador (Intro.Distance studs)
+		local introDef = EnemyTypes[bossType].Intro
+		local cerca = targets[1]
+		local cercaCF = cerca and (cerca.root :: any).CFrame -- (las pruebas usan raíces sin CFrame)
+		if introDef and cerca and cercaCF then
+			local mira = cercaCF.LookVector
+			local adelante = Vector3.new(mira.X, 0, mira.Z)
+			adelante = if adelante.Magnitude > 0.1 then adelante.Unit else Vector3.new(0, 0, -1)
+			pos = Enemies.clampFlat(cerca.root.Position + adelante * (introDef.Distance or 36), 12)
+		end
+		local boss = Enemies.spawn(bossType, pos, { healthMult = ch.HealthMult * scale.Health, dmgMult = ch.DamageMult })
+		-- Cinemática de entrada (Client/BossIntro): el combate se congela mientras dura
+		local intro = EnemyTypes[bossType].Intro
+		local part = boss.part :: any
+		if intro and part.SetAttribute then
+			PlayerData.startCinematic(intro.Duration)
+			-- todos quedan mirando al jefe (la cinemática también les gira la cámara al terminar)
+			for _, t in targets do
+				local r = t.root
+				local mira = Vector3.new(boss.part.Position.X, r.Position.Y, boss.part.Position.Z)
+				if (mira - r.Position).Magnitude > 0.5 then
+					r.CFrame = CFrame.lookAt(r.Position, mira)
+				end
+			end
+			-- y el jefe mira al primero (para la cinemática: enfrentados)
+			local primero = targets[1]
+			if primero then
+				local bp = boss.part.Position
+				boss.part.CFrame = CFrame.lookAt(bp, Vector3.new(primero.root.Position.X, bp.Y, primero.root.Position.Z))
+			end
+			if intro.Anim then
+				part:SetAttribute("BossAnim", string.format("%s|0|%.3f", intro.Anim, workspace:GetServerTimeNow()))
+			end
+			gameState:SetAttribute("BossIntro", string.format("%s|%s|%.3f|%.2f|%s|%.2f", intro.Title, intro.Subtitle,
+				workspace:GetServerTimeNow(), intro.Duration, intro.Roar or "", intro.RoarAt or 0))
+		end
 	end
 	-- Élites, horda y meta de equipo de esta oleada
 	if not alone then WaveEvents.onWaveStart({

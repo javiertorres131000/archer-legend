@@ -1,3 +1,6 @@
 tests/.build/
 __pycache__/
 *.pyc
+
+# Exportaciones pesadas de modelos (se regeneran con los scripts de Blender)
+assets/*/output/roblox/

@@ -199,7 +199,7 @@ function Grab.update(dt: number)
 				hold.tick -= dt
 				if hold.tick <= 0 then
 					hold.tick = Cfg.TickTime
-					PlayerLife.damage(hold.target, hold.dps * Cfg.TickTime)
+					PlayerLife.damage(hold.target, hold.dps * Cfg.TickTime, "Agarre")
 				end
 			end
 		end

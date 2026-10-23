@@ -1,5 +1,205 @@
 # Cambios
 
+## 2026-10-23 · Guanteletes Volcánicos (primera arma de puño especial)
+
+- **Modelo propio** hecho en Blender por código (`assets/weapons/VolcanicGauntlets/`: script, FBX y renders). Son 3 piezas, una por material: armadura (Armor), roca (Rock) y magma (Glow).
+- **Arma** (`Shared/Weapons`, Base `Fists`):
+  - Cada golpe quema (30% por segundo, 3 s).
+  - Cada 6º golpe hace erupcionar el piso alrededor tuyo (radio 11, ×2) y quema todo (Finisher `Eruption` con `Every`).
+  - Efectos con el estilo Inferno.
+- **Cofre de Armas:** el premio nuevo en `CrateItems` y las probabilidades repartidas entre las 6 armas.
+- **Tercera persona:** `Client/GauntletModels` pone el guantelete en las dos manos. `HeldWeapon` ya no intenta poner los guanteletes como un arma de una mano. En primera persona los dibuja `WeaponFx` con el modelo de `WeaponModels`.
+- **Arreglo:** en primera persona `WeaponFx` escondía cualquier guante (solo mostraba los brazos). Ahora los guanteletes con modelo propio se ven. En tercera persona se ven también en el lobby.
+- **Pruebas:** `test_crates` abre también la sexta arma.
+
+## 2026-10-23 · Las armas especiales hacen lo que muestran
+
+Antes los efectos de las armas especiales eran solo visuales. Ahora tienen poderes reales: campo `Power` en `Shared/Weapons`, aplicado en `Server/SkillEffects`.
+
+| Arma | Cada golpe | Remate o especial |
+|---|---|---|
+| Hoja Infernal | Quema: 35% del golpe por segundo, 3 s | 3er tajo: explosión de fuego (radio 10, ×1,6) que quema a todos |
+| Katana Carmesí | Sangrado: 25% por segundo, 3 s | 3er tajo: esfera roja gigante (radio 13, ×2,2) |
+| Espada Celestial | 35% de rayo que salta a 3 enemigos (50% del golpe) | 3er tajo: rayos del cielo sobre 4 enemigos (×1,8) |
+| Arco Celestial | El rayo salta siempre a 2 enemigos (35% del golpe) | Cada 5 impactos: rayo del cielo con explosión (radio 7, ×1,5) |
+| Arco del Vacío | Grieta violeta: 2,5 s, daña 30% por segundo y atrae enemigos (máx. 3 grietas) | Se mantiene la flecha perforante cada 4 disparos |
+| Katana de Escarcha | Frena 40% durante 2 s | 3er tajo: estallido de hielo (radio 9, ×1,4) |
+
+- Los efectos visibles usan los avisos existentes de `SkillFx` (`Chain` y `Blast`).
+- Las descripciones de las armas explican qué hace cada una.
+
+## 2026-10-23 · Capítulo 3: Glaciar Eterno (todo de hielo)
+
+- **Orden de los capítulos:** el Glaciar pasa a ser el 3 (se desbloquea con Ruinas Perdidas) y la Fortaleza Demoníaca el 4 (con el Glaciar). Los Id no cambian, así que los perfiles guardados siguen valiendo.
+- **Dificultad y recompensas:**
+  - Glaciar: vida ×2,1, daño ×1,4, más presupuesto y spawns más rápidos.
+  - Fortaleza: vida ×2,5 y daño ×1,5.
+  - Las recompensas se intercambiaron según el nuevo orden.
+- **Enemigos solo de hielo:**
+  - Variantes de los roles comunes: `FrostSkeleton`, `FrostKnight` (con ráfaga radial), `FrostCaptain`, `FrostGrabber` e `IceArcher`.
+  - Nuevos: `IceWraith` (flota, se teletransporta y tira carámbanos) e `IceSlimeling` (el slime de hielo se parte en trozos helados).
+  - Yeti: 3400 de vida.
+  - Reina de Hielo: 12000 de vida y una tercera fase con disparos que rebotan, tormenta de carámbanos e invocación de espectros.
+- **Frío** (`Server/Chill`, `Config.Chill`):
+  - Cada golpe que recibís suma un punto de frío, y cada punto te frena un 9%.
+  - Con 5 puntos quedás congelado 1,3 s y después tenés 3,5 s de inmunidad.
+  - El frío se va solo, y mucho más rápido junto a una fogata.
+- **Eventos del mapa** (`Server/GlacierEvents`, `Config.MapEvents.glacier`):
+  - Carámbanos que caen sobre los jugadores (el primero justo donde estás parado) y suman 2 de frío.
+  - Ventisca cada 24 a 34 s: aviso, 8 s de viento que empuja y frío continuo si no estás en una fogata.
+  - 5 fogatas con un anillo cálido.
+- **Resbalar** (`Client/IceWorld`, `Config.IceGrip`): sobre los lagos congelados (material Ice) acelerás, frenás y doblás despacio. Sobre la nieve caminás un 12% más lento.
+- **Mapa:**
+  - Lagos de hielo generados con ruido y colores de nieve, hielo y glaciar.
+  - Decoración nueva: racimos de cristales (algunos con luz), rocas congeladas, estalagmitas, aventureros congelados en bloques de hielo, pilares de hielo y pinos más grandes.
+- **VFX** (`Client/IceWorld`):
+  - Aire y cielo: polvo de diamante, nieve barrida por el viento y aurora boreal animada.
+  - Luz y pantalla: corrección de color fría, bloom, rayos de sol y desenfoque lejano.
+  - Ventisca: nieve horizontal, ráfagas y pantalla blanca.
+  - Frío: escarcha en los bordes de la pantalla y medidor de frío.
+  - Personajes: bloque de hielo al congelarse, que estalla al romperse; aliento que humea; pisadas en la nieve; chispas al patinar sobre el hielo.
+  - Enemigos: niebla fría y destellos, y al morir estallan en trozos de hielo.
+  - Decoración: destellos en los cristales y humo en las fogatas.
+  - Carámbanos (servidor): estallido, esquirlas y anillo de escarcha.
+- La Fortaleza ahora tiene luz propia: cielo rojo y ceniza.
+- **Ajuste tras probarlo** (pantalla muy brillante y con tirones):
+  - Glaciar al mediodía (cielo celeste, no naranja), con menos brillo y menos bruma.
+  - Sin bloom, rayos de sol ni desenfoque extra.
+  - Menos partículas: polvo, nieve barrida, ventisca y niebla de los enemigos.
+  - Blanco de la ventisca más suave y montículos de nieve más chicos.
+- **No se podía subir lomas ni rampas** (el resbalón también pisaba la velocidad en pendientes):
+  - En pendientes se camina normal: solo se resbala en lo plano.
+  - Los acantilados del Glaciar ahora son de roca, no de hielo.
+- **Nieve con más textura:** se mezcla con costra (Salt), nieve pisada (Limestone) y rocas que asoman (Slate). Además los colores del terreno son más grises y azulados, para que la luz no los queme en blanco.
+- **Texturas realistas de nieve y hielo:**
+  - Imágenes de color, relieve y rugosidad en `assets/textures/glacier/`, subidas a Roblox.
+  - En el place de la Arena están los materiales `NieveGlaciar` y `HieloGlaciar` en MaterialService, y reemplazan a Snow e Ice en todo el place.
+  - No los sincroniza Rojo: viven en el place, así que hay que guardarlo.
+- **Ataques que se ven sobre la nieve:** los avisos de área y los carámbanos del Glaciar pasan de celeste a rojo fuerte, y las zonas de escarcha a azul intenso. Las balas ya usaban el color de peligro.
+- **Fogatas:**
+  - Ahora son 9.
+  - Cada una tiene un marcador 🔥 siempre visible, con la distancia, y una columna de luz naranja.
+  - Con frío o ventisca los marcadores laten y el de la fogata más cercana se agranda.
+- **Montañas del borde:**
+  - En el Glaciar son gigantes y nevadas: 95 de alto, con picos blancos (`Config.Map.ThemeEdges`).
+  - En todos los mapas hay paredes invisibles al pie, para no salir trepando (`Config.Map.BoundaryWalls`).
+- **Enemigos de hielo con modelo propio** (`Server/IceLooks`):
+  - Los que no tenían modelo usaban los genéricos de «Todos» (muñecos y zombies). Ahora se arman por código de hielo, cristal y luz:
+    - Diablillo de escarcha: cuernos, garras y púas.
+    - Guardián glacial: escudo, maza de hielo y núcleo brillante.
+    - Caballero boreal: corona, capa translúcida, espada de luz y halo.
+    - Garra helada: cangrejo con pinzas y ojos en tallos.
+    - Centinela de escarcha: cristal flotante con un gran ojo.
+    - Espectro de hielo: túnica rasgada y niebla.
+    - Trozo de slime helado.
+  - Si en EnemyModels hay un modelo con el mismo nombre, se usa ese.
+- **Ataques con efectos** (`Client/IceWorld`):
+  - Cada disparo enemigo sale con un anillo de escarcha, esquirlas, vaho y un destello de luz.
+  - Cada área de ataque, al caer, hace brotar estacas de hielo del piso que se rompen en esquirlas y vaho.
+- **Glaciar más legible** (antes «todo blanco» y no se entendía por qué perdías vida):
+  - **Crepúsculo azul:** con la nieve en penumbra resaltan los enemigos, los avisos rojos, las fogatas y la aurora, que ahora es más intensa.
+  - **Mecánicas de a una:** las oleadas 1 y 2 traen solo enemigos, los carámbanos empiezan en la 3 y la primera ventisca llega en la 5 (`FromWave`). Cada una se presenta con un cartel (atributo `GlacierTip`).
+  - **Ventisca:**
+    - Arriba hay una barra con «VENTISCA en N s» (atributo `BlizzardNext`) y, mientras sopla, «VENTISCA · N s», con la distancia a la fogata más cercana.
+    - Oscurece la pantalla en vez de blanquearla. Dura 6 s y pasa cada 32 a 42 s.
+  - **Por qué perdés vida:** arriba de la barra de vida aparece la causa, por ejemplo «Carámbano −20», «Disparo −14» o «Zona en el piso −8». `PlayerLife.damage` recibe la causa y la publica en el atributo `LastHurt` del jugador.
+  - **Medidor de frío:** muestra «Te frena N%», la distancia a la fogata más cercana y parpadea «¡Te vas a congelar!» cuando estás por congelarte.
+  - **Mapa:**
+    - Un lago congelado grande a un costado del centro, con menos manchas de hielo sueltas.
+    - Un anillo de bosques de pinos oscuros y rocas antes de las montañas.
+    - Antorchas que marcan el camino desde el centro a cada fogata.
+- **Menos enemigos pero más duros en el Glaciar:** hay campos nuevos por capítulo, `CountMult` y `Toughness`. En el Glaciar salen un 45% de los enemigos y cada común tiene el doble de vida. Los jefes no cambian.
+- **Pruebas:** `test_modes` refleja el nuevo orden y `test_grab` acepta variantes del Atrapador.
+
+## 2026-10-23 · Robo de vida y habilidades más moderados
+
+- **Robo de vida** (espada y puños, `Config.Melee`):
+  - baja de 4% a 1,5% del daño;
+  - nuevo tope de 3% de la vida máxima por segundo (`LifestealMaxPerSecond`);
+  - contra jefes rinde la mitad (`LifestealBossMult`).
+- **Habilidades** (`Shared/Skills`, con sus textos):
+  - Fuerza +20% → +12%; Cadencia 15% → 10%; Ojo de halcón 8% → 6%; Golpe brutal +50% → +35%.
+  - Quemadura 30% → 15% por segundo (`Config.Projectiles.BurnFraction`).
+  - Escudo de maná 12/8 s → 16/12 s; Reflejos 10% → 7%; Cadáver explosivo 40% → 25%.
+  - Arco: Ojo del cazador 25% → 20%; Flechas explosivas 35% → 25%; Pulso firme 25% → 15%; Primera sangre 60% → 40%.
+  - Espada: Ejecución 60% → 35%; Sed de sangre 2 → 1 de vida; Armadura 12% → 10%; Herida profunda 25% → 15%; Tajo veloz 150% → 100%.
+  - Puños: Doble golpe 20% → 15%; Adrenalina 30% → 20%.
+
+## 2026-10-23 · Nueva pantalla de capítulos y mapa sin forma de caja
+
+- **«Elegí tu aventura»** (`LobbyUI`): tarjetas grandes en dos columnas.
+  - **Arriba:** la imagen del reino (`Chapters › Banner`). Sin imagen, un degradé del color del capítulo con su ícono.
+  - **Abajo:** «CAPÍTULO 0N», el nombre, una línea corta (`Tagline`) y el estado (victorias, «Disponible» o «Completá el capítulo anterior» con candado).
+  - **Botón:** SELECCIONADO o EXPLORAR. Los capítulos bloqueados se ven apagados.
+- **Imágenes:** 4 en `assets/ui/banners/` (bosque, ruinas, fortaleza y glaciar), ya subidas y puestas en `Chapters › Banner` (Desierto de los Reyes sigue sin imagen).
+- **Cinemática del jefe:** `BossIntro` esperaba `GameState` dentro de `Remotes`, pero está en `ReplicatedStorage`. Por eso no se veía la cinemática ni sonaba el rugido.
+- **`MapBuilder`:** las montañas del borde siguen un contorno redondeado e irregular (superelipse con ruido), con picos de alturas distintas y roca rugosa. Antes eran un anillo cuadrado de altura pareja.
+
+## 2026-10-23 · Bolas de fuego de Azrakoth y entrada enfrentados
+
+- **Proyectiles:**
+  - Nuevos campos en los ataques: `KeepColor` (no usa el color de peligro global) y `VisualSize` (se dibuja más grande, sin agrandar la hitbox). Llegan por `EnemyAI.shoot` y `Combat.fireEnemyProjectile`.
+  - Azrakoth tira bolas de fuego naranjas: tamaño visual 2,6 (1,8 en el rayo).
+  - `ProjectileVisuals`: las bolas de fuego grandes llevan más llamas y chispas.
+- **Entrada enfrentados:**
+  - Al empezar la cinemática, `Waves` gira a cada jugador hacia el jefe y al jefe hacia el primer jugador.
+  - Al terminar, `BossIntro` apunta la cámara al jefe (sirve en primera persona).
+
+## 2026-10-23 · Golpes en área que se pueden leer
+
+- **Áreas de Azrakoth:** el círculo rojo aparece casi al empezar el golpe y se llena durante 0,9 a 1,5 s. Antes salía 0,3 s antes de explotar. Afecta a 8 ataques: Juicio Carmesí, los remates de la Danza, la Caída del Serafín y las zonas de fuego.
+- **`EnemyAI`:** en los ataques de área, la animación sincroniza el golpe con el estallido (aviso + `Delay`).
+- **`Hazards.warn`:** marca cada círculo con `Warning`, `Radius`, `EndsAt` y `Total`.
+- **`Client/HazardAlert`** (nuevo): si estás dentro de un círculo de peligro, muestra bordes rojos que laten, «¡SALÍ DEL CÍRCULO!», una flecha que apunta hacia afuera según tu cámara y una barra con el tiempo que queda. Sirve en primera persona y para todos los enemigos.
+
+## 2026-10-23 · Cinemática de entrada de los jefes
+
+- **`Intro` en `Data/EnemyTypes`:** campos `Anim`, `Duration`, `Title` y `Subtitle`. Azrakoth tiene 7,2 s: «AZRAKOTH — El Serafín del Eclipse Carmesí».
+- **`Waves`:** al aparecer un jefe con `Intro`, llama a `PlayerData.startCinematic`, reproduce su animación (`BossAnim`) y publica `GameState.BossIntro` = «Título|Subtítulo|hora|duración».
+- **`Progression.syncPause`:** también congela durante la cinemática. `ChoosingPaused` sigue indicando solo la elección de habilidades.
+- **`Client/BossIntro`** (nuevo):
+  - **Pantalla:** franjas de cine, color oscurecido y HUD oculto.
+  - **Planos:** bajo desde el piso, primer plano del casco, plano abierto cuando se levanta y despliega las alas, y rugido con temblor y título.
+  - **Saltear:** con Espacio, el botón A o tocando la pantalla.
+  - **Cámara:** usa el atributo `Cinematic` para que `CameraController` suelte la cámara, como en `CrateCinematic`.
+- Sin sonidos propios por ahora: los efectos de `AzrakothVFX` (ojos, alas, rugido) se disparan con las marcas de la animación.
+
+## 2026-10-23 · Dash sin trabones
+
+- **El problema:** el dash le pasaba el control del personaje al servidor (`SetNetworkOwner(nil)`). Durante el impulso la cámara seguía posiciones que llegaban de a saltos, y al devolverle el control al jugador el personaje pegaba un tirón.
+- **`Client/Dash`:** ahora mueve el impulso en `PreSimulation`, con la velocidad de `Config.Dash`. Respeta el enfriamiento (`DashReadyAt`) y no se activa si el jugador está agarrado o muerto. Al terminar vuelve a la velocidad de caminar.
+- **`Server/Dash`:** sigue validando el pedido (enfriamiento, derribo, agarres, NaN) y lleva la ventana del dash (invulnerabilidad, Corte en dash), pero ya no toca la dueñidad ni la velocidad.
+- **`test_items_dash`:** actualizado (35/35 OK).
+
+## 2026-10-23 · Más dificultad para los jefes del capítulo 1
+
+- **Azrakoth:**
+  - Vida: de 7000 a 20000.
+  - Daño de los ataques: +30 % (contacto, de 26 a 32).
+  - Pausas entre ataques más cortas.
+  - Velocidad: 7, 8 y 10 según la fase (antes 5, 6 y 7).
+- **Rey Slime:**
+  - Vida: de 1100 a 3400. Al morir se divide en 3 slimes rojos.
+  - Fase 1:
+    - salta sobre el jugador y cae con una onda de veneno;
+    - deja charcos de veneno que duran;
+    - ráfagas radiales;
+    - invoca.
+  - Furia (desde el 60 %):
+    - tres saltos encadenados;
+    - lluvia de charcos por la arena;
+    - áreas dobles;
+    - triple ráfaga.
+
+## 2026-10-23 · Corazones de vida
+
+- **`Server/Hearts`** (nuevo):
+  - Al morir, un enemigo común suelta un corazón con un 7 % de probabilidad. Los jefes y mini-jefes sueltan 3. Los invocados no sueltan.
+  - El jugador herido que pasa cerca lo junta y se cura el 20 % de su vida máxima.
+  - Duran 15 s y titilan los últimos 3.
+  - Valores en `Config.Hearts`. Lo engancha `Run`: los suelta al morir el enemigo, los actualiza cada frame y los borra al terminar la partida.
+- **`.gitignore`:** ignora `assets/*/output/roblox/` (exportaciones pesadas que se regeneran).
+
 ## 2026-10-23 · Azrakoth, jefe del capítulo 1 (oleada 10)
 
 - **Azrakoth, Serafín del Eclipse** (`Data/EnemyTypes`) reemplaza al Guardián Treant como jefe de la oleada 10 del capítulo 1. El Treant sigue en el catálogo.

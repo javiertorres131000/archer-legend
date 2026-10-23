@@ -33,11 +33,18 @@ Config.Map = {
 	-- Largo del pasto animado del terreno (0.1 a 1; Roblox trae 1). Más bajo = se ve mejor el piso
 	-- y los enemigos chicos. Solo se ve si el Terreno tiene "Decoration" activado en Studio.
 	GrassLength = 0.35,
+	-- Bordes propios de un tema (si no está, se usan EdgeHeight/EdgeWidth de arriba).
+	-- SnowLine: desde qué fracción de la altura los picos quedan nevados aunque sean empinados.
+	ThemeEdges = {
+		glacier = { Height = 95, Width = 42, SnowLine = 0.45 },
+	},
+	-- Paredes invisibles al pie de las montañas del borde (para no salir trepando)
+	BoundaryWalls = true,
 	Materials = {
 		forest = { Top = Enum.Material.Grass, Under = Enum.Material.Ground, Cliff = Enum.Material.Rock },
 		ruins = { Top = Enum.Material.Sandstone, Under = Enum.Material.Sandstone, Cliff = Enum.Material.Slate },
 		fortress = { Top = Enum.Material.Basalt, Under = Enum.Material.Basalt, Cliff = Enum.Material.CrackedLava },
-		glacier = { Top = Enum.Material.Snow, Under = Enum.Material.Glacier, Cliff = Enum.Material.Ice },
+		glacier = { Top = Enum.Material.Snow, Under = Enum.Material.Glacier, Cliff = Enum.Material.Slate }, -- acantilados de roca (no de hielo: se resbalaba)
 		desert = { Top = Enum.Material.Sand, Under = Enum.Material.Sandstone, Cliff = Enum.Material.Sandstone },
 	},
 }
@@ -71,7 +78,7 @@ Config.Projectile = {
 	FrontSpacing = 1.2, -- separación entre flechas paralelas (Flecha frontal)
 	DiagonalAngles = { 30, 55 }, -- grados de cada par de Flechas diagonales
 	RicochetRange = 25, -- distancia máxima para rebotar a otro enemigo
-	BurnFraction = 0.3, -- Flechas de fuego: % del daño por segundo
+	BurnFraction = 0.15, -- Flechas de fuego: % del daño por segundo
 	BurnDuration = 3,
 }
 
@@ -178,12 +185,70 @@ Config.MapEvents = {
 			LyingTime = 7, -- queda tirado y después desaparece
 		},
 	},
+	glacier = {
+		FirstDelay = 5,
+		Icicles = { -- carámbanos que caen del cielo cerca de los jugadores
+			FromWave = 3, -- se presentan en la oleada 3 (antes, solo enemigos)
+			Every = { 6, 9 },
+			Count = 3, -- +1 con 3 o más jugadores
+			Offset = { 0, 10 },
+			Radius = 5,
+			Warn = 1.4,
+			Damage = 20,
+			ChillStacks = 2, -- frío extra a los que agarra
+			EnemyFrac = 0.35,
+			BossFrac = 0.02,
+		},
+		Blizzard = { -- ventisca: viento que te empuja, poca visibilidad y frío que sube solo
+			FromWave = 5, -- la primera ventisca llega en la oleada 5
+			Every = { 32, 42 },
+			Duration = 6,
+			Warn = 4, -- aviso antes de que pegue (además hay cuenta regresiva en pantalla)
+			WindPush = 9, -- studs/s que te empuja (lo aplica el cliente, dueño del personaje)
+			ChillEvery = 1.4, -- un punto de frío cada tanto si no estás junto a una fogata
+		},
+		Campfires = { -- fogatas: cerca de una se te va el frío y no te afecta la ventisca
+			Count = 9,
+			WarmRadius = 11,
+		},
+		IceLakes = { -- lagos congelados (material Ice): ahí se resbala mucho más
+			Scale = 55,
+			Threshold = 0.32, -- pocas manchas sueltas
+			Lake = { Distance = { 55, 70 }, Radius = 26 }, -- un lago grande, fijo, a un costado del centro
+		},
+	},
+}
+
+-- Frío (Server/Chill): solo en mapas de hielo (Themes). Cada golpe que recibís suma un punto de
+-- frío; cada punto te frena. Con el máximo quedás congelado un momento (no te podés mover) y
+-- después tenés unos segundos de inmunidad. Se va solo de a poco, o rápido junto a una fogata.
+Config.Chill = {
+	Themes = { glacier = true },
+	PerHit = 1,
+	MaxStacks = 5,
+	SlowPerStack = 0.09, -- 5 puntos = 45% más lento
+	DecayEvery = 1.8, -- segundos para perder un punto
+	WarmDecayEvery = 0.35, -- junto a una fogata
+	FreezeTime = 1.3,
+	ImmuneAfterFreeze = 3.5,
+}
+-- Resbalar sobre hielo (Client/IceWorld): cuánto "agarre" tiene cada material. Menos = más
+-- resbaladizo (tarda más en acelerar, frenar y doblar). Los que no están, se caminan normal.
+Config.IceGrip = {
+	Ice = 1.6,
+	Glacier = 2.4,
+	Snow = 9,
+	Salt = 9, -- costra de nieve
+	Limestone = 12, -- nieve pisada
+	SnowSpeed = 0.88, -- sobre nieve profunda caminás un 12% más lento
 }
 
 -- Ventajas de pelear cuerpo a cuerpo (espada y puños): hay que acercarse, así que aguantan más
 Config.Melee = {
 	DamageTaken = 0.7, -- reciben un 30% menos de daño
-	Lifesteal = 0.04, -- cada golpe que conecta cura este porcentaje del daño hecho
+	Lifesteal = 0.015, -- cada golpe que conecta cura este porcentaje del daño hecho
+	LifestealMaxPerSecond = 0.03, -- tope: como mucho cura este porcentaje de la vida máxima por segundo
+	LifestealBossMult = 0.5, -- contra jefes el robo de vida rinde la mitad
 	SwordCutsProjectiles = true, -- el tajo de espada destruye los disparos enemigos en su arco
 }
 
@@ -575,6 +640,17 @@ Config.Camera = {
 -- Botín al matar enemigos (Loot.lua). Lo cobran TODOS los participantes (botín compartido,
 -- así nadie le "roba" las muertes al compañero). Se suma al perfil en el momento.
 -- Se multiplica por Rewards.LootMult del capítulo. Los invocados por jefes no dan botín.
+-- Corazones de vida que sueltan los enemigos al morir (Server/Hearts): curan al que pasa cerca
+-- si no tiene la vida llena.
+Config.Hearts = {
+	Chance = 0.07, -- probabilidad de que un enemigo común suelte uno
+	BossCount = 3, -- corazones que suelta un jefe o mini-jefe
+	FromSummons = false, -- los invocados por un jefe no sueltan (no se puede "farmear" vida)
+	HealFraction = 0.2, -- cura el 20 % de la vida máxima
+	PickupRadius = 5, -- studs
+	Lifetime = 15, -- segundos hasta que desaparece (titila los últimos 3)
+}
+
 Config.Loot = {
 	GoldPerCost = 0.5, -- oro por cada punto de Cost del enemigo (EnemyTypes)
 	GoldVariation = 0.5, -- ±50% al azar
@@ -611,8 +687,9 @@ Config.Profiles = {
 -- Para probar. Dejalo en false y 1 para jugar normal.
 Config.Debug = {
 	ShowPerformance = false, -- FPS, peor frame, enemigos y proyectiles; sólo diagnóstico
-	UnlockAllChapters = false, -- todos los capítulos elegibles desde el lobby
-	StartWave = 10, -- oleada con la que arranca cada partida (PRUEBA de Azrakoth: volver a 1)
+	UnlockAllChapters = true, -- (PRUEBA: volver a false) todos los capítulos elegibles desde el lobby
+	UnlockAllWeapons = true, -- (PRUEBA: volver a false) todas las armas especiales sin abrir cofres
+	StartWave = 1, -- oleada con la que arranca cada partida (PRUEBA de Azrakoth: volver a 1)
 	-- Panel de prueba (F2): monedas, niveles, saltar oleada, jefe, etc. Lo valida el servidor.
 	-- Funciona siempre en Studio; en un servidor publicado, solo para los UserId de Admins.
 	Commands = true,

@@ -33,8 +33,8 @@ Theme.text({
 	TextXAlignment = Enum.TextXAlignment.Left,
 	Parent = window,
 })
-local grid = Theme.make("Frame", { Position = UDim2.fromOffset(10, 36), Size = UDim2.new(1, -20, 1, -110), BackgroundTransparency = 1, Parent = window }, {
-	Theme.make("UIGridLayout", { CellSize = UDim2.new(0.5, -4, 0, 36), CellPadding = UDim2.fromOffset(8, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
+local grid = Theme.make("ScrollingFrame", { Position = UDim2.fromOffset(10, 36), Size = UDim2.new(1, -20, 1, -110), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, Parent = window }, {
+	Theme.make("UIGridLayout", { CellSize = UDim2.new(0.5, -8, 0, 48), CellPadding = UDim2.fromOffset(8, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
 })
 local output = Theme.text({
 	AnchorPoint = Vector2.new(0, 1),
@@ -54,13 +54,13 @@ local _ = modal
 
 local function build(spec: string)
 	grid:ClearAllChildren()
-	Theme.make("UIGridLayout", { CellSize = UDim2.new(0.5, -4, 0, 36), CellPadding = UDim2.fromOffset(8, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = grid })
+	Theme.make("UIGridLayout", { CellSize = UDim2.new(0.5, -8, 0, 48), CellPadding = UDim2.fromOffset(8, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = grid })
 	local order = 0
 	for item in string.gmatch(spec, "[^;]+") do
 		local id, label = string.match(item, "^([^=]+)=(.+)$")
 		if id and label then
 			order += 1
-			local b = Theme.button({ Text = label, TextSize = 13, LayoutOrder = order, Parent = grid })
+			local b = Theme.button({ Text = label, TextSize = 13, TextWrapped = true, LayoutOrder = order, Parent = grid })
 			b.Activated:Connect(function()
 				remote:FireServer(id)
 			end)

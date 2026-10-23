@@ -17,6 +17,7 @@ local Waves = require(script.Parent.Waves)
 local Loot = require(script.Parent.Loot)
 local CombatFeed = require(script.Parent.CombatFeed)
 local Orbs = require(script.Parent.Orbs)
+local Hearts = require(script.Parent.Hearts)
 local Ground = require(script.Parent.Ground)
 local Chests = require(script.Parent.Chests)
 local ItemService = require(script.Parent.ItemService)
@@ -196,6 +197,7 @@ function Run.init()
 				local participants = PlayerLife.participants()
 				-- La XP cae como orbe (el dorado da mucha más)
 				Orbs.drop(Ground.place(pos), enemy.xp * (if enemy.golden then 5 else 1))
+				Hearts.maybeDrop(Ground.place(pos), enemy.isBoss, enemy.summoner ~= nil) -- corazones de vida
 				Chests.onKill()
 				CombatFeed.kill(participants, pos, enemy.color, enemy.radius * 2, enemy.golden, enemy.isBoss)
 				if enemy.isBoss then
@@ -425,6 +427,7 @@ function Run.step(dt: number): Result?
 	end
 	if not frozen then
 		Orbs.update(targets)
+		Hearts.update(targets)
 		Chests.update(targets, phase == "Wave")
 	end
 	Boss.update()
@@ -594,6 +597,7 @@ function Run.cleanup()
 	Grab.clear()
 	Ping.clear()
 	Orbs.clear()
+	Hearts.clear()
 	Chests.clear()
 	clearWorld()
 	PlayerLife.endMatch()

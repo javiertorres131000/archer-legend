@@ -262,6 +262,31 @@ DebugCommands.Actions = Actions
 -- Orden en el panel
 DebugCommands.Order = { "Gold", "Gems", "Stones", "Levels", "Chapters", "Weapons", "Demon", "Mage", "Necro", "Seraph", "Report", "SkipWave", "KillAll", "Boss", "LevelUp", "Item", "Heal", "Elite", "Horde", "Goal", "Mastery", "FxWhirl", "FxJudgment" }
 
+-- Un botón por arma del catálogo, incluyendo las que se agreguen después.
+-- Este atajo de admin permite probar en partida sin cambiar el aspecto del personaje.
+for index, weapon in Weapons.List do
+	local id = "Weapon_" .. weapon.Id
+	Actions[id] = { label = "Equipar: " .. weapon.Name, run = function(p)
+		local data = Profiles.get(p)
+		if not data then return false, "Perfil sin cargar" end
+		if weapon.Prize then
+			data.Crates.Owned[weapon.Prize] = math.max(data.Crates.Owned[weapon.Prize] or 0, 1)
+		end
+		data.Weapon = weapon.Id
+		WeaponService.publish(p)
+		local state = PlayerData.get(p)
+		if state then
+			WeaponService.apply(p, state.stats)
+			state.combo = 0
+			state.attacks = 0
+			state.lastShot = -math.huge
+		end
+		Profiles.saveSoon(p)
+		return true, weapon.Name .. " equipada (desbloqueo y elección guardados)"
+	end }
+	table.insert(DebugCommands.Order, 6 + index, id)
+end
+
 function DebugCommands.run(player: Player, action: any): (boolean, string)
 	if not DebugCommands.allowed(player) then
 		return false, "Sin permiso"

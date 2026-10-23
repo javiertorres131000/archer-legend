@@ -19,10 +19,12 @@ print("Modos")
 
 test("capítulos 4 y 5: enemigos, jefes y desbloqueo en cadena", function()
 	eq(#Chapters, 5, "capítulos")
-	eq(Chapters[4].Id, "glacier")
+	eq(Chapters[3].Id, "glacier")
+	eq(Chapters[4].Id, "fortress")
 	eq(Chapters[5].Id, "desert")
-	eq(Chapters[4].Requires, "fortress")
-	eq(Chapters[5].Requires, "glacier")
+	eq(Chapters[3].Requires, "ruins")
+	eq(Chapters[4].Requires, "glacier")
+	eq(Chapters[5].Requires, "fortress")
 	for i = 4, 5 do
 		local ch = Chapters[i]
 		assert(EnemyTypes[ch.Boss.Type].Boss and EnemyTypes[ch.MiniBoss.Type].Boss, ch.Id)

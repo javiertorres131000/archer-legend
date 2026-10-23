@@ -214,23 +214,75 @@ Props.fortress = function(parent: Instance, pos: Vector3, rng: Random)
 end
 
 Props.glacier = function(parent: Instance, pos: Vector3, rng: Random)
-	local kind = rng:NextInteger(1, 3)
-	if kind == 1 then -- cristal de hielo
-		local h = rng:NextNumber(4, 10)
-		local crystal = makePart(parent, "IceCrystal", Vector3.new(2, h, 2), CFrame.new(pos + Vector3.new(0, h / 2 - 0.5, 0)) * CFrame.Angles(rng:NextNumber(-0.3, 0.3), rng:NextNumber(0, math.pi), rng:NextNumber(-0.3, 0.3)) * CFrame.Angles(0, math.rad(45), 0), Color3.fromRGB(150, 210, 255), Enum.Material.Ice)
-		crystal.Transparency = 0.2
+	local kind = rng:NextInteger(1, 7)
+	local ICE = Color3.fromRGB(150, 210, 255)
+	if kind == 1 then -- racimo de cristales de hielo (algunos brillan; el cliente les suma destellos)
+		local brilla = rng:NextNumber() < 0.35
+		for i = 1, rng:NextInteger(3, 5) do
+			local h = rng:NextNumber(3, 11) * (if i == 1 then 1.3 else 0.8)
+			local off = Vector3.new(rng:NextNumber(-1.8, 1.8), 0, rng:NextNumber(-1.8, 1.8))
+			local crystal = makePart(parent, "IceCrystal", Vector3.new(rng:NextNumber(1.3, 2.4), h, rng:NextNumber(1.3, 2.4)),
+				CFrame.new(pos + off + Vector3.new(0, h / 2 - 0.6, 0)) * CFrame.Angles(rng:NextNumber(-0.45, 0.45), rng:NextNumber(0, math.pi), rng:NextNumber(-0.45, 0.45)) * CFrame.Angles(0, math.rad(45), 0),
+				if brilla then Color3.fromRGB(120, 210, 255) else ICE, if brilla then Enum.Material.Glass else Enum.Material.Ice)
+			crystal.Transparency = if brilla then 0.35 else 0.15
+			crystal.Reflectance = 0.15
+			if brilla and i == 1 then
+				local light = Instance.new("PointLight")
+				light.Color = Color3.fromRGB(110, 200, 255)
+				light.Range = 14
+				light.Brightness = 1.6
+				light.Parent = crystal
+			end
+		end
 	elseif kind == 2 then -- montículo de nieve
-		local s = rng:NextNumber(3, 6)
-		local mound = makePart(parent, "Snowdrift", Vector3.new(s * 1.4, s * 0.6, s), CFrame.new(pos + Vector3.new(0, s * 0.15, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0), Color3.fromRGB(240, 245, 250), Enum.Material.Snow)
+		local s = rng:NextNumber(2.5, 4.5)
+		local mound = makePart(parent, "Snowdrift", Vector3.new(s * 1.6, s * 0.55, s), CFrame.new(pos + Vector3.new(0, s * 0.12, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0), Color3.fromRGB(240, 245, 252), Enum.Material.Snow)
 		mound.Shape = Enum.PartType.Ball
-	else -- pino nevado (bajo: no tapa la vista)
-		makePart(parent, "Trunk", Vector3.new(0.8, 2, 0.8), CFrame.new(pos + Vector3.new(0, 1, 0)), Color3.fromRGB(80, 55, 40), Enum.Material.Wood)
-		for i, w in { 4, 3, 1.8 } do
-			local cone = makePart(parent, "Pine", Vector3.new(w, 1.6, w), CFrame.new(pos + Vector3.new(0, 1.6 + i * 1.2, 0)) * CFrame.Angles(0, math.rad(45 * i), 0), Color3.fromRGB(40, 90, 70), Enum.Material.Grass)
+	elseif kind == 3 then -- pino nevado
+		local escala = rng:NextNumber(1, 1.6)
+		makePart(parent, "Trunk", Vector3.new(0.9, 2.4, 0.9) * escala, CFrame.new(pos + Vector3.new(0, 1.2 * escala, 0)), Color3.fromRGB(70, 50, 38), Enum.Material.Wood)
+		for i, w in { 4.4, 3.4, 2.4, 1.3 } do
+			local y = (1.4 + i * 1.25) * escala
+			local cone = makePart(parent, "Pine", Vector3.new(w, 1.6, w) * escala, CFrame.new(pos + Vector3.new(0, y, 0)) * CFrame.Angles(0, math.rad(45 * i), 0), Color3.fromRGB(35, 75, 62), Enum.Material.Grass)
 			cone.CanCollide = i == 1
-			local snow = makePart(parent, "PineSnow", Vector3.new(w * 0.8, 0.3, w * 0.8), CFrame.new(pos + Vector3.new(0, 2.5 + i * 1.2, 0)) * CFrame.Angles(0, math.rad(45 * i), 0), Color3.fromRGB(245, 250, 255), Enum.Material.Snow)
+			local snow = makePart(parent, "PineSnow", Vector3.new(w * 0.85, 0.35, w * 0.85) * escala, CFrame.new(pos + Vector3.new(0, y + 0.85 * escala, 0)) * CFrame.Angles(0, math.rad(45 * i + 10), 0), Color3.fromRGB(245, 250, 255), Enum.Material.Snow)
 			snow.CanCollide = false
 		end
+	elseif kind == 4 then -- roca congelada con capa de hielo y nieve
+		local s = rng:NextNumber(3, 6)
+		local cf = CFrame.new(pos + Vector3.new(0, s * 0.3, 0)) * CFrame.Angles(rng:NextNumber(-0.2, 0.2), rng:NextNumber(0, math.pi), rng:NextNumber(-0.2, 0.2))
+		makePart(parent, "FrozenRock", Vector3.new(s * 1.3, s * 0.8, s), cf, Color3.fromRGB(85, 95, 115), Enum.Material.Slate)
+		local cap = makePart(parent, "RockIce", Vector3.new(s * 1.35, s * 0.25, s * 1.05), cf * CFrame.new(0, s * 0.42, 0), Color3.fromRGB(235, 245, 255), Enum.Material.Snow)
+		cap.CanCollide = false
+		local glaze = makePart(parent, "RockGlaze", Vector3.new(s * 1.36, s * 0.5, s * 1.06), cf * CFrame.new(0, -s * 0.05, 0), ICE, Enum.Material.Ice)
+		glaze.Transparency = 0.6
+		glaze.CanCollide = false
+	elseif kind == 5 then -- estalagmitas de hielo
+		for _ = 1, rng:NextInteger(3, 6) do
+			local h = rng:NextNumber(2, 7)
+			local off = Vector3.new(rng:NextNumber(-3, 3), 0, rng:NextNumber(-3, 3))
+			local spike = makePart(parent, "IceSpike", Vector3.new(h * 0.35, h, h * 0.35), CFrame.new(pos + off + Vector3.new(0, h / 2 - 0.4, 0)) * CFrame.Angles(rng:NextNumber(-0.25, 0.25), rng:NextNumber(0, math.pi), rng:NextNumber(-0.25, 0.25)), Color3.fromRGB(175, 225, 255), Enum.Material.Ice)
+			spike.Transparency = 0.25
+		end
+	elseif kind == 6 then -- aventurero congelado (estatua de hielo)
+		local yaw = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+		local base = CFrame.new(pos) * yaw
+		local tint = Color3.fromRGB(165, 215, 250)
+		makePart(parent, "Statue", Vector3.new(2, 2, 1), base * CFrame.new(0, 3, 0), tint, Enum.Material.Ice).Transparency = 0.3
+		makePart(parent, "Statue", Vector3.new(1.2, 1.2, 1.2), base * CFrame.new(0, 4.6, 0), tint, Enum.Material.Ice).Transparency = 0.3
+		makePart(parent, "Statue", Vector3.new(0.9, 2, 0.9), base * CFrame.new(-0.5, 1, 0), tint, Enum.Material.Ice).Transparency = 0.3
+		makePart(parent, "Statue", Vector3.new(0.9, 2, 0.9), base * CFrame.new(0.5, 1, 0), tint, Enum.Material.Ice).Transparency = 0.3
+		makePart(parent, "Statue", Vector3.new(0.8, 2.2, 0.8), base * CFrame.new(-1.4, 3.4, -0.4) * CFrame.Angles(math.rad(-60), 0, 0), tint, Enum.Material.Ice).Transparency = 0.3
+		makePart(parent, "Statue", Vector3.new(0.8, 2.2, 0.8), base * CFrame.new(1.4, 3, 0), tint, Enum.Material.Ice).Transparency = 0.3
+		local block = makePart(parent, "IceBlock", Vector3.new(3.4, 6, 2.4), base * CFrame.new(0, 2.8, 0), Color3.fromRGB(200, 235, 255), Enum.Material.Glass)
+		block.Transparency = 0.75
+		block.CanCollide = true
+	else -- pilar de hielo roto
+		local h = rng:NextNumber(6, 13)
+		local cf = CFrame.new(pos + Vector3.new(0, h / 2 - 0.5, 0)) * CFrame.Angles(rng:NextNumber(-0.12, 0.12), rng:NextNumber(0, math.pi), rng:NextNumber(-0.12, 0.12))
+		local pillar = makePart(parent, "IcePillar", Vector3.new(2.6, h, 2.6), cf, Color3.fromRGB(130, 190, 235), Enum.Material.Glacier)
+		pillar.Reflectance = 0.1
+		makePart(parent, "PillarSnow", Vector3.new(2.9, 0.4, 2.9), cf * CFrame.new(0, h / 2 + 0.2, 0), Color3.fromRGB(245, 250, 255), Enum.Material.Snow).CanCollide = false
 	end
 end
 

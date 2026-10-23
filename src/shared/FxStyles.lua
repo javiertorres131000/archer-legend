@@ -96,11 +96,19 @@ FxStyles.Styles = {
 	},
 }
 
--- Celestial (Espada Celestial de Seraphiel): luz dorada con cola turquesa. Todavía sin texturas
--- propias: usa las de respaldo de Roblox teñidas con Light (se pueden generar con
--- tools/gen_vfx_textures.py e importar como las otras).
+-- Celestial: rayos dorados con núcleo blanco y energía azul, sin texturas importadas.
+-- Effects selecciona cada efecto por separado para poder combinarlos en otras armas.
 FxStyles.Styles.Celestial = {
 	Name = "Celestial",
+	Effects = {
+		Projectile = "Lightning",
+		Slash = "Lightning",
+		Hit = "Lightning",
+		Spin = "Lightning",
+		Finisher = "Lightning",
+		Judgment = "Lightning",
+		Aura = "Lightning",
+	},
 	Light = Color3.fromRGB(255, 212, 110),
 	Core = Color3.fromRGB(255, 252, 238),
 	Deep = Color3.fromRGB(70, 190, 255),
@@ -116,6 +124,17 @@ FxStyles.Styles.Celestial = {
 		Speedline = "",
 	},
 }
+
+FxStyles.Styles.Void = {
+	Name = "Vacío",
+	Effects = { Projectile = "Void", Hit = "Void", Aura = "Void" },
+	Light = Color3.fromRGB(170, 85, 255),
+	Core = Color3.fromRGB(25, 10, 40),
+	Deep = Color3.fromRGB(80, 30, 145),
+	Flash = Color3.fromRGB(210, 165, 255),
+	Textures = {}, -- anillos y grietas procedurales
+}
+
 
 -- Texturas de Roblox que vienen con el cliente (respaldo mientras no estén las propias)
 FxStyles.Fallback = {

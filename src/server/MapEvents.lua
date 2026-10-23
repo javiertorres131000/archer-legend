@@ -13,6 +13,8 @@
 --     a mano) tiembla, se marca la franja donde va a caer y aplasta todo lo que esté debajo.
 --     Queda tirado un rato y desaparece.
 --
+-- Glaciar (tema "glacier"): ver Server/GlacierEvents y Server/Chill.
+--
 -- Run llama a reset() al armar un mapa, update() cada frame de combate y clear() al terminar.
 
 local Debris = game:GetService("Debris")
@@ -25,6 +27,7 @@ local PlayerLife = require(script.Parent.PlayerLife)
 local Enemies = require(script.Parent.Enemies)
 local Hazards = require(script.Parent.Hazards)
 local Ground = require(script.Parent.Ground)
+local GlacierEvents = require(script.Parent.GlacierEvents) -- carámbanos, ventisca, fogatas y frío
 
 local MapEvents = {}
 
@@ -358,7 +361,7 @@ local function crush(f: FallingTree)
 	end
 	for _, target in PlayerData.getAliveTargets() do
 		if inStrip(target.root.Position, 1) then
-			PlayerLife.damage(target, c.Damage)
+			PlayerLife.damage(target, c.Damage, "Árbol")
 		end
 	end
 	for _, e in aliveEnemies() do
@@ -426,6 +429,7 @@ function MapEvents.reset(chapter: any?, propsFolder: Instance?)
 	theme = chapter and (chapter.Theme or chapter.Id) or nil
 	props = propsFolder
 	Remotes.GameState:SetAttribute("MapEvents", if cfg() then theme else "")
+	GlacierEvents.reset(theme, propsFolder)
 end
 
 function MapEvents.clear()
@@ -436,6 +440,7 @@ function MapEvents.clear()
 	end
 	table.clear(falling)
 	table.clear(pendingVents)
+	GlacierEvents.clear()
 	trees = nil
 	waveTime = 0
 	nextVent = 0
@@ -449,6 +454,7 @@ function MapEvents.update(dt: number, targets: { PlayerData.Target }, phase: str
 		return
 	end
 	clock += dt
+	GlacierEvents.update(dt, targets, phase)
 	-- Lo que ya arrancó termina aunque se acabe la oleada
 	updateVents()
 	updateTrees(dt)

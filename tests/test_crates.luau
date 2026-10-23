@@ -498,6 +498,8 @@ test("caja de armas: no repite, se elige como arma y no se abre si ya tenés tod
 	data.Crates.Owned.FrostKatana = nil
 	data.Crates.Owned.InfernoBlade = nil
 	data.Crates.Owned.CrimsonKatana = nil
+	data.Crates.Owned.VoidBow = nil
+	data.Crates.Owned.CelestialBow = nil
 	data.Weapon = "Bow"
 	setGold(100000)
 	-- Sin la katana no se puede elegir (ni pidiéndola a mano)
@@ -524,6 +526,24 @@ test("caja de armas: no repite, se elige como arma y no se abre si ya tenés tod
 	assert(r.Ok, tostring(r.Error))
 	eq(r.Prize, "CrimsonKatana", "tercera arma")
 	eq(p:GetAttribute("OwnedWeapons"), "FrostKatana,InfernoBlade,CrimsonKatana", "OwnedWeapons con las tres")
+	CrateService._forceRoll(0)
+	M.advance(Cfg.OpenCooldown + 0.1)
+	r = open("Weapons")
+	assert(r.Ok, tostring(r.Error))
+	eq(r.Prize, "VoidBow", "cuarta arma independiente de skins")
+	eq(data.Crates.Owned.VoidBow, 1, "arco guardado")
+	eq(p:GetAttribute("OwnedWeapons"), "FrostKatana,InfernoBlade,CrimsonKatana,VoidBow", "colección completa")
+	M.advance(Cfg.OpenCooldown + 0.1)
+	r = open("Weapons")
+	assert(r.Ok, tostring(r.Error))
+	eq(r.Prize, "CelestialBow", "quinta arma independiente de Seraphiel")
+	eq(data.Crates.Owned.CelestialBow, 1)
+	M.advance(Cfg.OpenCooldown + 0.1)
+	r = open("Weapons")
+	assert(r.Ok, tostring(r.Error))
+	eq(r.Prize, "VolcanicGauntlets", "sexta arma: guanteletes")
+	eq(data.Crates.Owned.VolcanicGauntlets, 1)
+	CrateService._forceRoll(nil)
 	-- Ya la tiene toda: no deja abrir de nuevo ni cobra
 	local gold = data.Currencies.Gold
 	local again = open("Weapons")

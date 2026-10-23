@@ -138,6 +138,10 @@ local states: { [Player]: State } = {}
 local choosingPaused = false
 local pausedRoots: { [BasePart]: boolean } = {}
 function PlayerData.isPaused(): boolean return choosingPaused end
+-- Cinemática de entrada de un jefe: el combate queda congelado unos segundos (ver Waves)
+local cinematicUntil = 0
+function PlayerData.startCinematic(seconds: number) cinematicUntil = os.clock() + seconds end
+function PlayerData.inCinematic(): boolean return os.clock() < cinematicUntil end
 function PlayerData.setPaused(on: boolean)
 	choosingPaused = on
 	if on then
@@ -271,6 +275,7 @@ end
 
 -- Nueva partida: stats y estadísticas a cero. (La aparición la hace PlayerLife.beginMatch.)
 function PlayerData.resetStats()
+	cinematicUntil = 0
 	PlayerData.setPaused(false)
 	for _, state in states do
 		table.clear(state.items)

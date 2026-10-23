@@ -122,6 +122,8 @@ local function shoot(e, a, origin: Vector3, dir: Vector3, speed: number?)
 		zigAmp = a.Zigzag and a.Zigzag.Amp,
 		zigFreq = a.Zigzag and a.Zigzag.Freq,
 		returnAfter = a.Return,
+		keepColor = a.KeepColor,
+		visualSize = a.VisualSize,
 	}, e)
 end
 
@@ -157,7 +159,7 @@ Attacks.Dash = {
 		for _, t in targets do
 			if not ctx.hit[t.player] and (flat(t.root.Position) - newPos).Magnitude <= e.radius + 1.5 then
 				ctx.hit[t.player] = true
-				PlayerLife.damage(t, R(a.Damage, 15) * e.dmgMult)
+				PlayerLife.damage(t, R(a.Damage, 15) * e.dmgMult, "Embestida")
 			end
 		end
 		return newPos, blocked or ctx.travelled >= ctx.dist
@@ -630,7 +632,9 @@ local function startAttack(e, a, target, isRepeat: boolean?)
 	-- Jefes con animaciones propias (Azrakoth): el cliente la reproduce y hace caer el golpe al
 	-- terminar el aviso. "Nombre|aviso|hora del servidor"
 	if a.Anim and not isRepeat then
-		bossAnim(e, string.format("%s|%.3f", a.Anim, telegraph))
+		-- En las áreas el golpe cae al explotar el círculo (aviso + Delay), no al terminar el aviso
+		local golpe = telegraph + (if a.Type == "Area" and type(a.Delay) == "number" then a.Delay else 0)
+		bossAnim(e, string.format("%s|%.3f", a.Anim, golpe))
 	end
 	local handler = Attacks[a.Type]
 	assert(handler, "Tipo de ataque desconocido: " .. tostring(a.Type))

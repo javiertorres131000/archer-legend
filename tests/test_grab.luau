@@ -217,7 +217,8 @@ test("el Atrapador existe y sale en todos los capítulos desde la oleada 3", fun
 	for _, ch in Chapters do
 		local found = false
 		for _, entry in ch.Pool do
-			if entry.Type == "Grabber" then
+			local d = EnemyTypes[entry.Type] -- el Atrapador o su variante del capítulo (FrostGrabber)
+			if d and d.Attacks and d.Attacks[1] and d.Attacks[1].Type == "Grab" then
 				found = true
 				assert(entry.From == 3, ch.Id)
 			end

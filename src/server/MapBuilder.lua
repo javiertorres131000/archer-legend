@@ -45,7 +45,30 @@ local function angleDiff(a: number, b: number): number
 end
 
 -- Devuelve la función de altura h(x, z) de un mapa generado con esta semilla.
-function MapBuilder.heightFunction(seed: number, half: Vector3): HeightFn
+-- Alto y ancho de las montañas del borde (por tema: Config.Map.ThemeEdges)
+local function edgeOf(theme: string?): (number, number, number?)
+	local t = theme and (MapCfg :: any).ThemeEdges and (MapCfg :: any).ThemeEdges[theme]
+	if t then
+		return t.Height, t.Width, t.SnowLine
+	end
+	return MapCfg.EdgeHeight, MapCfg.EdgeWidth, nil
+end
+
+-- Lago congelado grande del Glaciar: dónde queda (sale de la semilla) o nil en otros temas
+local function bigLake(seed: number, theme: string?): (Vector3?, number)
+	local cfg = if theme == "glacier" then (Config :: any).MapEvents.glacier.IceLakes.Lake else nil
+	if not cfg then
+		return nil, 0
+	end
+	local r = Random.new(seed + 77)
+	local a = r:NextNumber(0, math.pi * 2)
+	local d = r:NextNumber(cfg.Distance[1], cfg.Distance[2])
+	return Vector3.new(math.cos(a) * d, 0, math.sin(a) * d), cfg.Radius
+end
+
+function MapBuilder.heightFunction(seed: number, half: Vector3, theme: string?): HeightFn
+	local lakeAt, lakeR = bigLake(seed, theme)
+	local edgeHeight, edgeWidth = edgeOf(theme)
 	local rng = Random.new(seed)
 	local noiseZ = rng:NextNumber(0, 1000)
 
@@ -55,7 +78,7 @@ function MapBuilder.heightFunction(seed: number, half: Vector3): HeightFn
 	while #plateaus < MapCfg.Plateaus and tries < 200 do
 		tries += 1
 		local r = rng:NextNumber(MapCfg.PlateauRadius[1], MapCfg.PlateauRadius[2])
-		local limit = half.X - MapCfg.EdgeWidth - r - 6
+		local limit = half.X - edgeWidth - r - 6
 		local x = rng:NextNumber(-limit, limit)
 		local z = rng:NextNumber(-limit, limit)
 		local ok = math.sqrt(x * x + z * z) > MapCfg.SafeRadius + r + 10
@@ -100,25 +123,47 @@ function MapBuilder.heightFunction(seed: number, half: Vector3): HeightFn
 			h = math.max(h, ph)
 		end
 
-		-- Montañas en el borde (no se puede salir del mapa)
-		local edge = math.min(half.X - math.abs(x), half.Z - math.abs(z))
-		if edge < MapCfg.EdgeWidth then
-			h = math.max(h, MapCfg.EdgeHeight * smoothstep(1 - edge / MapCfg.EdgeWidth))
+		-- Lago congelado: plano (lo que haya ahí se aplana hacia el borde del lago)
+		if lakeAt then
+			local dl = math.sqrt((x - lakeAt.X) ^ 2 + (z - lakeAt.Z) ^ 2)
+			h *= smoothstep((dl - lakeR) / 12)
+		end
+
+		-- Montañas en el borde (no se puede salir del mapa). El contorno es redondeado e irregular
+		-- (una superelipse que ondula con ruido) y los picos tienen alturas distintas, así el valle
+		-- no parece una caja cuadrada.
+		local nx, nz = math.abs(x) / half.X, math.abs(z) / half.Z
+		local rr = (nx ^ 4 + nz ^ 4) ^ 0.25 -- 1 = borde del cuadrado; las esquinas quedan dentro del cerro
+		local ang = math.atan2(z, x)
+		local ondula = math.noise(math.cos(ang) * 2.2, math.sin(ang) * 2.2, noiseZ + 99) * 0.14
+			+ math.noise(math.cos(ang) * 6, math.sin(ang) * 6, noiseZ + 140) * 0.05
+		local inicio = 1 - (edgeWidth / half.X) * 1.2 + ondula -- dónde empieza a subir
+		local t = (rr - inicio) / math.max(1 - inicio, 0.05)
+		if t > 0 then
+			local s = smoothstep(math.min(t, 1))
+			local picos = 0.55 + 0.9 * (math.noise(x / 38, z / 38, noiseZ + 200) + 0.5) -- 0,55 a 1,45
+			local rugoso = math.noise(x / 11, z / 11, noiseZ + 300) * 5
+			h = math.max(h, (edgeHeight * picos + rugoso) * s)
 		end
 		return h
 	end
 end
 
 -- Escribe el terreno de Roblox según la función de altura.
-local function writeTerrain(height: HeightFn, half: Vector3, theme: string)
+local function writeTerrain(height: HeightFn, half: Vector3, theme: string, seed: number?)
 	local terrain = workspace.Terrain
 	local res = MapCfg.VoxelSize
 	local mats = MapCfg.Materials[theme] or MapCfg.Materials.forest
-	local top = MapCfg.EdgeHeight + 8
+	local edgeHeight, _, snowLine = edgeOf(theme)
+	local top = edgeHeight * 1.5 + 8 -- los picos llegan hasta ×1,45
 	local region = Region3.new(Vector3.new(-half.X, BOTTOM, -half.Z), Vector3.new(half.X, top, half.Z)):ExpandToGrid(res)
 	local size = region.Size / res
 	local sx, sy, sz = math.floor(size.X + 0.5), math.floor(size.Y + 0.5), math.floor(size.Z + 0.5)
 	local minCorner = region.CFrame.Position - region.Size / 2
+	-- Glaciar: lagos congelados (manchas de hielo liso en el piso; ahí se resbala más)
+	local lakes = if theme == "glacier" then (Config :: any).MapEvents.glacier.IceLakes else nil
+	local lakeZ = ((seed or 0) % 997) + 0.37
+	local lakeAt, lakeR = bigLake(seed or 0, theme)
 
 	local materials = table.create(sx)
 	local occupancy = table.create(sx)
@@ -136,6 +181,26 @@ local function writeTerrain(height: HeightFn, half: Vector3, theme: string)
 			-- Pendiente: si cambia mucho con los vecinos, es roca (acantilado)
 			local slope = math.max(math.abs(height(wx + res, wz) - h), math.abs(height(wx, wz + res) - h))
 			local surface = if slope > res * 0.9 then mats.Cliff else mats.Top
+			if lakeAt and math.sqrt((wx - lakeAt.X) ^ 2 + (wz - lakeAt.Z) ^ 2) <= lakeR then
+				surface = Enum.Material.Ice -- el lago grande
+			elseif snowLine and h > edgeHeight * snowLine then
+				surface = mats.Top -- picos nevados
+			elseif lakes and surface == mats.Top and slope < res * 0.35 and math.sqrt(wx * wx + wz * wz) > MapCfg.SafeRadius * 0.5
+				and math.noise(wx / lakes.Scale, wz / lakes.Scale, lakeZ) > lakes.Threshold then
+				surface = Enum.Material.Ice
+			elseif lakes and surface == mats.Top then
+				-- Variedad para que la nieve no sea un blanco liso: costra de nieve vieja (Salt),
+				-- nieve pisada y gris (Limestone) y rocas que asoman (Slate)
+				local n1 = math.noise(wx / 23, wz / 23, lakeZ + 40)
+				local n2 = math.noise(wx / 9, wz / 9, lakeZ + 80)
+				if n2 > 0.42 and slope > res * 0.15 then
+					surface = Enum.Material.Slate
+				elseif n1 > 0.22 then
+					surface = Enum.Material.Salt
+				elseif n1 < -0.3 then
+					surface = Enum.Material.Limestone
+				end
+			end
 			for iy = 1, sy do
 				local yb = minCorner.Y + (iy - 1) * res
 				local occ = math.clamp((h - yb) / res, 0, 1)
@@ -260,11 +325,41 @@ function MapBuilder.build(chapter: any, seed: number, half: Vector3, propsFolder
 		return "custom"
 	end
 
-	local height = MapBuilder.heightFunction(seed, half)
-	writeTerrain(height, half, chapter.Theme or "forest")
+	local height = MapBuilder.heightFunction(seed, half, chapter.Theme)
+	writeTerrain(height, half, chapter.Theme or "forest", seed)
+	if chapter.Theme == "glacier" and not workspace:FindFirstChild("Ciudadela") then
+		-- Colores del hielo: nieve casi blanca, hielo celeste translúcido, glaciar azul profundo
+		pcall(function()
+			-- Nieve y Hielo usan texturas propias (MaterialService del place de la Arena: NieveGlaciar y
+			-- HieloGlaciar, imágenes en assets/textures/glacier); el color las tiñe, por eso van claros.
+			-- Tonos algo grises y azulados: el blanco puro se "quema" con la luz y no se ve relieve
+			terrain:SetMaterialColor(Enum.Material.Snow, Color3.fromRGB(228, 234, 242))
+			terrain:SetMaterialColor(Enum.Material.Salt, Color3.fromRGB(214, 222, 232))
+			terrain:SetMaterialColor(Enum.Material.Limestone, Color3.fromRGB(170, 180, 192))
+			terrain:SetMaterialColor(Enum.Material.Slate, Color3.fromRGB(78, 86, 98))
+			terrain:SetMaterialColor(Enum.Material.Ice, Color3.fromRGB(205, 228, 245))
+			terrain:SetMaterialColor(Enum.Material.Glacier, Color3.fromRGB(75, 130, 185))
+		end)
+	end
 	Ground.fromFunction(height, half, MapCfg.VoxelSize)
 	if builder then
 		scatterProps(height, half, propsFolder, builder, Random.new(seed + 1))
+	end
+	-- Paredes invisibles al pie de las montañas: no se puede salir del valle trepando
+	if (MapCfg :: any).BoundaryWalls then
+		local _, edgeWidth = edgeOf(chapter.Theme)
+		local inset = half.X - edgeWidth * 0.55
+		for i = 0, 3 do
+			local wall = Instance.new("Part")
+			wall.Name = "LimiteInvisible"
+			wall.Anchored = true
+			wall.CanQuery = false
+			wall.CanTouch = false
+			wall.Transparency = 1
+			wall.Size = Vector3.new(inset * 2 + 4, 400, 4)
+			wall.CFrame = CFrame.Angles(0, math.rad(90 * i), 0) * CFrame.new(0, 150, inset + 2)
+			wall.Parent = propsFolder
+		end
 	end
 	return "generated"
 end

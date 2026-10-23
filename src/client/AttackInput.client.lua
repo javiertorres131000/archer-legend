@@ -49,7 +49,16 @@ local function aimDirection(): Vector3?
 		local look = flat(root.CFrame.LookVector)
 		return if look.Magnitude > 0.01 then look.Unit else nil
 	end
-	local look = flat(camera.CFrame.LookVector)
+	-- La cámara puede estar desplazada del personaje (vista al hombro).
+	-- Converger sobre el punto de la mira desde el origen real del disparo.
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character }
+	local ray = camera:ViewportPointToRay(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+	local distance = math.max(Config.Player.AttackRange, 80)
+	local hit = workspace:Raycast(ray.Origin, ray.Direction * distance, params)
+	local point = if hit then hit.Position else ray.Origin + ray.Direction * distance
+	local look = flat(point - root.Position)
 	return if look.Magnitude > 0.01 then look.Unit else nil
 end
 

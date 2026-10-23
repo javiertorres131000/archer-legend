@@ -24,6 +24,7 @@ type Warning = {
 	damage: number,
 	zone: ZoneSpec?,
 	parts: { BasePart },
+	cause: string?,
 }
 
 type Zone = {
@@ -33,6 +34,7 @@ type Zone = {
 	dps: number,
 	tick: number,
 	part: BasePart,
+	cause: string?,
 }
 
 local Hazards = {}
@@ -91,9 +93,17 @@ end
 
 -- Aviso de área: un círculo que se llena durante `delay` segundos y después daña a
 -- quien esté adentro. Si trae `zone`, deja una zona que sigue dañando.
-function Hazards.warn(pos: Vector3, radius: number, delay: number, damage: number, zone: ZoneSpec?, color: Color3?)
+-- cause (opcional): nombre para el aviso de daño ("Carámbano"...)
+function Hazards.warn(pos: Vector3, radius: number, delay: number, damage: number, zone: ZoneSpec?, color: Color3?, cause: string?)
 	local c = color or HazCfg.WarningColor
 	local outer = disc(pos, radius, c, 0.75, 0.08)
+	-- Para el aviso en pantalla de cada jugador (Client/HazardAlert): sirve en primera persona
+	if (outer :: any).SetAttribute then
+		outer:SetAttribute("Warning", true)
+		outer:SetAttribute("Radius", radius)
+		outer:SetAttribute("EndsAt", workspace:GetServerTimeNow() + delay)
+		outer:SetAttribute("Total", delay)
+	end
 	local inner = disc(pos, 0.2, c, 0.35, 0.1)
 
 	table.insert(warnings, {
@@ -104,19 +114,20 @@ function Hazards.warn(pos: Vector3, radius: number, delay: number, damage: numbe
 		damage = damage,
 		zone = zone,
 		parts = { outer, inner },
+		cause = cause,
 	})
 end
 
 -- Zona que daña Dps por segundo a quien esté adentro.
-function Hazards.zone(pos: Vector3, radius: number, duration: number, dps: number, color: Color3?)
+function Hazards.zone(pos: Vector3, radius: number, duration: number, dps: number, color: Color3?, cause: string?)
 	local p = disc(pos, radius, color or Color3.fromRGB(255, 110, 30), 0.5, 0.12)
-	table.insert(zones, { pos = flat(pos), radius = radius, timeLeft = duration, dps = dps, tick = 0, part = p })
+	table.insert(zones, { pos = flat(pos), radius = radius, timeLeft = duration, dps = dps, tick = 0, part = p, cause = cause })
 end
 
-local function damageInside(center: Vector3, radius: number, amount: number, targets: { PlayerData.Target })
+local function damageInside(center: Vector3, radius: number, amount: number, targets: { PlayerData.Target }, cause: string?)
 	for _, t in targets do
 		if (flat(t.root.Position) - center).Magnitude <= radius + hitRadius * 0.5 then
-			PlayerLife.damage(t, amount)
+			PlayerLife.damage(t, amount, cause)
 		end
 	end
 end
@@ -132,12 +143,12 @@ function Hazards.update(dt: number, targets: { PlayerData.Target })
 			for _, p in w.parts do
 				p:Destroy()
 			end
-			damageInside(w.pos, w.radius, w.damage, targets)
+			damageInside(w.pos, w.radius, w.damage, targets, w.cause or "Círculo rojo")
 			-- Destello breve del impacto
 			local flash = disc(w.pos, w.radius, Color3.new(1, 1, 1), 0.3, 0.15)
 			Debris:AddItem(flash, 0.15)
 			if w.zone then
-				Hazards.zone(w.pos, w.radius, w.zone.Duration, w.zone.Dps, w.zone.Color)
+				Hazards.zone(w.pos, w.radius, w.zone.Duration, w.zone.Dps, w.zone.Color, "Zona en el piso")
 			end
 		end
 	end
@@ -148,7 +159,7 @@ function Hazards.update(dt: number, targets: { PlayerData.Target })
 		z.tick -= dt
 		if z.tick <= 0 then
 			z.tick = HazCfg.ZoneTick
-			damageInside(z.pos, z.radius, z.dps * HazCfg.ZoneTick, targets)
+			damageInside(z.pos, z.radius, z.dps * HazCfg.ZoneTick, targets, z.cause or "Zona en el piso")
 		end
 		if z.timeLeft <= 0 then
 			z.part:Destroy()

@@ -538,6 +538,32 @@ local battleIcon = text({
 	TextSize = 40,
 	Parent = battle,
 })
+
+-- Ícono de un capítulo: la imagen (Chapters › Image) si tiene, si no el emoji (Icon)
+local function ponerIcono(label: TextLabel, def: any?, emojiPorDefecto: string)
+	local imagen = def and type(def.Image) == "string" and def.Image ~= "" and def.Image or nil
+	local img = label:FindFirstChild("Imagen") :: ImageLabel?
+	if imagen then
+		if not img then
+			local nuevo = Instance.new("ImageLabel")
+			nuevo.Name = "Imagen"
+			nuevo.BackgroundTransparency = 1
+			nuevo.Size = UDim2.fromScale(1, 1)
+			nuevo.ScaleType = Enum.ScaleType.Fit
+			nuevo.ZIndex = label.ZIndex
+			nuevo.Parent = label
+			img = nuevo
+		end
+		(img :: ImageLabel).Image = imagen;
+		(img :: ImageLabel).Visible = true
+		label.Text = ""
+	else
+		if img then
+			img.Visible = false
+		end
+		label.Text = if def then def.Icon or emojiPorDefecto else emojiPorDefecto
+	end
+end
 local battleName = text({
 	Position = UDim2.new(0, 64, 0, 32),
 	Size = UDim2.new(1, -64, 0, 26),
@@ -597,8 +623,9 @@ local picker = make("Frame", {
 local pickerWindow = glass({
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromOffset(820, 540),
-	BackgroundTransparency = 0.05,
+	Size = UDim2.fromOffset(900, 620),
+	BackgroundColor3 = C(17, 16, 22),
+	BackgroundTransparency = 0.02,
 	ZIndex = 31,
 	Parent = picker,
 })
@@ -608,13 +635,36 @@ local function updatePickerScale()
 end
 uiScale:GetPropertyChangedSignal("Scale"):Connect(updatePickerScale)
 updatePickerScale()
-Theme.padding(20).Parent = pickerWindow
+Theme.padding(22).Parent = pickerWindow
+-- Encabezado: marca, título y bajada
 text({
-	Size = UDim2.new(1, 0, 0, 40),
-	Text = "Elegí tu batalla",
-	Font = Fonts.Title,
-	TextSize = 36,
-	TextColor3 = Colors.GoldBright,
+	Size = UDim2.new(1, -50, 0, 16),
+	Text = "LEYENDAS DE FLECHAS",
+	Font = Fonts.Bold,
+	TextSize = 12,
+	TextColor3 = Colors.Gold,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	ZIndex = 32,
+	Parent = pickerWindow,
+})
+text({
+	Position = UDim2.new(0, 0, 0, 18),
+	Size = UDim2.new(1, -50, 0, 32),
+	Text = "Elegí tu aventura",
+	Font = Fonts.Bold,
+	TextSize = 26,
+	TextColor3 = Colors.Text,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	ZIndex = 32,
+	Parent = pickerWindow,
+})
+text({
+	Position = UDim2.new(0, 0, 0, 50),
+	Size = UDim2.new(1, -50, 0, 18),
+	Text = "Explorá los reinos y conquistá sus jefes.",
+	Font = Fonts.Body,
+	TextSize = 14,
+	TextColor3 = Colors.TextMuted,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	ZIndex = 32,
 	Parent = pickerWindow,
@@ -622,22 +672,22 @@ text({
 local closePicker = make("TextButton", {
 	AnchorPoint = Vector2.new(1, 0),
 	Position = UDim2.new(1, 0, 0, 0),
-	Size = UDim2.fromOffset(40, 40),
-	BackgroundColor3 = C(52, 44, 74),
+	Size = UDim2.fromOffset(32, 32),
+	BackgroundTransparency = 1,
 	AutoButtonColor = false,
-	Text = "X",
+	Text = "✕",
 	Font = Fonts.Bold,
-	TextSize = 20,
-	TextColor3 = Colors.Text,
+	TextSize = 18,
+	TextColor3 = Colors.TextMuted,
 	ZIndex = 32,
 	Parent = pickerWindow,
-}, { Theme.corner(20), make("UIStroke", { Color = Colors.GoldDark, Thickness = 1.2 }) })
+})
 local chapterList = make("ScrollingFrame", {
-	Position = UDim2.new(0, 0, 0, 56),
-	Size = UDim2.new(1, 0, 1, -56),
+	Position = UDim2.new(0, 0, 0, 82),
+	Size = UDim2.new(1, 0, 1, -82),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
-	ScrollBarThickness = 6,
+	ScrollBarThickness = 5,
 	ScrollBarImageColor3 = Colors.GoldDark,
 	CanvasSize = UDim2.new(),
 	AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -646,11 +696,11 @@ local chapterList = make("ScrollingFrame", {
 	Parent = pickerWindow,
 }, {
 	make("UIGridLayout", {
-		CellSize = UDim2.fromOffset(378, 116),
+		CellSize = UDim2.fromOffset(418, 332),
 		CellPadding = UDim2.fromOffset(12, 12),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}),
-	make("UIPadding", { PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 2), PaddingLeft = UDim.new(0, 2) }),
+	make("UIPadding", { PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 2), PaddingLeft = UDim.new(0, 2) }),
 })
 
 local function openPicker(open: boolean)
@@ -667,91 +717,163 @@ closePicker.Activated:Connect(function()
 	openPicker(false)
 end)
 
-type Card = { button: TextButton, stroke: UIStroke, lock: TextLabel, name: TextLabel, desc: TextLabel, record: TextLabel }
+type Card = {
+	button: TextButton,
+	stroke: UIStroke,
+	lock: TextLabel,
+	name: TextLabel,
+	desc: TextLabel,
+	record: TextLabel,
+	banner: ImageLabel,
+	shade: Frame,
+	action: TextLabel,
+}
 local cards: { [string]: Card } = {}
 
 -- Capítulos y, después, los modos (Shared/Modes.lua): se eligen igual, por Id
-local entries: { { def: any, order: number, title: string } } = {}
+local entries: { { def: any, order: number, label: string } } = {}
 for i, ch in Chapters do
-	table.insert(entries, { def = ch, order = i, title = string.format("Capítulo %d · %s", i, ch.Name) })
+	table.insert(entries, { def = ch, order = i, label = string.format("CAPÍTULO %02d", i) })
 end
 for i, m in Modes.List do
-	table.insert(entries, { def = m, order = 100 + i, title = m.Name })
+	table.insert(entries, { def = m, order = 100 + i, label = "MODO ESPECIAL" })
 end
 
+local VERDE = C(110, 220, 140)
 for _, entry in entries do
 	local ch = entry.def
-	local i = entry.order
 	local card = make("TextButton", {
-		BackgroundColor3 = Colors.PanelLight,
+		BackgroundColor3 = C(28, 27, 34),
 		AutoButtonColor = false,
 		Text = "",
-		LayoutOrder = i,
+		LayoutOrder = entry.order,
+		ClipsDescendants = true,
 		ZIndex = 33,
 		Parent = chapterList,
-	}, { Theme.corner(12), Theme.padding(12) })
-	local stroke = Theme.stroke(Colors.GoldDark, 1.5)
+	}, { Theme.corner(12) })
+	local stroke = Theme.stroke(C(60, 56, 66), 1)
 	stroke.Parent = card
-	text({
-		Size = UDim2.new(0, 48, 0, 48),
-		Text = ch.Icon or "",
-		TextSize = 34,
+	-- Imagen del reino (Chapters › Banner). Sin imagen: degradé del color del capítulo y su ícono.
+	local acento: Color3 = ch.Accent or Colors.Gold
+	local banner = make("ImageLabel", {
+		Size = UDim2.new(1, 0, 0, 190),
+		BackgroundColor3 = acento:Lerp(C(10, 10, 14), 0.75),
+		BorderSizePixel = 0,
+		Image = if type(ch.Banner) == "string" then ch.Banner else "",
+		ScaleType = Enum.ScaleType.Crop,
 		ZIndex = 34,
 		Parent = card,
+	}, { Theme.corner(12) })
+	if not ch.Banner or ch.Banner == "" then
+		text({
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(90, 90),
+			Text = ch.Icon or "⚔",
+			TextSize = 64,
+			ZIndex = 35,
+			Parent = banner,
+		})
+	end
+	-- sombra hacia abajo para que la imagen se funda con la tarjeta
+	local shade = make("Frame", {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 0, 1, 0),
+		Size = UDim2.new(1, 0, 0.45, 0),
+		BackgroundColor3 = C(28, 27, 34),
+		BorderSizePixel = 0,
+		ZIndex = 35,
+		Parent = banner,
+	}, { make("UIGradient", { Rotation = 90, Transparency = NumberSequence.new(1, 0) }) })
+	local body = make("Frame", {
+		Position = UDim2.new(0, 0, 0, 190),
+		Size = UDim2.new(1, 0, 1, -190),
+		BackgroundTransparency = 1,
+		ZIndex = 34,
+		Parent = card,
+	}, { Theme.padding(12) })
+	text({
+		Size = UDim2.new(1, -30, 0, 14),
+		Text = entry.label,
+		Font = Fonts.Bold,
+		TextSize = 11,
+		TextColor3 = Colors.Gold,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 35,
+		Parent = body,
 	})
 	local name = text({
-		Position = UDim2.new(0, 58, 0, 0),
-		Size = UDim2.new(1, -90, 0, 24),
-		Text = entry.title,
-		Font = Fonts.Heading,
-		TextSize = 17,
+		Position = UDim2.new(0, 0, 0, 16),
+		Size = UDim2.new(1, -30, 0, 24),
+		Text = ch.Name,
+		Font = Fonts.Bold,
+		TextSize = 19,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		ZIndex = 34,
-		Parent = card,
+		ZIndex = 35,
+		Parent = body,
 	})
 	local desc = text({
-		Position = UDim2.new(0, 58, 0, 26),
-		Size = UDim2.new(1, -58, 1, -46),
-		Text = ch.Description or "",
+		Position = UDim2.new(0, 0, 0, 42),
+		Size = UDim2.new(1, 0, 0, 18),
+		Text = ch.Tagline or ch.Description or "",
 		Font = Fonts.Body,
 		TextSize = 13,
 		TextColor3 = Colors.TextMuted,
-		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Top,
-		ZIndex = 34,
-		Parent = card,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 35,
+		Parent = body,
 	})
 	local record = text({
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 58, 1, 0),
-		Size = UDim2.new(1, -58, 0, 18),
+		Position = UDim2.new(0, 0, 0, 62),
+		Size = UDim2.new(1, 0, 0, 16),
 		Text = "",
 		Font = Fonts.Bold,
-		TextSize = 13,
-		TextColor3 = Colors.Gold,
+		TextSize = 12,
+		TextColor3 = VERDE,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 34,
-		Parent = card,
+		ZIndex = 35,
+		Parent = body,
 	})
 	local lock = text({
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, 0, 0, 0),
-		Size = UDim2.new(0, 30, 0, 26),
+		Size = UDim2.new(0, 24, 0, 22),
 		Text = Icons.Locked,
-		TextSize = 20,
+		TextSize = 16,
 		Visible = false,
-		ZIndex = 34,
-		Parent = card,
+		ZIndex = 35,
+		Parent = body,
 	})
+	local action = text({
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 0, 1, 0),
+		Size = UDim2.new(1, 0, 0, 34),
+		BackgroundTransparency = 0,
+		BackgroundColor3 = C(52, 48, 60),
+		Text = "EXPLORAR",
+		Font = Fonts.Bold,
+		TextSize = 14,
+		TextColor3 = Colors.Text,
+		ZIndex = 35,
+		Parent = body,
+	})
+	Theme.corner(6).Parent = action
+	card.MouseEnter:Connect(function()
+		if card.Active then
+			TweenService:Create(banner, TweenInfo.new(0.2), { ImageTransparency = 0 }):Play()
+			stroke.Thickness = math.max(stroke.Thickness, 1.5)
+		end
+	end)
 	card.Activated:Connect(function()
 		if card.Active then
 			lobbyRequest:FireServer("SelectChapter", ch.Id)
 			openPicker(false)
 		end
 	end)
-	cards[ch.Id] = { button = card, stroke = stroke, lock = lock, name = name, desc = desc, record = record }
+	cards[ch.Id] = { button = card, stroke = stroke, lock = lock, name = name, desc = desc, record = record,
+		banner = banner, shade = shade, action = action }
 end
 
 ---------------------------------------------------------------------
@@ -1344,19 +1466,30 @@ local function refreshChapters()
 	for id, card in cards do
 		local isUnlocked = unlocked[id] == true
 		local isSelected = id == selected
-		card.record.Text = recordText(id, records[id])
+		local rec = recordText(id, records[id])
 		card.lock.Visible = not isUnlocked
-		card.stroke.Color = if isSelected then Colors.GoldBright else Colors.GoldDark
-		card.stroke.Thickness = if isSelected then 3 else 1.5
-		card.button.BackgroundColor3 = if isSelected then Color3.fromRGB(52, 44, 34) else Colors.PanelLight
+		card.stroke.Color = if isSelected then Colors.GoldBright else C(60, 56, 66)
+		card.stroke.Thickness = if isSelected then 2 else 1
 		card.name.TextColor3 = if isUnlocked then Colors.Text else Colors.Locked
+		card.banner.ImageTransparency = if isUnlocked then 0 else 0.5
+		card.banner.ImageColor3 = if isUnlocked then Color3.new(1, 1, 1) else Color3.fromRGB(110, 110, 120)
 		card.button.Active = isLeader and isUnlocked
 		card.button.AutoButtonColor = false
-		card.desc.Text = descText(id, isUnlocked)
+		if not isUnlocked then
+			card.record.Text = "Completá el capítulo anterior"
+			card.record.TextColor3 = Colors.TextMuted
+			card.action.Visible = false
+		else
+			card.record.Text = if rec ~= "" then rec else "Disponible"
+			card.record.TextColor3 = if rec ~= "" then VERDE else Colors.TextMuted
+			card.action.Visible = true
+			card.action.Text = if isSelected then "SELECCIONADO" else "EXPLORAR"
+			card.action.BackgroundColor3 = if isSelected then C(150, 115, 55) else C(52, 48, 60)
+		end
 	end
 	-- Tarjeta de batalla
 	local def = chapterDef(selected)
-	battleIcon.Text = if def then def.Icon or "⚔" else "⚔"
+	ponerIcono(battleIcon, def, "⚔")
 	battleName.Text = chapterName(selected)
 	battleRecord.Text = recordText(selected, records[selected])
 	battleDesc.Text = if selected ~= "" then descText(selected, true) else ""

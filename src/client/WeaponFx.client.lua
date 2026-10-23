@@ -161,7 +161,10 @@ local function prepare(model: Model, weapon: string): Weapon
 	local longest = math.max(size.X, size.Y, size.Z)
 	if longest > 0.01 then
 		pcall(function()
-			model:ScaleTo(model:GetScale() * (SIZE[weapon] or 1) / longest)
+			-- Atributo opcional "FirstPersonSize": largo propio en primera persona (p. ej. guanteletes)
+			local own = model:GetAttribute("FirstPersonSize")
+			local targetSize = if type(own) == "number" then own elseif model:GetAttribute("AlignedBow") then 1.35 else (SIZE[weapon] or 1)
+			model:ScaleTo(model:GetScale() * targetSize / longest)
 		end)
 	end
 	local box, scaled = model:GetBoundingBox()
@@ -177,8 +180,11 @@ local function prepare(model: Model, weapon: string): Weapon
 		a2 *= bulgeSign(model, box, a1, a2, length)
 	end
 	local align = alignAxes(a1, a2, h.primary, h.secondary)
+	local alignedBow = weapon == "Bow" and model:GetAttribute("AlignedBow") == true
+	if alignedBow then align = CFrame.new() end
 	-- Se agarra en "grip": corremos el centro del modelo a lo largo del lado largo
-	local shift = h.primary * (-h.grip * length)
+	local gripAttr = model:GetAttribute("Grip") -- opcional: dónde se agarra a lo largo (0 = centro)
+	local shift = h.primary * (-(if type(gripAttr) == "number" then gripAttr else h.grip) * length)
 	local flipped = model:GetAttribute("Flip") == true
 	local flip = CFrame.new()
 	if flipped then
@@ -186,7 +192,7 @@ local function prepare(model: Model, weapon: string): Weapon
 	end
 	local custom = model:GetAttribute("Rotation")
 	local extra = if typeof(custom) == "Vector3" then CFrame.Angles(math.rad(custom.X), math.rad(custom.Y), math.rad(custom.Z)) else CFrame.new()
-	local turn = if weapon == "Bow" then CFrame.Angles(0, BOW_TURN, 0) else CFrame.new()
+	local turn = if weapon == "Bow" and not alignedBow then CFrame.Angles(0, BOW_TURN, 0) else CFrame.new()
 	return { model = model, hold = CFrame.new(shift) * turn * flip * extra * align, length = length, depth = depth }
 end
 
@@ -197,7 +203,9 @@ local function build(weapon: string, id: string?): Weapon
 	local own = folder and id and folder:FindFirstChild(id)
 	local template = own or (folder and folder:FindFirstChild(weapon))
 	local model: Model
-	if template and template:IsA("Model") then
+	if (id == "CelestialBow" or id == "VoidBow") and not own then
+		model = require(script.Parent:WaitForChild("CelestialBowModel")).build(id)
+	elseif template and template:IsA("Model") then
 		model = template:Clone()
 	elseif template and template:IsA("BasePart") then
 		model = Instance.new("Model")
@@ -208,7 +216,7 @@ local function build(weapon: string, id: string?): Weapon
 	end
 	model.Name = "ViewModel"
 	local def = id and Weapons.ById[id]
-	if def and def.Tint and not own then
+	if def and def.Tint and not own and id ~= "CelestialBow" and id ~= "VoidBow" then
 		-- La pieza más grande es la hoja: del color del arma especial, brillando
 		local blade, size = nil, 0
 		for _, d in model:GetDescendants() do
@@ -247,6 +255,7 @@ type Rig = {
 	armR: Part,
 	armL: Part,
 	folder: Model,
+	ownGlove: boolean?, -- guanteletes con modelo propio: cubren el antebrazo (sin brazos lisos)
 }
 local rig: Rig? = nil
 local anim = { t = 1, kind = "", side = 1, dur = 0.2, step = 1 }
@@ -338,11 +347,14 @@ local function ensure(weapon: string, id: string)
 	folder.Name = "FirstPersonWeapon"
 	local items = { build(weapon, id) }
 	if weapon == "Fists" then
-		table.insert(items, build(weapon))
+		table.insert(items, build(weapon, id))
 	end
+	-- Guanteletes especiales con modelo propio (WeaponModels > <id>): se ven; los puños comunes no
+	local wm = ReplicatedStorage:FindFirstChild("WeaponModels")
+	local ownGlove = id ~= "Fists" and wm ~= nil and wm:FindFirstChild(id) ~= nil
 	for _, it in items do
 		it.model.Parent = folder
-		if weapon == "Fists" then
+		if weapon == "Fists" and not ownGlove then
 			-- Sin guante de boxeo: se ven las manos del personaje (los brazos de tu color)
 			for _, d in it.model:GetDescendants() do
 				if d:IsA("BasePart") then
@@ -356,6 +368,12 @@ local function ensure(weapon: string, id: string)
 	local arrow, arrowParts = nil, {}
 	if weapon == "Bow" then
 		arrow, arrowParts = buildArrow(folder)
+		if (id == "CelestialBow" or id == "VoidBow") then
+			for i, item in arrowParts do
+				item.part.Material = Enum.Material.Neon
+				item.part.Color = if id == "VoidBow" then (if i == 1 then Color3.fromRGB(25, 10, 40) else Color3.fromRGB(170, 85, 255)) else (if i == 1 then Color3.fromRGB(255, 252, 238) else Color3.fromRGB(70, 190, 255))
+			end
+		end
 	end
 	rig = {
 		weapon = weapon,
@@ -366,6 +384,7 @@ local function ensure(weapon: string, id: string)
 		armR = plainPart(folder, Vector3.new(ARM_THICK, ARM_THICK, ARM_LENGTH), CFrame.new(), armColor("Right")),
 		armL = plainPart(folder, Vector3.new(ARM_THICK, ARM_THICK, ARM_LENGTH), CFrame.new(), armColor("Left")),
 		folder = folder,
+		ownGlove = ownGlove,
 	}
 	folder.Parent = workspace.CurrentCamera
 end
@@ -443,8 +462,8 @@ local function poses(weapon: string, t: number, bob: Vector3): (CFrame, CFrame, 
 	local active = t < 1
 	if weapon == "Bow" then
 		-- Apuntando: un poco a la izquierda y abajo, mirando a la mira, punta de arriba apenas a la derecha
-		local pos = Vector3.new(-0.24, -0.3, -1.45) + bob -- cerca del cuerpo
-		local base = CFrame.lookAt(pos, BOW_AIM) * CFrame.Angles(0, 0, math.rad(-12))
+		local pos = Vector3.new(-0.55, -0.7, -1.65) + bob * 0.35
+		local base = CFrame.lookAt(pos, BOW_AIM)
 		local pull, loaded, kick = 1, true, 0
 		if active then
 			if t < 0.15 then
@@ -498,11 +517,26 @@ local function placeArrow(r: Rig, bowCf: CFrame, item: Weapon, pull: number, loa
 	local cord = bowCf:PointToWorldSpace(-BOW_BELLY * (item.depth * 0.5))
 	local back = bowCf:VectorToWorldSpace(-BOW_BELLY) -- hacia la cámara
 	local nock = cord + back * (BOW_PULL * pull)
+	if item.model:GetAttribute("AlignedBow") then
+		-- Usar las posiciones reales del modelo: el centro de su caja no es el agarre.
+		local handle = item.model:FindFirstChild("Handle") :: BasePart?
+		local stringPart = item.model:FindFirstChild("String") :: BasePart?
+		if handle and stringPart then
+			belly = handle.Position
+			cord = stringPart.Position
+			nock = cord - bowCf.LookVector * (BOW_PULL * pull)
+
+		end
+	end
 	if not r.arrow then
 		return belly, nock
 	end
 	local hide = if loaded then 0 else 1
 	local dir = belly - nock
+	if item.model:GetAttribute("AlignedBow") then
+		local camera = workspace.CurrentCamera
+		if camera then dir = camera.CFrame:PointToWorldSpace(BOW_AIM) - nock end
+	end
 	if dir.Magnitude < 0.05 then
 		dir = bowCf.LookVector
 	end
@@ -523,7 +557,7 @@ local function placeArm(arm: Part, cam: CFrame, hand: Vector3, elbow: Vector3)
 		dir = -cam.LookVector
 	end
 	local tip = hand - dir.Unit * 0.12 -- la mano asoma un poco por delante del agarre
-	arm.CFrame = CFrame.lookAt(tip + dir.Unit * (ARM_LENGTH / 2), tip)
+	arm.CFrame = CFrame.lookAt(tip + dir.Unit * (arm.Size.Z / 2), tip)
 end
 
 RunService.RenderStepped:Connect(function(dt)
@@ -572,7 +606,7 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 	end
 	-- Con el arco solo se ve el arco
-	local arms = if weapon == "Bow" then 1 else 0
+	local arms = if weapon == "Bow" or r.ownGlove then 1 else 0
 	r.armR.Transparency = arms
 	r.armL.Transparency = arms
 	placeArm(r.armR, cam, handR, ELBOW_R)
@@ -633,12 +667,13 @@ meleeSwing.OnClientEvent:Connect(function(userId, _origin, _dir, _range, arc, we
 		else
 			play("slash", 0.22)
 		end
-	elseif weaponId == "Fists" then
+	elseif Weapons.baseOf(weaponId) == "Fists" then
 		play("punch", 0.14)
 	end
 end)
 
-projectileFired.OnClientEvent:Connect(function(_id, _origin, _dir, _speed, _lifetime, ownerUserId)
+projectileFired.OnClientEvent:Connect(function(_id, _origin, _dir, _speed, _lifetime, ownerUserId, style)
+
 	if ownerUserId == player.UserId and anim.t >= 0.5 then
 		play("shoot", 0.45)
 	end

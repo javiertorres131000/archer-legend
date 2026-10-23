@@ -672,45 +672,46 @@ T.OrbTower = {
 T.KingSlime = {
 	Name = "Rey Slime",
 	Boss = true,
-	Health = 1100,
+	Health = 3400,
 	Size = 7,
 	Shape = "Ball",
 	Color = C(60, 170, 70),
-	ContactDamage = 18,
+	ContactDamage = 22,
 	XP = 12,
-	OnDeath = { Split = { Type = "RedSlime", Count = 2 } },
+	OnDeath = { Split = { Type = "RedSlime", Count = 3 } },
 	Phases = {
 		{
-			Above = 0.5,
-			Rest = { 1, 1.6 },
-			Move = { Type = "Erratic", Speed = 12, Hop = { 0.6, 0.9 }, Pause = { 0.6, 1 }, Wobble = 30 },
+			Above = 0.6,
+			Rest = { 0.8, 1.2 },
+			Move = { Type = "Erratic", Speed = 15, Hop = { 0.5, 0.8 }, Pause = { 0.4, 0.7 }, Wobble = 30 },
 			Attacks = {
-				{ Type = "Area", Target = "Self", Range = 14, Telegraph = 0.4, Radius = 9, Delay = 0.8, Damage = 20, Weight = 2 },
-				{ Type = "Shoot", Pattern = "Radial", Telegraph = 0.6, Jump = true, Count = 10, Speed = 24, Damage = 12, Color = POISON },
-				{ Type = "Summon", Telegraph = 0.6, Spawn = "GreenSlime", Count = 2, Max = 4 },
+				-- Aplastón: salta encima de un jugador y cae con onda de veneno
+				{ Type = "Dash", Telegraph = 0.6, Distance = { 22, 30 }, Speed = 50, Damage = 24, Weight = 2,
+					Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.1, Count = 12, Speed = 22, Damage = 12, Color = POISON } },
+				-- Charcos de veneno bajo los jugadores
+				{ Type = "Area", Telegraph = 0.5, Count = { 3, 4 }, FirstExact = true, Scatter = 6, Radius = 4, Delay = 0.9,
+					Damage = 18, WarnColor = POISON, Zone = { Duration = 4, Dps = 8, Color = POISON } },
+				{ Type = "Shoot", Pattern = "Radial", Telegraph = 0.5, Jump = true, Count = 14, Bursts = 2, BurstDelay = 0.35,
+					Rotate = 13, Speed = 26, Damage = 13, Color = POISON },
+				{ Type = "Summon", Telegraph = 0.6, Spawn = "GreenSlime", Count = 3, Max = 5, Cooldown = { 8, 11 } },
 			},
 		},
-		{
+		{ -- Furia: más rápido, aplastones en cadena y lluvia de veneno
 			Above = 0,
-			Rest = { 0.7, 1.1 },
-			Move = { Type = "Erratic", Speed = 16, Hop = { 0.5, 0.8 }, Pause = { 0.3, 0.6 }, Wobble = 30 },
+			Rest = { 0.5, 0.8 },
+			Move = { Type = "Erratic", Speed = 20, Hop = { 0.4, 0.6 }, Pause = { 0.2, 0.4 }, Wobble = 35 },
 			Attacks = {
-				{ Type = "Area", Target = "Self", Range = 15, Telegraph = 0.35, Radius = 10, Delay = 0.7, Damage = 22, Weight = 2 },
-				{
-					Type = "Shoot",
-					Pattern = "Radial",
-					Telegraph = 0.5,
-					Jump = true,
-					Count = 14,
-					Bursts = 2,
-					BurstDelay = 0.35,
-					Rotate = 13,
-					Speed = 26,
-					Damage = 12,
-					Color = POISON,
-				},
-				{ Type = "Summon", Telegraph = 0.5, Spawn = "GreenSlime", Count = 3, Max = 6 },
-				{ Type = "Dash", Telegraph = 0.7, Distance = { 25, 35 }, Speed = 45, Damage = 22 },
+				{ Type = "Dash", Telegraph = 0.5, Repeats = 3, RepeatTelegraph = 0.3, Distance = { 22, 32 }, Speed = 56,
+					Damage = 26, Weight = 2,
+					Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.1, Count = 16, Bursts = 2, BurstDelay = 0.3,
+						Rotate = 11, Speed = 24, Damage = 13, Color = POISON } },
+				{ Type = "Area", Target = "Random", Telegraph = 0.4, Count = { 6, 8 }, Radius = 4, Delay = 1, Damage = 18,
+					WarnColor = POISON, Zone = { Duration = 4, Dps = 9, Color = POISON } },
+				{ Type = "Area", Telegraph = 0.4, Count = { 3, 4 }, FirstExact = true, Scatter = 5, Radius = 4, Delay = 0.8,
+					Damage = 20, Bursts = 2, BurstDelay = 0.6, WarnColor = POISON },
+				{ Type = "Shoot", Pattern = "Radial", Telegraph = 0.4, Jump = true, Count = 18, Bursts = 3, BurstDelay = 0.3,
+					Rotate = 10, Speed = 28, Damage = 13, Color = POISON },
+				{ Type = "Summon", Telegraph = 0.5, Spawn = "RedSlime", Count = 2, Max = 4, Cooldown = { 9, 12 } },
 			},
 		},
 	},
@@ -818,59 +819,62 @@ T.Treant = {
 T.Azrakoth = {
 	Name = "Azrakoth, Serafín del Eclipse",
 	Boss = true,
-	Health = 7000,
+	Health = 20000, -- un jugador con 10 oleadas de mejoras lo bajaba enseguida con 7000
 	Size = 14,
 	Height = 34, -- altura del modelo con las alas (el cuerpo mide ~26 studs)
 	Color = C(140, 20, 15),
-	ContactDamage = 26,
+	ContactDamage = 32,
 	XP = 60,
 	Alone = true, -- su oleada no trae otros enemigos ni eventos (Waves)
 	PhaseAnim = "PhaseTransform",
 	DeathAnim = "Death", -- al morir se desploma (5,3 s) y se desvanece
+	-- Cinemática de entrada (Client/BossIntro): el combate se congela Duration segundos
+	Intro = { Anim = "Intro", Duration = 7.2, Title = "AZRAKOTH", Subtitle = "El Serafín del Eclipse Carmesí",
+		Roar = "rbxassetid://103194019182909", RoarAt = 5.3, Distance = 36 }, -- grito en el rugido (segundos)
 	DeathTime = 5.8,
 	Phases = {
 		{ -- El Guardián Despierta
 			Above = 0.7,
-			Rest = { 1.3, 1.9 },
-			Move = { Type = "Chase", Speed = 5 },
+			Rest = { 0.9, 1.3 },
+			Move = { Type = "Chase", Speed = 7 },
 			Attacks = {
 				-- Juicio Carmesí: espadón al suelo + onda expansiva
-				{ Type = "Area", Anim = "AttackVertical", Telegraph = 1.5, Count = 1, FirstExact = true, Radius = 9, Delay = 0.3,
-					Damage = 30, WarnColor = FIRE, Recover = 0.6, Weight = 2,
-					Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.05, Count = 18, Speed = 20, Damage = 12, Color = FIRE } },
+				{ Type = "Area", Anim = "AttackVertical", Telegraph = 0.25, Count = 1, FirstExact = true, Radius = 9, Delay = 1.55,
+					Damage = 39, WarnColor = FIRE, Recover = 0.6, Weight = 2,
+					Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.05, Count = 18, Speed = 20, Damage = 16, Color = FIRE, KeepColor = true, VisualSize = 2.6 } },
 				-- Danza del Verdugo: dos estocadas rápidas y un tercer golpe con carga larga
 				{ Type = "Dash", Anim = "Combo3", Telegraph = 0.6, Repeats = 2, RepeatTelegraph = 0.35, Distance = 16, Speed = 40,
-					Damage = 24, Range = 40,
-					Then = { Type = "Area", Target = "Self", Telegraph = 1.0, Radius = 11, Delay = 0.3, Damage = 30, WarnColor = FIRE } },
+					Damage = 31, Range = 40,
+					Then = { Type = "Area", Target = "Self", Telegraph = 0.25, Radius = 11, Delay = 1.05, Damage = 39, WarnColor = FIRE } },
 				-- Tormenta de Alas: plumas de fuego y zonas incendiadas
 				{ Type = "Shoot", Anim = "WingsOpen", Telegraph = 1.0, Count = 9, Spread = 110, Bursts = 3, BurstDelay = 0.4,
-					Speed = 30, Damage = 12, Color = FIRE,
-					Then = { Type = "Area", Target = "Random", Telegraph = 0.2, Count = 5, Radius = 4, Delay = 1.0, Damage = 14,
+					Speed = 30, Damage = 16, Color = FIRE, KeepColor = true, VisualSize = 2.6,
+					Then = { Type = "Area", Target = "Random", Telegraph = 0.2, Count = 5, Radius = 4, Delay = 1.0, Damage = 18,
 						WarnColor = FIRE, Zone = { Duration = 3, Dps = 8, Color = FIRE } } },
 			},
 		},
 		{ -- El Eclipse Desciende
 			Above = 0.35,
-			Rest = { 1.0, 1.5 },
-			Move = { Type = "Chase", Speed = 6 },
+			Rest = { 0.7, 1.0 },
+			Move = { Type = "Chase", Speed = 8 },
 			Attacks = {
-				{ Type = "Area", Anim = "AttackVertical", Telegraph = 1.3, Count = 1, FirstExact = true, Radius = 10, Delay = 0.3,
-					Damage = 32, WarnColor = FIRE,
+				{ Type = "Area", Anim = "AttackVertical", Telegraph = 0.25, Count = 1, FirstExact = true, Radius = 10, Delay = 1.35,
+					Damage = 42, WarnColor = FIRE,
 					Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.05, Count = 22, Bursts = 2, BurstDelay = 0.35,
-						Rotate = 8, Speed = 22, Damage = 12, Color = FIRE } },
+						Rotate = 8, Speed = 22, Damage = 16, Color = FIRE, KeepColor = true, VisualSize = 2.6 } },
 				{ Type = "Dash", Anim = "Combo3", Telegraph = 0.55, Repeats = 2, RepeatTelegraph = 0.3, Distance = 18, Speed = 44,
-					Damage = 26, Range = 40,
-					Then = { Type = "Area", Target = "Self", Telegraph = 0.9, Radius = 12, Delay = 0.3, Damage = 32, WarnColor = FIRE } },
+					Damage = 34, Range = 40,
+					Then = { Type = "Area", Target = "Self", Telegraph = 0.25, Radius = 12, Delay = 0.95, Damage = 42, WarnColor = FIRE } },
 				-- Cadenas del Abismo: círculos que estallan debajo de los jugadores
 				{ Type = "Area", Anim = "ChainSummon", Telegraph = 1.1, Count = { 3, 4 }, FirstExact = true, Scatter = 6, Radius = 4,
-					Delay = 1.3, Damage = 22, WarnColor = DARK },
+					Delay = 1.3, Damage = 29, WarnColor = DARK },
 				-- Caída del Serafín: desaparece en el cielo y cae sobre un jugador
 				{ Type = "Teleport", Anim = "SeraphFall", Telegraph = 1.0, Distance = 4, Duration = 1.2,
-					Then = { Type = "Area", Target = "Self", Telegraph = 0.9, Radius = 13, Delay = 0.3, Damage = 34, WarnColor = FIRE,
+					Then = { Type = "Area", Target = "Self", Telegraph = 0.25, Radius = 13, Delay = 0.95, Damage = 44, WarnColor = FIRE,
 						Zone = { Duration = 3, Dps = 10, Color = FIRE } } },
 				-- Corazón del Eclipse: el núcleo se carga y explota en anillos
 				{ Type = "Shoot", Anim = "CoreCharge", Pattern = "Radial", Telegraph = 2.0, Count = 24, Bursts = 4, BurstDelay = 0.3,
-					Rotate = 7, Speed = 24, Damage = 13, Color = DARK, Cooldown = { 10, 14 } },
+					Rotate = 7, Speed = 24, Damage = 17, Color = FIRE, KeepColor = true, VisualSize = 2.6, Cooldown = { 10, 14 } },
 				-- Legión de los Condenados
 				{ Type = "Summon", Anim = "SummonSoldiers", Telegraph = 1.3, Spawn = "HordeSkeleton", Count = 4, Max = 6,
 					Cooldown = { 14, 18 } },
@@ -878,25 +882,25 @@ T.Azrakoth = {
 		},
 		{ -- El Último Juicio (Ira del Serafín Caído: todo más rápido y potenciado)
 			Above = 0,
-			Rest = { 0.7, 1.1 },
-			Move = { Type = "Chase", Speed = 7 },
+			Rest = { 0.4, 0.7 },
+			Move = { Type = "Chase", Speed = 10 },
 			Attacks = {
 				-- Rayo del Eclipse: barrido de rayos desde el halo
 				{ Type = "Breath", Anim = "BeamFire", Telegraph = 1.5, Duration = 2.8, Spin = 55, Rate = 0.05, Spread = 8,
-					Speed = 34, Damage = 10, Color = DARK, Cooldown = { 9, 12 }, Weight = 2 },
-				{ Type = "Area", Anim = "AttackVertical", Telegraph = 1.1, Count = 1, FirstExact = true, Radius = 11, Delay = 0.3,
-					Damage = 34, WarnColor = FIRE,
+					Speed = 34, Damage = 13, Color = FIRE, KeepColor = true, VisualSize = 1.8, Cooldown = { 9, 12 }, Weight = 2 },
+				{ Type = "Area", Anim = "AttackVertical", Telegraph = 0.25, Count = 1, FirstExact = true, Radius = 11, Delay = 1.15,
+					Damage = 44, WarnColor = FIRE,
 					Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.05, Count = 26, Bursts = 3, BurstDelay = 0.3,
-						Rotate = 7, Speed = 24, Damage = 13, Color = FIRE } },
+						Rotate = 7, Speed = 24, Damage = 17, Color = FIRE, KeepColor = true, VisualSize = 2.6 } },
 				{ Type = "Dash", Anim = "Combo3", Telegraph = 0.5, Repeats = 2, RepeatTelegraph = 0.28, Distance = 20, Speed = 48,
-					Damage = 28, Range = 42,
-					Then = { Type = "Area", Target = "Self", Telegraph = 0.8, Radius = 13, Delay = 0.3, Damage = 34, WarnColor = FIRE,
+					Damage = 36, Range = 42,
+					Then = { Type = "Area", Target = "Self", Telegraph = 0.25, Radius = 13, Delay = 0.85, Damage = 44, WarnColor = FIRE,
 						Zone = { Duration = 3, Dps = 10, Color = FIRE } } },
 				{ Type = "Teleport", Anim = "SeraphFall", Telegraph = 0.9, Distance = 4, Duration = 1.0,
-					Then = { Type = "Area", Target = "Self", Telegraph = 0.8, Radius = 14, Delay = 0.3, Damage = 36, WarnColor = FIRE,
+					Then = { Type = "Area", Target = "Self", Telegraph = 0.25, Radius = 14, Delay = 0.85, Damage = 47, WarnColor = FIRE,
 						Zone = { Duration = 4, Dps = 12, Color = FIRE } } },
 				{ Type = "Area", Anim = "ChainSummon", Telegraph = 1.0, Count = { 4, 5 }, FirstExact = true, Scatter = 7, Radius = 4,
-					Delay = 1.2, Damage = 24, WarnColor = DARK },
+					Delay = 1.2, Damage = 31, WarnColor = DARK },
 				{ Type = "Summon", Anim = "SummonSoldiers", Telegraph = 1.2, Spawn = "HordeSkeleton", Count = 4, Max = 8,
 					Cooldown = { 12, 16 } },
 			},
@@ -1194,9 +1198,12 @@ T.EliteCaptain = { Name = "Capitán élite", Role = "Elite", Health = 260, Size 
  Attacks = { { Type = "Dash", Cooldown = { 4, 6 }, Range = 28, Telegraph = 1, Distance = 20, Speed = 35, Damage = 24 },
  { Type = "Shoot", Cooldown = { 3, 4 }, Range = 40, Count = 3, Spread = 35, Speed = 24, Damage = 15, Telegraph = 0.9 } } }
 ---------------------------------------------------------------------
--- ❄️ Capítulo 4 · Glaciar Eterno
+-- ❄️ Capítulo 3 · Glaciar Eterno (todo de hielo; mecánicas en Config.MapEvents.glacier y Config.Chill)
 ---------------------------------------------------------------------
 local FROST = C(150, 220, 255)
+-- Avisos y zonas del Glaciar en colores fuertes: los celestes no se veían sobre la nieve
+local ICE_WARN = C(255, 35, 90)
+local ICE_ZONE = C(20, 70, 230)
 local SAND = C(225, 190, 120)
 
 T.IceSlime = {
@@ -1210,8 +1217,8 @@ T.IceSlime = {
 	Cost = 2,
 	Move = { Type = "Erratic", Speed = 16, Hop = { 0.4, 0.55 }, Pause = { 0.3, 0.6 }, Wobble = 45 },
 	-- Deja escarcha que lastima al pisarla
-	Trail = { Interval = 0.8, Radius = 2.4, Duration = 3, Dps = 8, Color = FROST },
-	OnDeath = { Split = { Type = "GreenSlime", Count = 2 } },
+	Trail = { Interval = 0.8, Radius = 2.4, Duration = 3, Dps = 8, Color = ICE_ZONE },
+	OnDeath = { Split = { Type = "IceSlimeling", Count = 2 } }, -- se parte en trozos de hielo
 }
 T.SnowWolf = {
 	Name = "Lobo de las nieves",
@@ -1252,7 +1259,7 @@ T.IceMage = {
 	Move = { Type = "Keep", Speed = 8, Min = 18, Max = 30 },
 	Attacks = {
 		-- Carámbanos que caen en círculo alrededor tuyo
-		{ Type = "Area", Cooldown = { 3, 4 }, Range = 55, Telegraph = 0.6, Count = 4, Scatter = 6, Radius = 3, Delay = 1.1, Damage = 16, WarnColor = FROST },
+		{ Type = "Area", Cooldown = { 3, 4 }, Range = 55, Telegraph = 0.6, Count = 4, Scatter = 6, Radius = 3, Delay = 1.1, Damage = 16, WarnColor = ICE_WARN },
 		{ Type = "Shoot", Cooldown = { 2, 3 }, Range = 45, Telegraph = 0.5, Count = 1, Speed = 34, Damage = 14, Size = 2, Color = ICE },
 	},
 }
@@ -1268,7 +1275,7 @@ T.IceGolem = {
 	Cost = 6,
 	Move = { Type = "Chase", Speed = 5 },
 	Attacks = {
-		{ Type = "Area", Target = "Self", Cooldown = { 4, 5.5 }, Range = 14, Telegraph = 0.8, Radius = 10, Delay = 0.8, Damage = 24, WarnColor = FROST,
+		{ Type = "Area", Target = "Self", Cooldown = { 4, 5.5 }, Range = 14, Telegraph = 0.8, Radius = 10, Delay = 0.8, Damage = 24, WarnColor = ICE_WARN,
 			Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.4, Count = 8, Speed = 22, Damage = 12, Color = ICE } },
 	},
 }
@@ -1288,11 +1295,61 @@ T.Penguin = {
 	},
 }
 
+-- Variantes de hielo de los roles comunes (misma conducta, hechas de hielo y un poco más bravas).
+-- Sin modelo propio en EnemyModels usan el genérico teñido de celeste.
+local function deHielo(base: { [string]: any }, cambios: { [string]: any }): { [string]: any }
+	local t = table.clone(base)
+	for k, v in cambios do
+		t[k] = v
+	end
+	return t
+end
+T.IceSlimeling = {
+	Name = "Trozo de slime helado",
+	Health = 30,
+	Size = 1.8,
+	Shape = "Ball",
+	Color = C(185, 230, 255),
+	ContactDamage = 8,
+	XP = 1,
+	Cost = 1,
+	Move = { Type = "Erratic", Speed = 18, Hop = { 0.35, 0.5 }, Pause = { 0.2, 0.4 }, Wobble = 50 },
+}
+T.FrostSkeleton = deHielo(T.HordeSkeleton, { Name = "Diablillo de escarcha", Health = 45, Color = C(190, 225, 255),
+	ContactDamage = 10, Move = { Type = "Chase", Speed = 10 } })
+T.FrostKnight = deHielo(T.HeavyKnight, { Name = "Guardián glacial", Health = 280, Color = C(110, 170, 220),
+	Attacks = { { Type = "Area", Cooldown = { 3.5, 5 }, Range = 26, Target = "Player", Radius = 6, Delay = 1.2, Damage = 24, Telegraph = 0.8, WarnColor = ICE_WARN,
+		Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.3, Count = 6, Speed = 20, Damage = 10, Color = ICE } } } })
+T.FrostCaptain = deHielo(T.EliteCaptain, { Name = "Caballero boreal", Health = 320, Color = C(80, 150, 230),
+	Attacks = { { Type = "Dash", Cooldown = { 3.5, 5 }, Range = 28, Telegraph = 0.8, Distance = 22, Speed = 40, Damage = 26 },
+		{ Type = "Shoot", Cooldown = { 2.5, 3.5 }, Range = 40, Count = 5, Spread = 50, Speed = 26, Damage = 15, Telegraph = 0.8, Color = ICE } } })
+T.FrostGrabber = deHielo(T.Grabber, { Name = "Garra helada", Health = 180, Color = C(120, 190, 240) })
+T.IceArcher = deHielo(T.SkeletonArcher, { Name = "Centinela de escarcha", Health = 70, Color = FROST, Float = 2,
+	Attacks = { { Type = "Shoot", Cooldown = { 1.6, 2.3 }, Range = 55, Telegraph = 0.7, AimLine = true, Speed = 55, Damage = 14, Size = 1.2, Color = ICE } } })
+-- Espectro de hielo: flota, se teletransporta y te tira una lluvia de carámbanos
+T.IceWraith = {
+	Name = "Espectro de hielo",
+	Health = 140,
+	Size = 2.6,
+	Height = 4.5,
+	Float = 3,
+	Color = C(200, 235, 255),
+	ContactDamage = 12,
+	XP = 4,
+	Cost = 4,
+	Move = { Type = "Keep", Speed = 11, Min = 14, Max = 24 },
+	Attacks = {
+		{ Type = "Teleport", Cooldown = { 4, 6 }, Range = 40, Telegraph = 0.4, Distance = { 12, 18 } },
+		{ Type = "Area", Cooldown = { 3, 4 }, Range = 45, Target = "Player", Telegraph = 0.5, Count = 3, Scatter = 5, Radius = 3, Delay = 1, Damage = 16, WarnColor = ICE_WARN },
+		{ Type = "Shoot", Cooldown = { 2.2, 3 }, Range = 40, Telegraph = 0.5, Count = 2, Spread = 16, Speed = 30, Damage = 13, Color = ICE },
+	},
+}
+
 -- Mini jefe: Yeti
 T.Yeti = {
 	Name = "Yeti",
 	Boss = true,
-	Health = 2400,
+	Health = 3400,
 	Size = 6,
 	Height = 8,
 	Color = C(230, 235, 245),
@@ -1315,7 +1372,7 @@ T.Yeti = {
 			Move = { Type = "Chase", Speed = 9 },
 			Attacks = {
 				{ Type = "Dash", Telegraph = 0.6, RepeatTelegraph = 0.4, Repeats = 2, Distance = { 30, 40 }, Speed = 65, Damage = 26 },
-				{ Type = "Area", Target = "Self", Range = 16, Telegraph = 0.5, Radius = 12, Delay = 0.8, Damage = 24, WarnColor = FROST,
+				{ Type = "Area", Target = "Self", Range = 16, Telegraph = 0.5, Radius = 12, Delay = 0.8, Damage = 24, WarnColor = ICE_WARN,
 					Then = { Type = "Shoot", Pattern = "Radial", Telegraph = 0.4, Count = 12, Speed = 24, Damage = 14, Size = 2, Color = ICE } },
 				{ Type = "Summon", Telegraph = 0.7, Spawn = "SnowWolf", Count = 2, Max = 3 },
 			},
@@ -1327,7 +1384,7 @@ T.Yeti = {
 T.FrostQueen = {
 	Name = "Reina de Hielo",
 	Boss = true,
-	Health = 7000,
+	Health = 12000,
 	Size = 6,
 	Height = 11,
 	Color = C(120, 200, 255),
@@ -1335,25 +1392,38 @@ T.FrostQueen = {
 	XP = 40,
 	Phases = {
 		{
-			Above = 0.5,
+			Above = 0.66,
 			Rest = { 0.9, 1.4 },
 			Move = { Type = "Keep", Speed = 9, Min = 18, Max = 28 },
 			Attacks = {
 				{ Type = "Shoot", Pattern = "Radial", Telegraph = 0.6, Count = 14, Bursts = 2, BurstDelay = 0.5, Rotate = 13, Speed = 24, Damage = 15, Color = ICE },
-				{ Type = "Area", Telegraph = 0.5, Count = { 3, 4 }, FirstExact = true, Scatter = 8, Radius = 3.5, Delay = 1, Damage = 20, Bursts = 3, BurstDelay = 0.5, WarnColor = FROST },
+				{ Type = "Area", Telegraph = 0.5, Count = { 3, 4 }, FirstExact = true, Scatter = 8, Radius = 3.5, Delay = 1, Damage = 20, Bursts = 3, BurstDelay = 0.5, WarnColor = ICE_WARN },
 				{ Type = "Teleport", Telegraph = 0.5, Distance = { 16, 24 }, ChainRest = 0.3 },
 			},
 		},
 		{
-			Above = 0,
+			Above = 0.33,
 			Rest = { 0.6, 1 },
 			Move = { Type = "Keep", Speed = 11, Min = 16, Max = 26 },
 			Attacks = {
 				{ Type = "Shoot", Pattern = "Radial", Telegraph = 0.5, Count = 18, Bursts = 3, BurstDelay = 0.4, Rotate = 10, Bounces = 1, Speed = 26, Damage = 15, Color = ICE },
 				-- Tormenta de hielo por toda la arena
-				{ Type = "Area", Target = "Random", Telegraph = 0.6, Count = 10, Radius = 3, Delay = 1.2, Damage = 20, Bursts = 2, BurstDelay = 0.6, WarnColor = FROST },
+				{ Type = "Area", Target = "Random", Telegraph = 0.6, Count = 10, Radius = 3, Delay = 1.2, Damage = 20, Bursts = 2, BurstDelay = 0.6, WarnColor = ICE_WARN },
 				{ Type = "Summon", Telegraph = 0.7, Spawn = "IceSlime", Count = 3, Max = 5 },
 				{ Type = "Teleport", Telegraph = 0.4, Distance = { 16, 24 }, ChainRest = 0.2 },
+			},
+		},
+		{
+			-- Fase 3: la ventisca de la reina. Más rápido, más disparos y espectros
+			Above = 0,
+			Rest = { 0.45, 0.8 },
+			Move = { Type = "Keep", Speed = 13, Min = 14, Max = 24 },
+			Attacks = {
+				{ Type = "Shoot", Pattern = "Radial", Telegraph = 0.45, Count = 22, Bursts = 3, BurstDelay = 0.35, Rotate = 8, Bounces = 1, Speed = 28, Damage = 17, Color = ICE },
+				{ Type = "Area", Target = "Random", Telegraph = 0.5, Count = 14, Radius = 3.2, Delay = 1.1, Damage = 22, Bursts = 3, BurstDelay = 0.5, WarnColor = ICE_WARN },
+				{ Type = "Area", Telegraph = 0.4, Count = { 4, 5 }, FirstExact = true, Scatter = 7, Radius = 4, Delay = 0.9, Damage = 24, Bursts = 2, BurstDelay = 0.4, WarnColor = ICE_WARN },
+				{ Type = "Summon", Telegraph = 0.6, Spawn = "IceWraith", Count = 2, Max = 3 },
+				{ Type = "Teleport", Telegraph = 0.35, Distance = { 14, 22 }, ChainRest = 0.15 },
 			},
 		},
 	},

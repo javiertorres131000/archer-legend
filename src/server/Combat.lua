@@ -71,6 +71,8 @@ export type EnemyProjectileOptions = {
 	zigAmp: number?,
 	zigFreq: number?,
 	returnAfter: number?,
+	keepColor: boolean?, -- usa su color aunque Config pida el color de peligro (bolas de fuego de jefes)
+	visualSize: number?, -- se dibuja más grande que su hitbox
 }
 
 local EnemyProjCfg = Config.EnemyProjectile
@@ -138,6 +140,8 @@ export type ShotOptions = { damage: number?, pierce: number?, size: number?, wav
 local function spawnProjectile(player: Player, stats: PlayerData.Stats, origin: Vector3, dir: Vector3, giant: any?)
 	local o: ShotOptions = if type(giant) == "table" then giant else {}
 	local isGiant = giant == true
+	local weapon = Weapons.get(stats.weaponId or stats.weapon)
+	local damageMult = if weapon.Kind == "Ranged" then weapon.DamageMult else 1
 	nextId += 1
 	table.insert(projectiles, {
 		id = nextId,
@@ -145,7 +149,7 @@ local function spawnProjectile(player: Player, stats: PlayerData.Stats, origin: 
 		pos = origin,
 		dir = dir,
 		age = 0,
-		damage = o.damage or stats.damage * (if isGiant then 3 else 1),
+		damage = (o.damage or stats.damage * (if isGiant then 3 else 1)) * damageMult,
 		critChance = stats.critChance,
 		critMultiplier = stats.critMultiplier,
 		pierce = o.pierce or (if isGiant then 999 else stats.pierce),
@@ -156,6 +160,10 @@ local function spawnProjectile(player: Player, stats: PlayerData.Stats, origin: 
 		hit = {},
 	})
 	local style = if isGiant then { size = 3 } elseif o.size or o.wave or o.ghost then { size = o.size, wave = o.wave, ghost = o.ghost } else nil
+	if weapon.Kind == "Ranged" and weapon.Fx then
+		style = style or {}
+		style.weaponId = weapon.Id -- conservar el estilo aunque el dueño salga o cambie de arma
+	end
 	remotes.ProjectileFired:FireAllClients(nextId, origin, dir, ProjCfg.Speed, ProjCfg.Lifetime, player.UserId, style)
 end
 
@@ -190,6 +198,10 @@ local function fireVolley(target: PlayerData.Target, dir: Vector3, echo: boolean
 		return
 	end
 	state.attacks = (state.attacks or 0) + 1
+	local weapon = Weapons.get(stats.weaponId or stats.weapon)
+	if weapon.PiercingEvery and state.attacks % weapon.PiercingEvery == 0 then
+		spawnProjectile(target.player, stats, origin, dir, { pierce = 999, size = 1.5 })
+	end
 	if (stats.chargedEvery or 0) > 0 and state.attacks % stats.chargedEvery == 0 then
 		spawnProjectile(target.player, stats, origin, dir, true)
 	end
@@ -231,6 +243,9 @@ export type SwingOptions = {
 -- Golpe cuerpo a cuerpo: pega a todos los enemigos dentro del arco frente al jugador.
 -- Suma las habilidades del arma (hoja ancha/larga, ejecución, sed de sangre, combo, uppercut).
 -- Devuelve cuántos golpeó.
+-- Robo de vida curado en la ventana del último segundo, por jugador (tope de Config.Melee)
+local lifestealWindow: { [any]: { start: number, healed: number } } = setmetatable({}, { __mode = "k" }) :: any
+
 function Combat.meleeSwing(t: PlayerData.Target, dir: Vector3, weapon: any, opts: SwingOptions?): number
 	local o = opts or {}
 	local now = o.now or os.clock()
@@ -255,6 +270,7 @@ function Combat.meleeSwing(t: PlayerData.Target, dir: Vector3, weapon: any, opts
 	local origin = flat(t.root.Position)
 	local hits = 0
 	local dealtTotal = 0
+	local bossDealt = 0 -- parte del daño que fue a jefes (rinde menos robo de vida)
 	for _, e in table.clone(Enemies.list) do
 		if not e.alive or e.hidden then
 			continue
@@ -280,6 +296,9 @@ function Combat.meleeSwing(t: PlayerData.Target, dir: Vector3, weapon: any, opts
 		local amount = if crit then dealt * stats.critMultiplier else dealt
 		Enemies.damage(e, amount, t.player, if crit then "crit" else "hit")
 		dealtTotal += amount
+		if e.isBoss then
+			bossDealt += amount
+		end
 		-- Doble golpe (puños): pega otra vez
 		if e.alive and SkillEffects.doubleHit(stats) then
 			Enemies.damage(e, amount, t.player, if crit then "crit" else "hit")
@@ -307,8 +326,21 @@ function Combat.meleeSwing(t: PlayerData.Target, dir: Vector3, weapon: any, opts
 	end
 	-- Robo de vida del cuerpo a cuerpo (Config.Melee.Lifesteal)
 	local MeleeCfg = Config.Melee
+	-- Con tope por segundo (LifestealMaxPerSecond) y la mitad contra jefes (LifestealBossMult).
 	if MeleeCfg and dealtTotal > 0 and t.humanoid.Health > 0 and state.life == "ALIVE" then
-		t.humanoid.Health = math.min(t.humanoid.MaxHealth, t.humanoid.Health + dealtTotal * MeleeCfg.Lifesteal)
+		local efectivo = (dealtTotal - bossDealt) + bossDealt * (MeleeCfg.LifestealBossMult or 1)
+		local cura = efectivo * MeleeCfg.Lifesteal
+		local tope = MeleeCfg.LifestealMaxPerSecond
+		if tope then
+			local b = lifestealWindow[t.player]
+			if not b or now - b.start >= 1 then
+				b = { start = now, healed = 0 }
+				lifestealWindow[t.player] = b
+			end
+			cura = math.min(cura, math.max(0, t.humanoid.MaxHealth * tope - b.healed))
+			b.healed += cura
+		end
+		t.humanoid.Health = math.min(t.humanoid.MaxHealth, t.humanoid.Health + cura)
 	end
 	-- La espada corta los disparos enemigos que estén en el arco del tajo
 	if MeleeCfg and MeleeCfg.SwordCutsProjectiles and Weapons.baseOf(weapon.Id) == "Sword" then
@@ -580,8 +612,8 @@ function Combat.fireEnemyProjectile(origin: Vector3, dir: Vector3, opts: EnemyPr
 	table.insert(enemyProjectiles, p)
 	-- ownerUserId = 0 le indica al cliente que es enemigo. El estilo le dice cómo dibujarlo.
 	remotes.ProjectileFired:FireAllClients(p.id, start, dir, p.speed, p.lifetime, 0, {
-		size = size,
-		color = if EnemyProjCfg.UseDangerColor then EnemyProjCfg.Color else (o.color or EnemyProjCfg.Color),
+		size = o.visualSize or size,
+		color = if EnemyProjCfg.UseDangerColor and not o.keepColor then EnemyProjCfg.Color else (o.color or EnemyProjCfg.Color),
 		zigAmp = p.zigAmp,
 		zigFreq = p.zigFreq,
 	})
@@ -641,7 +673,7 @@ local function updateEnemyProjectiles(dt: number, targets: { PlayerData.Target }
 		for _, t in targets do
 			if (flat(t.root.Position) - flat(p.pos)).Magnitude <= hitRadius then
 				-- PlayerLife respeta escudos (aparición, eligiendo habilidad, recién revivido)
-				PlayerLife.damage(t, p.damage)
+				PlayerLife.damage(t, p.damage, "Disparo")
 				hit = true
 				break
 			end

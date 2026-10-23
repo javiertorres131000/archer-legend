@@ -26,6 +26,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 
 local EnemyCfg = Config.Enemy
+local IceLooks = require(script.Parent.IceLooks) -- modelos de hielo hechos por código (Glaciar)
 
 local EnemyVisuals = {}
 
@@ -94,7 +95,7 @@ function EnemyVisuals.missing(typeIds: { string }, shapeOf: ((string) -> string?
 		return out
 	end
 	for _, id in typeIds do
-		if not templateFor(folder, id, if shapeOf then shapeOf(id) else nil) then
+		if not IceLooks.has(id) and not templateFor(folder, id, if shapeOf then shapeOf(id) else nil) then
 			table.insert(out, id)
 		end
 	end
@@ -261,7 +262,9 @@ function EnemyVisuals.attach(enemy: any)
 	local visual: Visual = { model = nil, parts = {}, base = {}, hitboxVisible = true, highlight = nil, tinted = false, alpha = 0 }
 	enemy.visual = visual
 	local folder = if EnemyCfg.Models ~= false then modelsFolder() else nil
-	local template = folder and templateFor(folder, enemy.typeId, enemy.def.Shape)
+	-- Orden: modelo propio en EnemyModels > modelo de hielo por código > genéricos (Redondos/Todos)
+	local own = if folder then pick(folder:FindFirstChild(enemy.typeId), enemy.typeId) else nil
+	local template = own or IceLooks.template(enemy.typeId) or (folder and templateFor(folder, enemy.typeId, enemy.def.Shape))
 	local ok = false
 	if template then
 		local success, result = pcall(attachModel, enemy, template, visual)

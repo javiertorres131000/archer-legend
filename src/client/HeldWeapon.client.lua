@@ -77,6 +77,7 @@ local JOINTS = {
 
 -- En guardia (sin atacar): solo el brazo de la espada un poco adelante y afuera
 local IDLE: Pose = { RShoulder = j(20, 0, 8) }
+local BOW_IDLE: Pose = { LShoulder = j(75, 0, -5), LElbow = j(10, 0, 0), RShoulder = j(65, 0, 30), RElbow = j(90, 0, 0) }
 
 local P = {
 	-- 1: carga girado a la derecha, agachado, hoja arriba atrás → estocada abajo a la izquierda
@@ -182,6 +183,12 @@ local SPIN_KEYS: { Key } = {
 	{ t = 1, pose = P.SPIN_LAND, ease = smooth },
 }
 
+local BOW_KEYS: { Key } = {
+	{ t = 0, pose = BOW_IDLE, ease = linear },
+	{ t = 0.18, pose = { LShoulder = j(68, 0, -5), LElbow = j(18, 0, 0), RShoulder = j(65, 0, 55), RElbow = j(110, 0, 0) }, ease = ease },
+	{ t = 1, pose = BOW_IDLE, ease = smooth },
+}
+
 -- Pose en el instante t (0..1): interpola entre las dos claves que lo rodean
 local function sample(keys: { Key }, t: number): Pose
 	for i = 2, #keys do
@@ -241,6 +248,8 @@ local function specialId(p: Player): string?
 	if not def or not def.Prize then
 		return nil
 	end
+	if (id == "CelestialBow" or id == "VoidBow") then return id end
+	if Weapons.baseOf(id) == "Fists" then return nil end -- los guanteletes van en las dos manos (Client/GauntletModels)
 	local folder = ReplicatedStorage:FindFirstChild("WeaponModels")
 	if not folder or not folder:FindFirstChild(def.Id) then
 		return nil
@@ -261,11 +270,13 @@ local function destroy(p: Player)
 end
 
 local function build(p: Player, id: string, character: Model): Held?
-	local template = ReplicatedStorage.WeaponModels:FindFirstChild(id)
-	if not template or not template:IsA("Model") then
+	local folder = ReplicatedStorage:FindFirstChild("WeaponModels")
+	local template = folder and folder:FindFirstChild(id)
+	if id ~= "CelestialBow" and id ~= "VoidBow" and (not template or not template:IsA("Model")) then
 		return nil
 	end
-	local model = template:Clone()
+	local model = if template and template:IsA("Model") then template:Clone()
+		else require(script.Parent:WaitForChild("CelestialBowModel")).build(id)
 	model.Name = "HeldWeapon"
 	model.PrimaryPart = nil -- con PrimaryPart, Roblox ignora WorldPivot
 	for _, d in model:GetDescendants() do
@@ -281,9 +292,10 @@ local function build(p: Player, id: string, character: Model): Held?
 	end
 	local _, size = model:GetBoundingBox()
 	local longest = math.max(size.X, size.Y, size.Z)
+	local length = if Weapons.baseOf(id) == "Bow" then 3.4 else LENGTH
 	if longest > 0.01 then
 		pcall(function()
-			model:ScaleTo(model:GetScale() * LENGTH / longest)
+			model:ScaleTo(model:GetScale() * length / longest)
 		end)
 	end
 	-- Punto de agarre: en la empuñadura, un poco hacia la guarda
@@ -305,7 +317,8 @@ local function build(p: Player, id: string, character: Model): Held?
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
 			table.insert(parts, d)
-			table.insert(offsets, GRIP * gripFrame:ToObjectSpace(d.CFrame))
+			local grip = if Weapons.baseOf(id) == "Bow" then CFrame.new() else GRIP
+			table.insert(offsets, grip * gripFrame:ToObjectSpace(d.CFrame))
 		end
 	end
 	-- Estela entre la base y la punta de la hoja (de la pieza invisible BladeAura si existe)
@@ -437,10 +450,11 @@ RunService.Stepped:Connect(function()
 		if not h.character.Parent then
 			continue
 		end
-		local pose = IDLE
+		local isBow = Weapons.baseOf(h.id) == "Bow"
+		local pose = if isBow then (if p:GetAttribute("InMatch") == true then BOW_IDLE else {}) else IDLE
 		local trailOn = false
 		local s = h.swing
-		if s then
+		if s and (not isBow or p:GetAttribute("InMatch") == true) then
 			-- Para revisar poses: workspace.AnimeSlowMo = 5 hace todo 5 veces más lento
 			local slow = workspace:GetAttribute("AnimeSlowMo")
 			local t = (now - s.t0) / (s.dur * (if type(slow) == "number" and slow > 0 then slow else 1))
@@ -470,13 +484,16 @@ end)
 -- El arma sigue a la mano (después de que se movió el cuerpo)
 RunService.RenderStepped:Connect(function()
 	for p, h in held do
-		local hand = h.character:FindFirstChild("RightHand") or h.character:FindFirstChild("Right Arm")
-		local grip = hand and hand:FindFirstChild("RightGripAttachment") :: Attachment?
-		if not hand or not grip then
+		local isBow = Weapons.baseOf(h.id) == "Bow"
+		local side = if isBow then "Left" else "Right"
+		local hand = h.character:FindFirstChild(side .. "Hand") or h.character:FindFirstChild(side .. " Arm")
+		local grip = hand and hand:FindFirstChild(side .. "GripAttachment") :: Attachment?
+		if not hand then
 			continue
 		end
 		-- En primera persona tu propia arma no se dibuja (la ves en pantalla)
-		local hide = p == player and player:GetAttribute("CameraView") == "FirstPerson"
+		local hide = p == player and player:GetAttribute("InMatch") == true
+			and player:GetAttribute("CameraView") == "FirstPerson"
 		if hide then
 			if h.model.Parent then
 				h.model.Parent = nil
@@ -486,7 +503,20 @@ RunService.RenderStepped:Connect(function()
 			h.model.Parent = h.character
 		end
 		-- Posición del agarre de Roblox, pero con el giro de la mano (el del agarre mira hacia abajo)
-		local base = (hand :: BasePart).CFrame.Rotation + grip.WorldPosition
+		local gripPosition = if grip then grip.WorldPosition else (hand :: BasePart).Position
+		local base = (hand :: BasePart).CFrame.Rotation + gripPosition
+		if isBow then
+			-- La muñeca gira con las animaciones del avatar: no debe acostar el arco.
+			-- Mantener su eje vertical y orientar la curva hacia donde mira el personaje.
+			local root = h.character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			local forward = root and root.CFrame.LookVector or Vector3.new(0, 0, -1)
+			forward = Vector3.new(forward.X, 0, forward.Z)
+			if forward.Magnitude < 0.01 then forward = Vector3.new(0, 0, -1) end
+			local frame = CFrame.lookAt(gripPosition, gripPosition + forward, Vector3.yAxis)
+			-- Separar de los guantes voluminosos y mostrar la curva en vez de verla de canto.
+			local at = gripPosition - frame.RightVector * 0.18 + forward.Unit * 0.22
+			base = CFrame.lookAt(at, at + forward, Vector3.yAxis) * CFrame.Angles(0, math.rad(-30), 0)
+		end
 		local cfs = table.create(#h.parts)
 		for i, off in h.offsets do
 			cfs[i] = base * off
@@ -520,6 +550,14 @@ task.spawn(function()
 end)
 
 Players.PlayerRemoving:Connect(destroy)
+
+-- El arco usa el aviso de disparo, sin pasar por las poses de espada.
+ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ProjectileFired").OnClientEvent:Connect(function(_id, _origin, _dir, _speed, _life, ownerId, style)
+	local owner = Players:GetPlayerByUserId(ownerId)
+	local h = owner and held[owner]
+	if not h or Weapons.baseOf(h.id) ~= "Bow" or (style and style.wave) then return end
+	h.swing = { keys = BOW_KEYS, t0 = os.clock(), dur = 0.4, trailFrom = 0, trailTo = 0.2 }
+end)
 
 -- Golpes: arrancar la animación del cuerpo de ese jugador (y la cámara si es tuyo)
 remote.OnClientEvent:Connect(function(userId, _origin, _dir, _range, arc, weaponId)

@@ -570,7 +570,15 @@ function CrateModels.prize(prizeId: string): Model
 	end
 	local look = def.Look
 	if def.Kind == "Weapon" then
-		weaponPrize(model, look)
+		if prizeId == "VoidBow" or prizeId == "CelestialBow" then
+			local bow = require(script.Parent.SpecialBowModels).build(prizeId)
+			local box, size = bow:GetBoundingBox()
+			bow:PivotTo(bow:GetPivot() + Vector3.new(0, size.Y / 2 - box.Position.Y + 0.2, 0))
+			for _, child in bow:GetChildren() do child.Parent = model end
+			bow:Destroy()
+		else
+			weaponPrize(model, look)
+		end
 	elseif def.Kind == "Pet" then
 		if look.Shape == "Slime" then
 			slimeModel(model, look)

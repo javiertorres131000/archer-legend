@@ -14,28 +14,19 @@ function Dash.request(player, direction)
 	state.dashReady = os.clock() + state.stats.dashCooldown
 	state.dashUntil = os.clock() + Config.Dash.Duration
 	state.dashDirection = dir.Unit
-	root:SetNetworkOwner(nil) -- autoridad del servidor durante el impulso
-	state.dashOwned = true
 	player:SetAttribute("DashReadyAt", workspace:GetServerTimeNow() + state.stats.dashCooldown)
 	return true
 end
 function Dash.update(targets, now)
 	for _, target in targets do
 		local state, root = target.state, target.root
-		if state.dashOwned and now >= state.dashUntil then
-			state.dashOwned = false
-			local movement = target.humanoid.MoveDirection or Vector3.zero
-			root.AssemblyLinearVelocity = movement * state.stats.walkSpeed + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
-			root:SetNetworkOwnershipAuto()
-		end
+		-- El cliente mueve el impulso (su personaje es suyo: sin trabones de cámara); acá solo se
+		-- corta la ventana de invulnerabilidad si choca con el borde o una pared
 		if now < state.dashUntil then
 			local ahead = root.Position + state.dashDirection * 4
 			if math.abs(ahead.X) >= Config.Arena.Size.X / 2 - 5 or math.abs(ahead.Z) >= Config.Arena.Size.Z / 2 - 5
 				or Ground.y(ahead.X, ahead.Z) - Ground.y(root.Position.X, root.Position.Z) > 4 then
 				state.dashUntil = 0
-			else
-				local velocity = root.AssemblyLinearVelocity
-				root.AssemblyLinearVelocity = state.dashDirection * Config.Dash.Speed + Vector3.new(0, velocity.Y, 0)
 			end
 		end
 	end

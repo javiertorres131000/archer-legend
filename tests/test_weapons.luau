@@ -88,6 +88,47 @@ test("Espada Celestial: viene con el skin Seraphiel (no con la caja de armas)", 
 	eq(data.Weapon, "Sword", "sin el skin vuelve a la espada común")
 end)
 
+test("Arco Celestial: premio del cofre independiente de Seraphiel", function()
+	local def = Weapons.ById.CelestialBow
+	assert(def and def.Kind == "Ranged" and def.Base == "Bow" and def.Fx == "Celestial")
+	M.advance(1)
+	data.Crates.Owned.CelestialBow = nil
+	data.Crates.Owned.Seraphiel = 1
+	local ok, msg = WeaponService.select(p, def.Id)
+	assert(not ok and string.find(msg, "Caja"))
+	data.Crates.Owned.CelestialBow = 1
+	data.Crates.Owned.Seraphiel = nil
+	WeaponService.publish(p)
+	local owned = p:GetAttribute("OwnedWeapons")
+	assert(string.find(owned, "CelestialBow") and not string.find(owned, "CelestialSword"))
+	M.advance(1)
+	assert(WeaponService.select(p, def.Id))
+	local stats = PlayerData.newStats(); WeaponService.apply(p, stats)
+	assert(stats.weapon == "Bow" and stats.weaponId == def.Id)
+	assert(Profiles.reconcile({ Weapon = def.Id }).Weapon == def.Id)
+	data.Crates.Owned.CelestialBow = nil
+	WeaponService.publish(p)
+	eq(data.Weapon, "Bow", "sin el premio vuelve al arco base")
+end)
+
+test("Arco del Vacío: requiere su premio, no se desbloquea con Seraphiel", function()
+	local def = Weapons.ById.VoidBow
+	assert(def.Prize == "VoidBow" and def.Base == "Bow" and def.PiercingEvery == 4)
+	data.Crates.Owned.Seraphiel = 1
+	data.Crates.Owned.VoidBow = nil
+	M.advance(1)
+	assert(not WeaponService.select(p, def.Id))
+	data.Crates.Owned.VoidBow = 1
+	data.Crates.Owned.Seraphiel = nil
+	M.advance(1)
+	assert(WeaponService.select(p, def.Id))
+	local stats = PlayerData.newStats(); WeaponService.apply(p, stats)
+	assert(stats.weapon == "Bow" and stats.weaponId == def.Id)
+	data.Crates.Owned.VoidBow = nil
+	WeaponService.publish(p)
+	eq(data.Weapon, "Bow")
+end)
+
 test("perfil: arma inválida vuelve al arco, válida se conserva", function()
 	assert(Profiles.reconcile({ Weapon = "Lanzallamas" }).Weapon == "Bow")
 	assert(Profiles.reconcile({ Weapon = 5 }).Weapon == "Bow")
@@ -164,6 +205,79 @@ test("en partida: con espada no dispara flechas, golpea al que entra en alcance"
 	assert(fired > 0)
 	Config.Camera.Mode = mode
 	Remotes.ProjectileFired.FireAllClients, Remotes.MeleeSwing.FireAllClients = oldFire, oldSwing
+	Enemies.clear()
+end)
+
+test("Arco Celestial: daño propio y estilo en multiflechas, diagonales y tiro cargado", function()
+	fresh()
+	Combat.clear()
+	state.stats.weapon = "Bow"
+	state.stats.weaponId = "CelestialBow"
+	state.stats.frontArrows = 1
+	state.stats.diagonalPairs = 1
+	state.stats.chargedEvery = 1
+	state.attacks = 0
+	local mode = Config.Camera.Mode
+	Config.Camera.Mode = "TopDown"
+	local events = {}
+	local oldFire = Remotes.ProjectileFired.FireAllClients
+	Remotes.ProjectileFired.FireAllClients = function(_, _id, _origin, _dir, _speed, _life, _owner, style)
+		table.insert(events, style)
+	end
+	Enemies.spawn("HeavyKnight", V(0, 0, 20))
+	Combat.update(0.001, { target }, 300, false)
+	eq(#events, 5, "dos frontales, dos diagonales y una cargada")
+	for _, style in events do eq(style.weaponId, "CelestialBow") end
+	eq(events[5].size, 3, "mantiene la flecha gigante")
+	Combat.clear()
+	Enemies.clear()
+	state.stats.frontArrows = 0
+	state.stats.diagonalPairs = 0
+	state.stats.chargedEvery = 0
+	state.lastShot = -math.huge
+	local enemy = Enemies.spawn("HeavyKnight", V(0, 0, 8))
+	local before = enemy.health
+	for i = 1, 20 do Combat.update(0.01, { target }, 400 + i * 0.01, false) end
+	local expected = state.stats.damage * Weapons.ById.CelestialBow.DamageMult
+	assert(math.abs(before - enemy.health - expected) < 0.01, "aplica el multiplicador del arco una sola vez")
+	Config.Camera.Mode = mode
+	Remotes.ProjectileFired.FireAllClients = oldFire
+	Combat.clear()
+	Enemies.clear()
+end)
+
+test("Arco del Vacío: cada cuatro disparos agrega una flecha que atraviesa enemigos", function()
+	fresh()
+	Combat.clear()
+	state.stats.weapon = "Bow"
+	state.stats.weaponId = "VoidBow"
+	state.stats.ricochet = 0
+	state.stats.pierce = 0
+	state.attacks = 0
+	local mode = Config.Camera.Mode
+	Config.Camera.Mode = "TopDown"
+	local front = Enemies.spawn("HeavyKnight", V(0, 0, 15))
+	local back = Enemies.spawn("HeavyKnight", V(0, 0, 25))
+	front.health, back.health = 10000, 10000
+	local events = {}
+	local oldFire = Remotes.ProjectileFired.FireAllClients
+	Remotes.ProjectileFired.FireAllClients = function(_, _id, _origin, _dir, _speed, _life, _owner, style)
+		table.insert(events, style)
+	end
+	for i = 1, 4 do
+		Combat.update(0.001, { target }, 500 + i * 2, false)
+		if i < 4 then eq(#events, i, "sin perforante antes del cuarto disparo") end
+	end
+	eq(#events, 5)
+	eq(events[5].size, 1.5)
+	for _, style in events do eq(style.weaponId, "VoidBow") end
+	for _ = 1, 100 do Combat.update(0.01, {}, 510, false) end
+	local damage = state.stats.damage * Weapons.ById.VoidBow.DamageMult
+	assert(math.abs(10000 - back.health - damage) < 0.01, "la perforante alcanza al enemigo de atrás una vez")
+	assert(math.abs(10000 - front.health - damage * 5) < 0.01, "las cuatro normales y la perforante alcanzan al primero")
+	Remotes.ProjectileFired.FireAllClients = oldFire
+	Config.Camera.Mode = mode
+	Combat.clear()
 	Enemies.clear()
 end)
 

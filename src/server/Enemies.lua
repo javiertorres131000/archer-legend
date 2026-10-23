@@ -641,7 +641,7 @@ function Enemies.update(dt: number, targets: { PlayerData.Target }, now: number,
 			local sameLevel = target ~= nil and math.abs(target.root.Position.Y - y) <= e.height / 2 + 4
 			if target and sameLevel and dist <= e.radius + 1.5 and now - e.lastContact >= EnemyCfg.ContactCooldown then
 				e.lastContact = now
-				PlayerLife.damage(target, e.contactDamage)
+				PlayerLife.damage(target, e.contactDamage, "Te tocó " .. (e.def.Name or "un enemigo"))
 			end
 		end
 	end

@@ -240,9 +240,10 @@ function Progression.allChoosing(targets: { PlayerData.Target }): boolean
 	return false
 end
 function Progression.syncPause(): boolean
-	local paused = Progression.allChoosing(PlayerData.getAliveTargets())
+	local choosing = Progression.allChoosing(PlayerData.getAliveTargets())
+	local paused = choosing or PlayerData.inCinematic() -- la entrada de un jefe también congela
 	PlayerData.setPaused(paused)
-	gameState:SetAttribute("ChoosingPaused", paused)
+	gameState:SetAttribute("ChoosingPaused", choosing)
 	return paused
 end
 

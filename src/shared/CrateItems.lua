@@ -95,9 +95,12 @@ CrateItems.List = {
 	{ Id = "CosmicCat", Name = "Gato Cósmico", Rarity = "Secret", Kind = "Pet", Look = { Body = C(60, 30, 110), Accent = C(255, 90, 200), Acc = { "Ears", "Halo", "Aura" }, Neon = true } },
 	-- Armas especiales (caja de armas). Weapon = Id en Shared/Weapons.lua. En Look, Body es el
 	-- metal de la empuñadura y Accent el color de la hoja (que brilla con Neon).
+	{ Id = "CelestialBow", Name = "Arco Celestial", Rarity = "Mythic", Kind = "Weapon", Weapon = "CelestialBow", Look = { Body = C(35, 45, 70), Accent = C(255, 212, 110), Neon = true, Acc = { "Aura" } } },
+	{ Id = "VoidBow", Name = "Arco del Vacío", Rarity = "Mythic", Kind = "Weapon", Weapon = "VoidBow", Look = { Body = C(24, 15, 40), Accent = C(170, 85, 255), Neon = true, Acc = { "Aura" } } },
 	{ Id = "FrostKatana", Name = "Katana de Escarcha", Rarity = "Mythic", Kind = "Weapon", Weapon = "FrostKatana", Look = { Body = C(40, 55, 90), Accent = C(130, 215, 255), Neon = true, Acc = { "Aura" } } },
 	{ Id = "InfernoBlade", Name = "Hoja Infernal", Rarity = "Mythic", Kind = "Weapon", Weapon = "InfernoBlade", Look = { Body = C(40, 18, 14), Accent = C(255, 120, 40), Neon = true, Acc = { "Aura" } } },
 	{ Id = "CrimsonKatana", Name = "Katana Carmesí", Rarity = "Mythic", Kind = "Weapon", Weapon = "CrimsonKatana", Look = { Body = C(20, 12, 14), Accent = C(230, 20, 45), Neon = true, Acc = { "Aura" } } },
+	{ Id = "VolcanicGauntlets", Name = "Guanteletes Volcánicos", Rarity = "Mythic", Kind = "Weapon", Weapon = "VolcanicGauntlets", Look = { Body = C(40, 26, 20), Accent = C(255, 110, 30), Neon = true, Acc = { "Aura" } } },
 	-- Mascotas que salen solo de los huevos (Crates.lua, Type = "Egg")
 	{ Id = "Puppy", Name = "Perrito", Rarity = "Common", Kind = "Pet", Look = { Body = C(196, 140, 90), Accent = C(245, 225, 200), Acc = { "Ears" } } },
 	{ Id = "Kitten", Name = "Gatito", Rarity = "Common", Kind = "Pet", Look = { Body = C(150, 150, 160), Accent = C(255, 190, 200), Acc = { "Ears" } } },

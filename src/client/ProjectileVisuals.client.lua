@@ -12,6 +12,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local FxQuality = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FxQuality"))
 local SkinArrowFx = require(script.Parent:WaitForChild("SkinArrowFx"))
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Weapons = require(Shared:WaitForChild("Weapons"))
+local FxStyles = require(Shared:WaitForChild("FxStyles"))
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local projectileFired = remotes:WaitForChild("ProjectileFired") :: RemoteEvent
 local projectileEnded = remotes:WaitForChild("ProjectileEnded") :: RemoteEvent
@@ -121,14 +124,16 @@ local function dressEnemyOrb(part: Part, color: Color3)
 	flames.Speed = NumberRange.new(2, 5)
 	flames.SpreadAngle = Vector2.new(20, 20)
 	flames.RotSpeed = NumberRange.new(-180, 180)
-	flames.Rate = if kind == "bolt" then 40 else 60
+	-- bolas de fuego grandes (jefes): más llamas y chispas
+	local grande = kind == "fire" and size >= 2
+	flames.Rate = if kind == "bolt" then 40 elseif grande then 110 else 60
 	flames.Enabled = not low
 	sparks.Color = ColorSequence.new(lighten(color, 0.4))
 	sparks.Size = NumberSequence.new(if kind == "bolt" then 0.35 else 0.2)
 	sparks.Lifetime = NumberRange.new(0.2, 0.4)
 	sparks.Speed = NumberRange.new(if kind == "bolt" then 10 else 4, if kind == "bolt" then 18 else 8)
 	sparks.SpreadAngle = Vector2.new(180, 180)
-	sparks.Rate = if kind == "bolt" then 45 else 15
+	sparks.Rate = if kind == "bolt" then 45 elseif grande then 40 else 15
 	sparks.Enabled = not low
 	-- Núcleo más claro: la bola brilla en el centro
 	part.Color = lighten(color, 0.25)
@@ -232,6 +237,11 @@ end
 local folder = Instance.new("Folder")
 folder.Name = "ProjectileVisuals"
 folder.Parent = workspace
+local lightning = require(script.Parent:WaitForChild("LightningFx")).new(folder, low)
+local void = require(script.Parent:WaitForChild("VoidFx")).new(folder, low)
+local function projectileFx(style: any): any
+	return if style.Effects.Projectile == "Void" then void else lightning
+end
 
 type Visual = {
 	part: Part,
@@ -246,6 +256,9 @@ type Visual = {
 	above: number?, -- altura sobre el piso al salir (sigue el relieve)
 	color: Color3?, -- color del ataque (proyectiles enemigos)
 	skin: any?, -- skin del arquero (SkinFx) si la flecha tiene efectos propios
+	weaponFx: any?, -- estilo del arma al disparar (independiente del skin)
+	fxAt: number?,
+	scale: number?,
 }
 local visuals: { [number]: Visual } = {}
 
@@ -301,7 +314,11 @@ projectileFired.OnClientEvent:Connect(
 		local isEnemy = ownerUserId == 0 -- 0 = proyectil enemigo
 		local isWave = not isEnemy and style ~= nil and style.wave == true -- Onda cortante (espada)
 		local kind = if isEnemy then "EnemyOrb" elseif isWave then "Wave" else "Arrow"
-		local skin = if kind == "Arrow" then SkinArrowFx.forOwner(ownerUserId) else nil
+		local def = style and style.weaponId and Weapons.ById[style.weaponId]
+		local weaponFx = if kind == "Arrow" and def then FxStyles.get(def.Fx) else nil
+		if not (weaponFx and weaponFx.Effects and (weaponFx.Effects.Projectile == "Lightning" or weaponFx.Effects.Projectile == "Void")) then weaponFx = nil end
+		-- El arma eléctrica tiene prioridad visual sobre las llamas del skin.
+		local skin = if kind == "Arrow" and not weaponFx then SkinArrowFx.forOwner(ownerUserId) else nil
 		local part = table.remove(pools[kind]) or Instance.new("Part")
 		part.Name = kind
 		part.Anchored = true
@@ -350,6 +367,28 @@ projectileFired.OnClientEvent:Connect(
 				else Color3.fromRGB(150, 200, 255)
 			part.CFrame = CFrame.lookAt(origin, origin + dir)
 			dressArrow(part, scale, feather)
+			local fletch = part:FindFirstChild("Fletch") :: Part?
+			if fletch then fletch.Material = Enum.Material.SmoothPlastic end -- restablecer al reutilizar el pool
+			if weaponFx then
+				part.Material = Enum.Material.Neon
+				part.Color = weaponFx.Core
+				local head = part:FindFirstChild("Head") :: Part
+				head.Material = Enum.Material.Neon
+				head.Color = weaponFx.Light
+				if fletch then fletch.Material = Enum.Material.Neon; fletch.Color = weaponFx.Deep end
+				local launchPos, launchDir = origin, dir
+				if weaponFx.Effects.Projectile == "Void" and ownerUserId == localPlayer.UserId
+					and localPlayer:GetAttribute("CameraView") == "FirstPerson" then
+					local camera = workspace.CurrentCamera
+					if camera then
+						-- El origen simulado queda a la altura del torso: su portal no se veía por los ojos.
+						-- Solo el fogonazo se acerca al arma; la trayectoria y los impactos siguen al servidor.
+						launchPos = camera.CFrame:PointToWorldSpace(Vector3.new(-0.35, -0.18, -2))
+						launchDir = camera.CFrame.LookVector
+					end
+				end
+				projectileFx(weaponFx).ArrowLaunch(launchPos, launchDir, weaponFx, scale > 1)
+			end
 			if not low then
 				local trail = part:FindFirstChildOfClass("Trail")
 				if not trail then
@@ -358,7 +397,11 @@ projectileFired.OnClientEvent:Connect(
 				end
 				if trail then
 					trail.Enabled = true
-					if skin then
+					if weaponFx then
+						trail.Color = ColorSequence.new(weaponFx.Light, weaponFx.Deep)
+						trail.Lifetime = 0.24
+						trail.WidthScale = NumberSequence.new(1.8, 0)
+					elseif skin then
 						local color, life, width = SkinArrowFx.trailStyle(skin)
 						trail.Color = color
 						trail.Lifetime = life
@@ -390,6 +433,9 @@ projectileFired.OnClientEvent:Connect(
 			zigAmp = style and style.zigAmp or 0,
 			zigFreq = style and style.zigFreq or 0,
 			skin = skin,
+			weaponFx = weaponFx,
+			fxAt = 0,
+			scale = style and style.size or 1,
 			color = if isEnemy then (style and style.color or Color3.fromRGB(255, 110, 40)) else nil,
 			above = (function()
 				local g = groundAt(origin)
@@ -430,6 +476,7 @@ end)
 
 RunService.RenderStepped:Connect(function(dt)
 	if gameState:GetAttribute("ChoosingPaused") then return end
+	local fxBudget = if low then 2 else 5 -- límite por cuadro para abanicos y multiflechas
 	for id, v in visuals do
 		v.age += dt
 		v.segAge += dt
@@ -445,5 +492,10 @@ RunService.RenderStepped:Connect(function(dt)
 			end
 		end
 		v.part.CFrame = CFrame.lookAt(pos, pos + v.dir)
+		if v.weaponFx and v.age >= (v.fxAt or 0) and fxBudget > 0 then
+			fxBudget -= 1
+			v.fxAt = v.age + (if low then 0.2 else 0.1)
+			projectileFx(v.weaponFx).ArrowFlight(pos, v.dir, v.weaponFx, v.scale or 1)
+		end
 	end
 end)

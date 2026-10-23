@@ -74,7 +74,9 @@ test("dash rechaza spam, NaN, direcciones gigantes, lobby y derribo", function()
 	assert(Dash.request(p, M.Vector3.new(1, 0, 0)))
 	assert(not Dash.request(p, M.Vector3.new(1, 0, 0)))
 	Dash.update({ target }, M.os.clock())
-	assert(target.root.AssemblyLinearVelocity.X == Config.Dash.Speed)
+	-- el impulso lo mueve el cliente (dueño de su personaje); el servidor solo lleva la ventana
+	assert(target.root.AssemblyLinearVelocity.X ~= Config.Dash.Speed)
+	assert(state.dashUntil > M.os.clock())
 	M.advance(1); Dash.update({ target }, M.os.clock()); assert(not state.dashOwned)
 	M.advance(10); state.life = "DOWNED"; assert(not Dash.request(p, M.Vector3.new(1, 0, 0)))
 	state.life = "ALIVE"; state.inMatch = false; assert(not Dash.request(p, M.Vector3.new(1, 0, 0))); state.inMatch = true

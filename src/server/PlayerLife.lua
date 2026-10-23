@@ -22,6 +22,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 local Weapons = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Weapons"))
 local PlayerData = require(script.Parent.PlayerData)
 local CombatFeed = require(script.Parent.CombatFeed)
+local Chill = require(script.Parent.Chill)
 local SkillEffects = require(script.Parent.SkillEffects)
 
 local CoopCfg = Config.Coop
@@ -339,7 +340,8 @@ function PlayerLife.init()
 end
 
 -- Única forma de dañar a un jugador. Respeta escudos (ForceField), el estado y el lobby.
-function PlayerLife.damage(target: PlayerData.Target, amount: number)
+-- cause (opcional): qué lo lastimó, para el aviso en pantalla ("Carámbano", "Disparo"...)
+function PlayerLife.damage(target: PlayerData.Target, amount: number, cause: string?)
 	local state = target.state
 	if PlayerData.isPaused() then return end
 	if state.life ~= "ALIVE" or not state.inMatch or amount <= 0 then
@@ -369,6 +371,9 @@ function PlayerLife.damage(target: PlayerData.Target, amount: number)
 	end
 	local humanoid = target.humanoid
 	CombatFeed.hurt(target.player, amount) -- número rojo en su pantalla
+	Chill.onHurt(target.player) -- en mapas de hielo, cada golpe suma frío
+	-- Qué te lastimó (Client/IceWorld lo muestra arriba de la barra de vida)
+	target.player:SetAttribute("LastHurt", string.format("%s|%d|%.3f", cause or "Golpe", math.floor(amount + 0.5), workspace:GetServerTimeNow()))
 	if humanoid.Health - amount <= 0 then
 		down(target.player, state, humanoid)
 	else

@@ -22,21 +22,21 @@ Skills.List = {
 	{
 		Id = "Damage",
 		Name = "Fuerza",
-		Description = "+20% de daño.",
+		Description = "+12% de daño.",
 		Rarity = "Common",
 		Max = 5,
 		Apply = function(s)
-			s.damage *= 1.2
+			s.damage *= 1.12
 		end,
 	},
 	{
 		Id = "AttackSpeed",
 		Name = "Cadencia",
-		Description = "Atacás un 15% más rápido.",
+		Description = "Atacás un 10% más rápido.",
 		Rarity = "Common",
 		Max = 5,
 		Apply = function(s)
-			s.attackInterval *= 0.85
+			s.attackInterval *= 0.9
 		end,
 	},
 	{
@@ -63,27 +63,27 @@ Skills.List = {
 	{
 		Id = "Crit",
 		Name = "Ojo de halcón",
-		Description = "+8% de probabilidad de crítico.",
+		Description = "+6% de probabilidad de crítico.",
 		Rarity = "Rare",
 		Max = 4,
 		Apply = function(s)
-			s.critChance += 0.08
+			s.critChance += 0.06
 		end,
 	},
 	{
 		Id = "CritDamage",
 		Name = "Golpe brutal",
-		Description = "Los críticos hacen +50% de daño.",
+		Description = "Los críticos hacen +35% de daño.",
 		Rarity = "Epic",
 		Max = 2,
 		Apply = function(s)
-			s.critMultiplier += 0.5
+			s.critMultiplier += 0.35
 		end,
 	},
 	{
 		Id = "Fire",
 		Name = "Encantamiento ígneo",
-		Description = "Tus golpes queman: 30% del daño por segundo durante 3 s.",
+		Description = "Tus golpes queman: 15% del daño por segundo durante 3 s.",
 		Rarity = "Epic",
 		Max = 1,
 		Apply = function(s)
@@ -124,31 +124,31 @@ Skills.List = {
 	{
 		Id = "ManaShield",
 		Name = "Escudo de maná",
-		Description = "Un escudo bloquea un golpe entero. Se recarga cada 12 s (8 s con 2 niveles).",
+		Description = "Un escudo bloquea un golpe entero. Se recarga cada 16 s (12 s con 2 niveles).",
 		Rarity = "Rare",
 		Max = 2,
 		Apply = function(s)
-			s.shieldInterval = if s.shieldInterval > 0 then 8 else 12
+			s.shieldInterval = if s.shieldInterval > 0 then 12 else 16
 		end,
 	},
 	{
 		Id = "Dodge",
 		Name = "Reflejos",
-		Description = "10% de probabilidad de esquivar un golpe.",
+		Description = "7% de probabilidad de esquivar un golpe.",
 		Rarity = "Common",
 		Max = 3,
 		Apply = function(s)
-			s.dodge += 0.1
+			s.dodge += 0.07
 		end,
 	},
 	{
 		Id = "Explosive",
 		Name = "Cadáver explosivo",
-		Description = "Los enemigos que matás explotan: 40% de tu daño a los que estén cerca.",
+		Description = "Los enemigos que matás explotan: 25% de tu daño a los que estén cerca.",
 		Rarity = "Epic",
 		Max = 2,
 		Apply = function(s)
-			s.explodeOnKill += 0.4
+			s.explodeOnKill += 0.25
 		end,
 	},
 
@@ -224,12 +224,12 @@ Skills.List = {
 	{
 		Id = "HunterEye",
 		Name = "Ojo del cazador",
-		Description = "+25% de daño a enemigos lejanos (a más de 30 studs).",
+		Description = "+20% de daño a enemigos lejanos (a más de 30 studs).",
 		Rarity = "Rare",
 		Weapon = "Bow",
 		Max = 2,
 		Apply = function(s)
-			s.farDamage += 0.25
+			s.farDamage += 0.2
 		end,
 	},
 	{
@@ -261,37 +261,37 @@ Skills.List = {
 	{
 		Id = "ExplosiveArrow",
 		Name = "Flechas explosivas",
-		Description = "Las flechas explotan al pegar: 35% del daño a los que estén cerca.",
+		Description = "Las flechas explotan al pegar: 25% del daño a los que estén cerca.",
 		Rarity = "Epic",
 		Weapon = "Bow",
 		Tier = 2,
 		Max = 2,
 		Apply = function(s)
-			s.explosiveArrow += 0.35
+			s.explosiveArrow += 0.25
 		end,
 	},
 	{
 		Id = "QuickDraw",
 		Name = "Pulso firme",
-		Description = "Quieto, disparás un 25% más rápido.",
+		Description = "Quieto, disparás un 15% más rápido.",
 		Rarity = "Rare",
 		Weapon = "Bow",
 		Tier = 2,
 		Max = 2,
 		Apply = function(s)
-			s.stillSpeed += 0.25
+			s.stillSpeed += 0.15
 		end,
 	},
 	{
 		Id = "FirstStrike",
 		Name = "Primera sangre",
-		Description = "+60% de daño a enemigos con la vida llena.",
+		Description = "+40% de daño a enemigos con la vida llena.",
 		Rarity = "Rare",
 		Weapon = "Bow",
 		Tier = 2,
 		Max = 2,
 		Apply = function(s)
-			s.firstStrike += 0.6
+			s.firstStrike += 0.4
 		end,
 	},
 	{
@@ -359,23 +359,23 @@ Skills.List = {
 	{
 		Id = "Execute",
 		Name = "Ejecución",
-		Description = "+60% de daño a enemigos con menos del 30% de vida.",
+		Description = "+35% de daño a enemigos con menos del 30% de vida.",
 		Rarity = "Rare",
 		Weapon = "Sword",
 		Max = 2,
 		Apply = function(s)
-			s.executeBonus += 0.6
+			s.executeBonus += 0.35
 		end,
 	},
 	{
 		Id = "Bloodlust",
 		Name = "Sed de sangre",
-		Description = "Cada enemigo que matás con la espada te cura 2 de vida.",
+		Description = "Cada enemigo que matás con la espada te cura 1 de vida.",
 		Rarity = "Rare",
 		Weapon = "Sword",
 		Max = 3,
 		Apply = function(s)
-			s.healOnKill += 2
+			s.healOnKill += 1
 		end,
 	},
 	{
@@ -419,37 +419,37 @@ Skills.List = {
 	{
 		Id = "KnightArmor",
 		Name = "Armadura de caballero",
-		Description = "Recibís un 12% menos de daño.",
+		Description = "Recibís un 10% menos de daño.",
 		Rarity = "Rare",
 		Weapon = "Sword",
 		Tier = 2,
 		Max = 2,
 		Apply = function(s)
-			s.damageTaken *= 0.88
+			s.damageTaken *= 0.9
 		end,
 	},
 	{
 		Id = "DeepWound",
 		Name = "Herida profunda",
-		Description = "Los tajos hacen sangrar: 25% del daño por segundo durante 3 s.",
+		Description = "Los tajos hacen sangrar: 15% del daño por segundo durante 3 s.",
 		Rarity = "Rare",
 		Weapon = "Sword",
 		Tier = 2,
 		Max = 2,
 		Apply = function(s)
-			s.bleed += 0.25
+			s.bleed += 0.15
 		end,
 	},
 	{
 		Id = "DashSlash",
 		Name = "Tajo veloz",
-		Description = "Al hacer dash cortás a todos los que atravesás (150% del daño).",
+		Description = "Al hacer dash cortás a todos los que atravesás (100% del daño).",
 		Rarity = "Epic",
 		Weapon = "Sword",
 		Tier = 2,
 		Max = 1,
 		Apply = function(s)
-			s.dashSlash = 1.5
+			s.dashSlash = 1
 		end,
 	},
 	{
@@ -542,13 +542,13 @@ Skills.List = {
 	{
 		Id = "Adrenaline",
 		Name = "Adrenalina",
-		Description = "Con menos de la mitad de vida, pegás un 30% más rápido.",
+		Description = "Con menos de la mitad de vida, pegás un 20% más rápido.",
 		Rarity = "Rare",
 		Weapon = "Fists",
 		Tier = 2,
 		Max = 2,
 		Apply = function(s)
-			s.adrenaline += 0.3
+			s.adrenaline += 0.2
 		end,
 	},
 	{
@@ -568,13 +568,13 @@ Skills.List = {
 	{
 		Id = "DoubleHit",
 		Name = "Doble golpe",
-		Description = "20% de probabilidad de que un golpe pegue dos veces.",
+		Description = "15% de probabilidad de que un golpe pegue dos veces.",
 		Rarity = "Rare",
 		Weapon = "Fists",
 		Tier = 2,
 		Max = 3,
 		Apply = function(s)
-			s.doubleHit += 0.2
+			s.doubleHit += 0.15
 		end,
 	},
 	{

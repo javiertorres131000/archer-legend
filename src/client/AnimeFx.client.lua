@@ -41,6 +41,14 @@ local folder = Instance.new("Folder")
 folder.Name = "AnimeFx"
 folder.Parent = workspace
 
+local lightning = require(script.Parent:WaitForChild("LightningFx")).new(folder, low)
+local void = require(script.Parent:WaitForChild("VoidFx")).new(folder, low)
+
+-- Los estilos pueden combinar efectos por evento sin depender de una variante completa.
+local function usesLightning(style: any, event: string): boolean
+	return style ~= nil and style.Effects ~= nil and style.Effects[event] == "Lightning"
+end
+
 local TAU = math.pi * 2
 
 -- Precarga las texturas de los estilos: sin esto, el primer efecto sale blanco mientras bajan
@@ -530,6 +538,10 @@ local meteor: (Vector3, number, any) -> ()
 local thornRing: (Vector3, number, any, number) -> ()
 
 local function judgment(pos: Vector3, radius: number, style: any)
+	if usesLightning(style, "Judgment") then
+		lightning.Judgment(pos, radius, style)
+		return
+	end
 	if style.Variant == "Inferno" then
 		meteor(pos, radius, style)
 		return
@@ -617,6 +629,10 @@ end
 local eruption: (Vector3, Vector3, number, any) -> ()
 
 local function finisher(origin: Vector3, dir: Vector3, range: number, style: any)
+	if usesLightning(style, "Finisher") then
+		lightning.Finisher(origin, dir, range, style)
+		return
+	end
 	local flat = Vector3.new(dir.X, 0, dir.Z)
 	flat = if flat.Magnitude > 0.01 then flat.Unit else Vector3.zAxis
 	local at = origin + flat * math.max(range * 0.45, 3)
@@ -899,7 +915,13 @@ combatText.OnClientEvent:Connect(function(events)
 			shown += 1
 			local crit = e.k == "crit"
 			local p = e.p + Vector3.new(0, 1, 0)
-			if style.Variant == "Crimson" then
+			if style.Effects and style.Effects.Hit == "Void" then
+				void.Hit(p, style, crit)
+				continue
+			elseif usesLightning(style, "Hit") then
+				lightning.Hit(p, style, crit)
+				continue -- no agregar llamas al impacto eléctrico
+			elseif style.Variant == "Crimson" then
 				crossMark(p, style, crit)
 			elseif style.Variant == "Inferno" then
 				burst(p, style, { { kind = "Star", count = 1, scale = if crit then 1.8 else 1.1 }, { kind = "Smoke", count = if crit then 3 else 1, scale = 0.8 } })
@@ -944,7 +966,11 @@ meleeSwing.OnClientEvent:Connect(function(userId, origin, dir, range, arc, weapo
 		return
 	end
 	if arc == 360 then
-		vortex(if type(userId) == "number" then userId else 0, origin, range, style)
+		if usesLightning(style, "Spin") then
+			lightning.Spin(origin, range, style)
+		else
+			vortex(if type(userId) == "number" then userId else 0, origin, range, style)
+		end
 		if style.Variant == "Inferno" then
 			firePillar(Vector3.new(origin.X, groundY(origin), origin.Z), 16, range * 0.55, 0.7, style, 8) -- tornado de fuego
 		elseif style.Variant == "Crimson" then
@@ -955,7 +981,11 @@ meleeSwing.OnClientEvent:Connect(function(userId, origin, dir, range, arc, weapo
 		local uid = if type(userId) == "number" then userId else 0
 		local step = SwingCombo.step(uid)
 		task.delay(SwingCombo.strikeDelay(uid, step), function()
-			slash(uid, origin, dir, range, if type(arc) == "number" then arc else 120, style)
+			if usesLightning(style, "Slash") then
+				lightning.Slash(origin, dir, range, style, step)
+			else
+				slash(uid, origin, dir, range, if type(arc) == "number" then arc else 120, style)
+			end
 			if style.Variant == "Inferno" then
 				fireTrail(origin, dir, range, if type(arc) == "number" then arc else 120, style)
 			elseif style.Variant == "Crimson" then
@@ -1014,6 +1044,16 @@ local function setAura(part: BasePart?, style: any, scale: number, rate: number)
 		return
 	end
 	local current = part:FindFirstChild(AURA)
+	if style and style.Effects and style.Effects.Aura == "Void" then
+		if current then current:Destroy() end
+		void.Aura(part, style)
+		return
+	end
+	if usesLightning(style, "Aura") then
+		if current then current:Destroy() end
+		lightning.Aura(part, style)
+		return
+	end
 	if style and not current then
 		auraEmitter(part, style, scale, rate)
 	elseif not style and current then
