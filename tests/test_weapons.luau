@@ -14,6 +14,9 @@ local Remotes = require("./Remotes")
 local passed = 0
 local function test(name, f) f(); passed += 1; print("  ok   " .. name) end
 local V = M.Vector3.new
+local function eq(a, b, msg)
+	if a ~= b then error(string.format("%s: esperaba %s, obtuvo %s", msg or "", tostring(b), tostring(a)), 2) end
+end
 
 print("Armas")
 local p = M.addPlayer("Guerrero")
@@ -61,6 +64,28 @@ test("arma especial: solo con su premio; juega como su base con sus números", f
 		assert(not Weapons.isSpecial(id) and Weapons.baseOf(id) == id)
 	end
 	assert(Weapons.isSpecial("FrostKatana"))
+end)
+
+test("Espada Celestial: viene con el skin Seraphiel (no con la caja de armas)", function()
+	local CrateItems = require("./CrateItems")
+	local def = Weapons.ById.CelestialSword
+	assert(def and def.Base == "Sword" and def.Prize == "Seraphiel" and def.Fx == "Celestial", "datos del arma")
+	eq(CrateItems.ById.Seraphiel.Kind, "Character", "Seraphiel es un skin")
+	assert(Weapons.unlockedBy("Seraphiel") and Weapons.unlockedBy("FrostKatana") and not Weapons.unlockedBy("Knight"))
+	M.advance(1)
+	data.Crates.Owned.Seraphiel = nil
+	local ok, msg = WeaponService.select(p, "CelestialSword")
+	assert(not ok and string.find(msg, "Seraphiel"), "sin el skin no se puede: " .. tostring(msg))
+	data.Crates.Owned.Seraphiel = 1
+	WeaponService.publish(p)
+	assert(string.find(p:GetAttribute("OwnedWeapons"), "CelestialSword"), "aparece en el menú Arma")
+	M.advance(1)
+	assert(WeaponService.select(p, "CelestialSword"))
+	local stats = PlayerData.newStats(); WeaponService.apply(p, stats)
+	assert(stats.weapon == "Sword" and stats.weaponId == "CelestialSword", "juega como espada con sus números")
+	data.Crates.Owned.Seraphiel = nil
+	WeaponService.publish(p)
+	eq(data.Weapon, "Sword", "sin el skin vuelve a la espada común")
 end)
 
 test("perfil: arma inválida vuelve al arco, válida se conserva", function()

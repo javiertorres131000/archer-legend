@@ -1,5 +1,28 @@
 # Cambios
 
+## 2026-10-22 · Seraphiel, Ángel Celestial (skin Mythic) y la Espada Celestial
+
+- **Seraphiel** (`Shared/CrateItems`, Mythic, personaje): sale en los cofres Epic (0,3%), Legendary (3,5%) y Secret (15%), igual que los otros tres Mythic. Las tablas siguen sumando 100: se les sacó a Leñador (Epic), Paladín (Legendary) y Paladín, Rey Dorado y Valquiria (Secret).
+- **Traje de cuerpo completo** (`Shared/CrateLooks`, `Body = "Seraphiel"`): 22 mallas en `ReplicatedStorage > CrateAssets > Looks > Seraphiel` (viven en el place; salen del modelo hecho con `Seraphiel_Blender.py`):
+  - casco con corona, armadura, hombreras, brazales, guanteletes, musleras, grebas, botas, faldones con cintas y seis alas;
+  - cada malla tiene `AttachTo`, `AttachOffset` y `Rest`, calculados con un cuerpo R15 de bloques escalado como el traje (`BodyScale.Height = 1.235`).
+  - El modelo importado quedó de respaldo en `ServerStorage > Seraphiel_Importado`.
+- **Partes que se mueven** (`BodySway`, nuevo en `CrateLooks`): las piezas de un traje de cuerpo completo pueden balancearse.
+  - Las seis alas aletean y se abren al saltar, como las del Demonio.
+  - Los faldones se mecen poco (`LavaSkinFx`, nuevo tipo `"Skirt"`, para que no atraviesen las piernas).
+- **Efectos:** destellos dorados en la corona y las alas grandes, chispas celestes y una luz turquesa suave en el pecho, y estela de luz en los faldones. Los cristales, ojos, núcleo y puntas de plumas brillan con la máscara de brillo de cada `SurfaceAppearance`.
+- **Flechas de luz** (`Shared/SkinFx`): vara nacarada, punta turquesa, estela dorada que termina en celeste, brasas doradas y explosión de luz al pegar. Usan el estilo nuevo `Celestial` de `FxStyles`, con las texturas de respaldo de Roblox teñidas de dorado (todavía sin texturas propias).
+- **Espada Celestial** (`Shared/Weapons`, `CelestialSword`): arma especial que **viene con el skin**, porque su `Prize` es `Seraphiel`.
+  - Juega como la espada (habilidades y animaciones), con sus números: daño ×2,35, alcance 13 y arco 150°. Usa los efectos del estilo `Celestial` (tajo, Torbellino y Juicio dorados).
+  - Modelo en `ReplicatedStorage > WeaponModels > CelestialSword`: la malla de la espada, con `Handle`, `Guard` y `BladeAura` invisibles para el agarre y la estela.
+  - `Weapons.unlockedBy(prizeId)` es nuevo. Al ganar Seraphiel en una caja, `CrateService` publica las armas y la espada ya aparece en el menú "Arma". Si no tenés el skin, el servidor responde "viene con el skin Seraphiel".
+- **Panel F2:** "Darme y equipar Seraphiel (con la Espada Celestial)".
+- **Pruebas:** `test_weapons`, nueva "Espada Celestial: viene con el skin Seraphiel" (35/35 archivos OK). Probado en Studio:
+  - en el lobby, el traje completo con las 22 piezas y las 7 soldaduras que se balancean;
+  - en partida con la Espada Celestial, 23 bajas en un intento;
+  - en partida con arco, las flechas con punta turquesa y los impactos;
+  - sin errores en la consola.
+
 ## 2026-10-22 · Flechas con la skin: Demonio Ígneo
 
 - **Flechas de fuego** para quien tiene puesto el Demonio Ígneo (`Client/SkinArrowFx`, nuevo):

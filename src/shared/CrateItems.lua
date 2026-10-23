@@ -86,6 +86,7 @@ CrateItems.List = {
 	-- Mythic
 	{ Id = "FireDemon", Name = "Demonio Ígneo", Rarity = "Mythic", Kind = "Unit", Look = { Body = C(140, 20, 20), Accent = C(255, 110, 20), Pants = C(50, 10, 10), Skin = C(200, 50, 40), Weapon = "Sword", Acc = { "Horns", "Wings", "Aura" }, Neon = true } },
 	{ Id = "CosmicMage", Name = "Mago Cósmico", Rarity = "Mythic", Kind = "Character", Look = { Body = C(40, 25, 80), Accent = C(150, 120, 255), Pants = C(30, 20, 60), Skin = C(25, 18, 40), Acc = { "Aura" }, Neon = true } },
+	{ Id = "Seraphiel", Name = "Seraphiel", Rarity = "Mythic", Kind = "Character", Look = { Body = C(236, 232, 222), Accent = C(255, 200, 80), Pants = C(220, 220, 228), Skin = C(236, 232, 222), Acc = { "Aura" }, Neon = true } },
 	{ Id = "Necromancer", Name = "Necromante", Rarity = "Mythic", Kind = "Character", Look = { Body = C(20, 60, 30), Accent = C(80, 255, 120), Pants = C(15, 35, 20), Skin = C(150, 200, 160), Acc = { "Aura" }, Neon = true } },
 	{ Id = "LavaGolem", Name = "Gólem de Lava", Rarity = "Mythic", Kind = "Character", Look = { Body = C(60, 45, 40), Accent = C(255, 90, 10), Pants = C(45, 35, 30), Skin = C(70, 55, 50), Acc = { "Horns", "Aura" }, Neon = true } },
 	{ Id = "VoidKnight", Name = "Caballero del Vacío", Rarity = "Mythic", Kind = "Character", Look = { Body = C(25, 20, 40), Accent = C(120, 60, 255), Pants = C(20, 15, 30), Skin = C(60, 50, 80), Weapon = "Sword", Acc = { "Helmet", "Cape", "Aura" }, Neon = true } },

@@ -190,6 +190,12 @@ local function updateSways(dt: number)
 			local yaw = (flap + fold) * (1 - a) - 0.1 * a -- en el aire, un poco hacia adelante
 			local roll = lift * (1 - a) + open * a
 			rot = CFrame.Angles(0, side * yaw, side * roll)
+		elseif kind == "Skirt" then
+			-- Faldones alrededor de la cintura: se mecen poco (si se inclinan mucho, atraviesan las piernas)
+			st.phase += dt * (1.2 + 1.4 * s)
+			local back = 0.02 + 0.1 * s
+			local wave = math.sin(st.phase) * (0.02 + 0.025 * s)
+			rot = CFrame.Angles(-(back + wave), 0, math.sin(st.phase * 0.7) * 0.02)
 		else -- Cape
 			st.phase += dt * (1.4 + 1.6 * s)
 			local back = 0.05 + 0.35 * s

@@ -17,6 +17,7 @@
 
 local Players = game:GetService("Players")
 local Weapons = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Weapons"))
+local CrateItems = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("CrateItems"))
 local Profiles = require(script.Parent.Profiles)
 local PlayerData = require(script.Parent.PlayerData)
 
@@ -81,6 +82,10 @@ function WeaponService.select(player: Player, id: any): (boolean, string)
 		return false, "Arma inválida."
 	end
 	if not WeaponService.owns(data, def) then
+		local prize = CrateItems.ById[def.Prize]
+		if prize and prize.Kind ~= "Weapon" then
+			return false, "Todavía no tenés esa arma: viene con el skin " .. prize.Name .. "."
+		end
 		return false, "Todavía no tenés esa arma: sale en la Caja de Armas."
 	end
 	data.Weapon = def.Id

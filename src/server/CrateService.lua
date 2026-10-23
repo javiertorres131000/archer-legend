@@ -38,6 +38,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Crates = require(Shared:WaitForChild("Crates"))
 local CrateItems = require(Shared:WaitForChild("CrateItems"))
+local Weapons = require(Shared:WaitForChild("Weapons"))
 local CratePlazaLayout = require(Shared:WaitForChild("CratePlazaLayout"))
 local Profiles = require(script.Parent.Profiles)
 local PlayerData = require(script.Parent.PlayerData)
@@ -170,8 +171,8 @@ local function grant(player: Player, data: Profiles.Data, crate: Crates.Crate): 
 	owned[prizeId] = count
 	data.Crates.Opened += 1
 	MissionService.add(player, "Crates", 1)
-	if CrateItems.ById[prizeId].Kind == "Weapon" then
-		WeaponService.publish(player) -- ya la puede elegir en el menú "Arma"
+	if CrateItems.ById[prizeId].Kind == "Weapon" or Weapons.unlockedBy(prizeId) then
+		WeaponService.publish(player) -- ya la puede elegir en el menú "Arma" (Seraphiel trae su espada)
 	end
 	return {
 		Ok = true,

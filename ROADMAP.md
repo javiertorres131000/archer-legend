@@ -31,6 +31,8 @@
 - [x] Huevos de mascotas (4, con animación de ruptura); los cofres quedan solo para skins
 - [x] Efectos de skins: flechas de fuego del Demonio Ígneo (Shared/SkinFx + Client/SkinArrowFx)
 - [ ] Flechas propias del Mago Cósmico y el Necromante (sumar `Arrow` en Shared/SkinFx)
+- [x] Seraphiel (Mythic) con la Espada Celestial como arma que viene con el skin
+- [ ] Texturas propias del estilo Celestial (tools/gen_vfx_textures.py) para la espada y las flechas
 - [ ] Crear los Developer Products en el Creator Dashboard y pegar los ProductId (Shared/Crates.lua) — Legendary Crate, Secret Crate y Mythic Egg
 - [x] Más premios y formas de ganar monedas jugando (misiones diarias)
 - [x] Reciclaje de equipo (por pieza y en lote) — 8a

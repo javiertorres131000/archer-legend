@@ -327,6 +327,8 @@ Al este del lobby hay una puerta a la **plaza volcánica**: una plataforma por c
 
 **Antes de publicar:** dejá `TestGoldOnlyInStudio = true` (o `TestGold = 0`).
 
+**Seraphiel y la Espada Celestial:** el skin Mythic Seraphiel es un traje de cuerpo completo (`CrateLooks.Seraphiel`, mallas en `CrateAssets > Looks > Seraphiel`) y trae su arma: la Espada Celestial (`Weapons.CelestialSword`, `Prize = "Seraphiel"`). Al tener el skin, la espada aparece en el menú "Arma". Para probar: panel F2 → "Darme y equipar Seraphiel". Si hay que volver a generar el modelo: `Seraphiel_Blender.py` (Blender 5.2) → importar `Seraphiel_Roblox_Optimized.fbx` → repetir el armado de `Looks > Seraphiel` y `WeaponModels > CelestialSword` (está explicado en el CHANGELOG del 22/10).
+
 **Efectos de las skins:** `src/shared/SkinFx.lua`. Cada skin tiene su paleta (`Colors`: pisadas, aura y estela de `LavaSkinFx`) y, si querés, flechas propias (`Arrow`: vara, punta, estilo de texturas de `FxStyles`, llamas, brasas, luz, estela e impacto). Hoy el Demonio Ígneo tiene flechas de fuego; el Mago Cósmico y el Necromante solo la paleta. Es todo visual: lo dibuja cada cliente (`Client/SkinArrowFx`) y en calidad baja se simplifica. Para probar: panel F2 → "Darme y equipar Demonio Ígneo" y jugá una partida con arco.
 
 **Cofres y huevos:** en `src/shared/Crates.lua` cada entrada tiene `Type`: `"Crate"` (cofre de skins: personajes y unidades) o `"Egg"` (huevo de mascotas). Cada tipo tiene su fila en la plaza, su pestaña en el menú (Skin Crates / Pet Eggs) y su animación. Un cofre no puede dar mascotas ni un huevo skins (la prueba lo revisa).

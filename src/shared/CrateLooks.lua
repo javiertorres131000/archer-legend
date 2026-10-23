@@ -62,6 +62,9 @@ export type Look = {
 	-- Escala del avatar mientras tiene el traje (las mallas de cuerpo completo vienen hechas para un
 	-- cuerpo más alto: así calzan con las articulaciones a su tamaño original)
 	BodyScale: { Height: number, Width: number?, Depth: number?, Head: number? }?,
+	-- Piezas de cuerpo completo que se balancean en el avatar (LavaSkinFx): alas ("Wing", Side 1 =
+	-- izquierda) y faldones ("Skirt"). El centro de giro es el pivote de la malla (PivotOffset).
+	BodySway: { [string]: { Kind: string, Side: number? } }?,
 }
 
 local C = Color3.fromRGB
@@ -163,6 +166,48 @@ do
 			UpperTorso = { Fx = { { Kind = "Wisps", Rate = 3, Size = 0.7, Colors = necro } } },
 			LowerTorso = { Fx = { { Kind = "Smoke", Rate = 3, Size = 0.8, Colors = { C(20, 40, 25), C(5, 15, 8) } } } },
 			Head = { Light = { Color = C(90, 255, 130), Range = 5, Brightness = 0.8 } },
+		},
+	} :: Look
+end
+
+---------------------------------------------------------------------
+-- Seraphiel, Ángel Celestial: armadura de mallas por segmento (CrateAssets > Looks > Seraphiel,
+-- generada con Seraphiel_Blender.py). Seis alas que aletean, faldones que se mecen, el núcleo del
+-- pecho y los cristales brillan (máscara de brillo en cada SurfaceAppearance) y destellos dorados.
+-- En las mallas del place, cada SurfaceAppearance tiene Color 0.78 (si no, el blanco se quema con la
+-- luz del lobby) y EmissiveStrength 1.
+-- La Espada Celestial no va acá: es un arma (Shared/Weapons.lua) que viene con el skin.
+---------------------------------------------------------------------
+do
+	local holy = { C(255, 250, 225), C(255, 205, 100), C(110, 220, 255) }
+	type Extra = { Fx: { FxDef }?, Light: { Color: Color3, Range: number, Brightness: number }? }
+	local wing: Extra = { Fx = { { Kind = "Stars", Rate = 2.5, Size = 0.3, Colors = holy } } }
+	local bodyFx: { [string]: Extra } = {
+		-- (pocas luces: la armadura es blanca y con mucha luz se quema; el brillo lo dan las máscaras)
+		Helmet = { Fx = { { Kind = "Stars", Rate = 4, Size = 0.25, Colors = holy } } },
+		UpperTorsoArmor = {
+			Fx = { { Kind = "Stars", Rate = 3, Size = 0.2, Colors = { C(200, 250, 255), C(90, 220, 255) } } },
+			Light = { Color = C(110, 235, 255), Range = 6, Brightness = 0.6 },
+		},
+		LowerTorsoArmor_Cloth = { Fx = { { Kind = "Wisps", Rate = 1.5, Size = 0.5, Colors = { C(255, 245, 220), C(255, 200, 110) } } } },
+		Wing_L_01 = wing,
+		Wing_R_01 = wing,
+	}
+	CrateLooks.Seraphiel = {
+		Skin = C(236, 232, 222),
+		SkinMaterial = Enum.Material.SmoothPlastic,
+		Parts = {},
+		Body = "Seraphiel",
+		BodyScale = { Height = 1.235 },
+		BodyFx = bodyFx,
+		BodySway = {
+			Wing_L_01 = { Kind = "Wing", Side = 1 },
+			Wing_L_02 = { Kind = "Wing", Side = 1 },
+			Wing_L_03 = { Kind = "Wing", Side = 1 },
+			Wing_R_01 = { Kind = "Wing", Side = -1 },
+			Wing_R_02 = { Kind = "Wing", Side = -1 },
+			Wing_R_03 = { Kind = "Wing", Side = -1 },
+			LowerTorsoArmor_Cloth = { Kind = "Skirt" },
 		},
 	} :: Look
 end
@@ -520,7 +565,22 @@ local function buildBody(look: Look, folder: Instance, character: Model?, origin
 			end
 			m.CFrame = base.CFrame * offset
 			m.Anchored = false
-			weldTo(base, m)
+			local sway = look.BodySway and look.BodySway[t.Name]
+			if sway then
+				-- Weld (no WeldConstraint) para que el cliente (LavaSkinFx) la pueda balancear
+				local w = Instance.new("Weld")
+				w.Name = "SwayWeld"
+				w.Part0 = base
+				w.Part1 = m
+				w.C0 = base.CFrame:ToObjectSpace(m.CFrame)
+				w:SetAttribute("Kind", sway.Kind)
+				w:SetAttribute("Pivot", m.PivotOffset.Position)
+				w:SetAttribute("Side", sway.Side or 0)
+				CollectionService:AddTag(w, "LavaSway")
+				w.Parent = m
+			else
+				weldTo(base, m)
+			end
 		else
 			local rest = t:GetAttribute("Rest")
 			m.CFrame = (origin or CFrame.new()) * (if typeof(rest) == "CFrame" then rest else t.CFrame)

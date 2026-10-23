@@ -27,6 +27,7 @@ Rojo: `src/shared` → `ReplicatedStorage.Shared` · `src/server` → `ServerScr
 | `Crates` | Las 5 cajas: precio, colores y tabla de premios con probabilidades; `rates`, `pick` (tirada ponderada) y formatos |
 | `CrateItems` | Rarezas de las cajas (Common → Secret) y los premios (tipo, rareza y aspecto) |
 | `CrateModels` | Piezas 3D con Parts: hexágonos, antorchas, cofres y premios de bloques (o modelos propios de `CrateAssets`) |
+| `CrateLooks` (Seraphiel) | Traje de cuerpo completo con `BodySway`: piezas que se balancean (alas y faldones) con un Weld que anima `LavaSkinFx` |
 | `SkinFx` | Colores y efectos de cada skin (paleta para pisadas/aura y flechas propias); `get` y `forCharacter` (atributo `CrateLook`) |
 | `CrateLooks` | Trajes detallados de premios de personaje (piezas por segmento): se aplican al avatar R15 y a las vistas previas |
 | `CratePlazaLayout` | Dónde va la plaza de las cajas y cada plataforma (servidor y cliente calculan igual) |

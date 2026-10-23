@@ -59,6 +59,7 @@ local function giveSkin(p: Player, id: string, name: string): (boolean, string)
 	data.Crates.Owned[id] = math.max(data.Crates.Owned[id] or 0, 1)
 	data.Crates.Equipped.Character = id
 	CrateEquip.publish(p)
+	WeaponService.publish(p) -- si el skin trae arma (Seraphiel), ya aparece en el menú "Arma"
 	Profiles.saveSoon(p)
 	task.spawn(CrateEquip.refreshLook, p)
 	return true, name .. " equipado (queda guardado)"
@@ -107,6 +108,20 @@ local Actions: { [string]: { label: string, match: boolean?, run: (Player) -> (b
 	end },
 	Mage = { label = "Darme y equipar Mago Cósmico", run = function(p)
 		return giveSkin(p, "CosmicMage", "Mago Cósmico")
+	end },
+	Seraph = { label = "Darme y equipar Seraphiel (con la Espada Celestial)", run = function(p)
+		local ok, msg = giveSkin(p, "Seraphiel", "Seraphiel")
+		if ok then
+			local state = PlayerData.get(p)
+			if not (state and state.inMatch) then
+				local data = Profiles.get(p)
+				if data then
+					data.Weapon = "CelestialSword"
+					WeaponService.publish(p)
+				end
+			end
+		end
+		return ok, msg .. " · Espada Celestial equipada"
 	end },
 	Necro = { label = "Darme y equipar Necromante", run = function(p)
 		return giveSkin(p, "Necromancer", "Necromante")
@@ -245,7 +260,7 @@ local Actions: { [string]: { label: string, match: boolean?, run: (Player) -> (b
 DebugCommands.Actions = Actions
 
 -- Orden en el panel
-DebugCommands.Order = { "Gold", "Gems", "Stones", "Levels", "Chapters", "Weapons", "Demon", "Mage", "Necro", "Report", "SkipWave", "KillAll", "Boss", "LevelUp", "Item", "Heal", "Elite", "Horde", "Goal", "Mastery", "FxWhirl", "FxJudgment" }
+DebugCommands.Order = { "Gold", "Gems", "Stones", "Levels", "Chapters", "Weapons", "Demon", "Mage", "Necro", "Seraph", "Report", "SkipWave", "KillAll", "Boss", "LevelUp", "Item", "Heal", "Elite", "Horde", "Goal", "Mastery", "FxWhirl", "FxJudgment" }
 
 function DebugCommands.run(player: Player, action: any): (boolean, string)
 	if not DebugCommands.allowed(player) then

@@ -56,6 +56,22 @@ SkinFx.Skins = {
 	Necromancer = {
 		Colors = { hot = C(190, 255, 200), mid = C(60, 230, 100), dark = C(10, 70, 25) },
 	},
+	-- Seraphiel: flechas de luz (vara nacarada, punta turquesa, estela dorada que termina en celeste)
+	Seraphiel = {
+		Colors = { hot = C(255, 248, 215), mid = C(255, 200, 90), dark = C(80, 190, 255) },
+		Arrow = {
+			Shaft = C(236, 232, 222),
+			ShaftMaterial = Enum.Material.SmoothPlastic,
+			Tip = C(120, 235, 255),
+			Style = "Celestial",
+			Flames = 14,
+			Embers = 24,
+			Light = 7,
+			TrailLife = 0.32,
+			TrailWidth = 2.0,
+			ImpactSize = 1.1,
+		},
+	},
 } :: { [string]: Skin }
 
 -- Skin por Id (nil si ese premio no tiene efectos)

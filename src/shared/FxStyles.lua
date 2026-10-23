@@ -96,6 +96,27 @@ FxStyles.Styles = {
 	},
 }
 
+-- Celestial (Espada Celestial de Seraphiel): luz dorada con cola turquesa. Todavía sin texturas
+-- propias: usa las de respaldo de Roblox teñidas con Light (se pueden generar con
+-- tools/gen_vfx_textures.py e importar como las otras).
+FxStyles.Styles.Celestial = {
+	Name = "Celestial",
+	Light = Color3.fromRGB(255, 212, 110),
+	Core = Color3.fromRGB(255, 252, 238),
+	Deep = Color3.fromRGB(70, 190, 255),
+	Flash = Color3.fromRGB(255, 240, 200),
+	Textures = {
+		Flame = "",
+		Smoke = "",
+		Slash = "",
+		Swirl = "",
+		Ring = "",
+		Circle = "",
+		Star = "",
+		Speedline = "",
+	},
+}
+
 -- Texturas de Roblox que vienen con el cliente (respaldo mientras no estén las propias)
 FxStyles.Fallback = {
 	Flame = "rbxasset://textures/particles/fire_main.dds",

@@ -22,7 +22,8 @@
 --   Base: el arma común de la que es variante ("Sword"). Juega como ella: mismas habilidades
 --     (Torbellino, Juicio...), misma animación; pero con sus propios números (DamageMult, Range...)
 --   Prize: Id del premio en Shared/CrateItems.lua que la desbloquea. Sin ese premio no se puede
---     elegir (lo revisa el servidor, WeaponService).
+--     elegir (lo revisa el servidor, WeaponService). Puede ser un arma de la caja de armas o un
+--     personaje: la Espada Celestial viene con el skin Seraphiel.
 --   Tint (opcional): color de la hoja en primera persona si no hay modelo propio en
 --     ReplicatedStorage > WeaponModels > <Id> (se usa el modelo de la Base teñido).
 
@@ -116,7 +117,33 @@ Weapons.List = {
 		Knockback = 2,
 		Description = "Espada especial: un aura carmesí te envuelve y cada remate explota en una esfera roja gigante.",
 	},
+	{
+		Id = "CelestialSword",
+		Name = "Espada Celestial",
+		Icon = "✨",
+		Kind = "Melee",
+		Base = "Sword",
+		Prize = "Seraphiel", -- viene con el skin Seraphiel (no sale en la caja de armas)
+		Fx = "Celestial",
+		Tint = Color3.fromRGB(255, 205, 90),
+		DamageMult = 2.35,
+		IntervalMult = 1.25,
+		Range = 13,
+		Arc = 150,
+		Knockback = 2,
+		Description = "La espada de Seraphiel: tajos de luz dorada de largo alcance. Viene con el skin Seraphiel.",
+	},
 }
+
+-- ¿Este premio de las cajas desbloquea alguna arma? (las de la caja de armas y la de Seraphiel)
+function Weapons.unlockedBy(prizeId: string): boolean
+	for _, def in Weapons.List do
+		if def.Prize == prizeId then
+			return true
+		end
+	end
+	return false
+end
 
 -- Qué dan las habilidades de flechas con un arma cuerpo a cuerpo
 Weapons.MeleeBonus = {
