@@ -1,0 +1,36 @@
+local M = require("./mocks")
+require("./GameServer")
+local Run = require("./Run")
+local PlayerData = require("./PlayerData")
+local PlayerLife = require("./PlayerLife")
+local Enemies = require("./Enemies")
+local Combat = require("./Combat")
+local a, b = M.addPlayer("Ana"), M.addPlayer("Beto")
+Run.start(1, { a, b })
+Run.step(0.01)
+local root = b.Character.HumanoidRootPart
+local enemy = Enemies.spawn("HeavyKnight", M.Vector3.new(8, 0, 0))
+enemy.slowUntil = M.now + 2
+enemy.slowAmount = 0.7
+Combat.fireEnemyProjectile(root.Position, M.Vector3.new(1, 0, 0))
+local pos, count = enemy.part.Position, Combat.count()
+local health = b.Character.Humanoid.Health
+PlayerData.startCinematic(2)
+PlayerData.setPaused(true)
+for _ = 1, 10 do M.advance(0.1); Run.step(0.1) end
+assert(PlayerData.isPaused())
+assert(root.Anchored, "el grupo queda inmóvil durante la cinemática")
+assert(enemy.part.Position.X == pos.X and enemy.part.Position.Z == pos.Z)
+assert(Combat.count() == count, "los proyectiles quedan suspendidos")
+assert(enemy.slowUntil - M.now > 1.9, "la ralentización no se consume durante la cinemática")
+for _, target in PlayerData.getAliveTargets() do PlayerLife.damage(target, 10000) end
+assert(b.Character.Humanoid.Health == health, "nadie recibe daño durante la cinemática")
+PlayerData.startCinematic(0.1)
+M.advance(0.2)
+Run.step(0.2)
+assert(PlayerData.isPaused(), "una cinemática corta no recorta la pausa existente")
+M.advance(1)
+Run.step(0.01)
+assert(not PlayerData.isPaused() and not root.Anchored, "el juego se reanuda al terminar")
+Run.cleanup()
+print("Cinemáticas: pausa del grupo, enemigos, proyectiles, inmunidad y reanudación OK")

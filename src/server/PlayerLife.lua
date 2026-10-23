@@ -343,7 +343,7 @@ end
 -- cause (opcional): qué lo lastimó, para el aviso en pantalla ("Carámbano", "Disparo"...)
 function PlayerLife.damage(target: PlayerData.Target, amount: number, cause: string?)
 	local state = target.state
-	if PlayerData.isPaused() then return end
+	if PlayerData.isPaused() or PlayerData.inCinematic() then return end
 	if state.life ~= "ALIVE" or not state.inMatch or amount <= 0 then
 		return
 	end

@@ -105,6 +105,11 @@ local Remotes = {
 	-- servidor -> todos: (tipo, posición, a, b) efecto visual de una habilidad (SkillEffects):
 	-- "Chain", "Blast", "Wave", "Blades", "Dragon", "Shield", "Dodge". Lo dibuja SkillVisuals.
 	SkillFx = event("SkillFx"),
+	-- jugador -> servidor: lanzar la definitiva del arma (UltimateService valida la carga)
+	UltimateRequest = event("UltimateRequest"),
+	-- servidor -> todos: (userId, Id del arma, origen, dirección, hora del servidor) definitiva
+	-- lanzada; la dibuja Client/UltimateFx
+	UltimateFx = event("UltimateFx"),
 }
 
 folder.Parent = ReplicatedStorage

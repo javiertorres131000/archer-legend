@@ -138,9 +138,11 @@ local states: { [Player]: State } = {}
 local choosingPaused = false
 local pausedRoots: { [BasePart]: boolean } = {}
 function PlayerData.isPaused(): boolean return choosingPaused end
--- Cinemática de entrada de un jefe: el combate queda congelado unos segundos (ver Waves)
+-- Cinemáticas de jefes y definitivas: el combate queda congelado.
 local cinematicUntil = 0
-function PlayerData.startCinematic(seconds: number) cinematicUntil = os.clock() + seconds end
+function PlayerData.startCinematic(seconds: number)
+	cinematicUntil = math.max(cinematicUntil, os.clock() + seconds)
+end
 function PlayerData.inCinematic(): boolean return os.clock() < cinematicUntil end
 function PlayerData.setPaused(on: boolean)
 	choosingPaused = on

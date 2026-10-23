@@ -31,6 +31,7 @@ local FxStyles = require(Shared:WaitForChild("FxStyles"))
 local FxQuality = require(Shared:WaitForChild("FxQuality"))
 local Config = require(Shared:WaitForChild("Config"))
 local SwingCombo = require(script.Parent:WaitForChild("SwingCombo"))
+local CelestialBowAura = require(script.Parent:WaitForChild("CelestialBowAura"))
 local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("MeleeSwing") :: RemoteEvent
 
 local player = Players.LocalPlayer
@@ -219,6 +220,7 @@ end
 
 type Swing = { keys: { Key }, t0: number, dur: number, trailFrom: number, trailTo: number }
 type Held = {
+	bowAura: any?,
 	id: string,
 	character: Model,
 	model: Model,
@@ -362,6 +364,7 @@ local function build(p: Player, id: string, character: Model): Held?
 	end
 	model.Parent = character
 	return {
+		bowAura = if id == "CelestialBow" then CelestialBowAura.new(model, low) else nil,
 		id = id,
 		character = character,
 		model = model,
@@ -450,6 +453,11 @@ RunService.Stepped:Connect(function()
 		if not h.character.Parent then
 			continue
 		end
+		if h.character:GetAttribute("UltimatePerforming") then
+			h.swing = nil
+			if h.trail then h.trail.Enabled = false end
+			continue
+		end
 		local isBow = Weapons.baseOf(h.id) == "Bow"
 		local pose = if isBow then (if p:GetAttribute("InMatch") == true then BOW_IDLE else {}) else IDLE
 		local trailOn = false
@@ -494,6 +502,7 @@ RunService.RenderStepped:Connect(function()
 		-- En primera persona tu propia arma no se dibuja (la ves en pantalla)
 		local hide = p == player and player:GetAttribute("InMatch") == true
 			and player:GetAttribute("CameraView") == "FirstPerson"
+			and player:GetAttribute("Cinematic") ~= true
 		if hide then
 			if h.model.Parent then
 				h.model.Parent = nil
@@ -522,6 +531,7 @@ RunService.RenderStepped:Connect(function()
 			cfs[i] = base * off
 		end
 		workspace:BulkMoveTo(h.parts, cfs, Enum.BulkMoveMode.FireCFrameChanged)
+		if h.bowAura then h.bowAura.Update(os.clock()) end
 	end
 end)
 

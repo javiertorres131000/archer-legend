@@ -29,6 +29,7 @@ local StatsBreakdown = require(script.Parent.StatsBreakdown)
 local WeaponService = require(script.Parent.WeaponService)
 local MasteryService = require(script.Parent.MasteryService)
 local Dash = require(script.Parent.Dash)
+local UltimateService = require(script.Parent.UltimateService)
 local Grab = require(script.Parent.Grab)
 local Ping = require(script.Parent.Ping)
 local SkillEffects = require(script.Parent.SkillEffects)
@@ -79,6 +80,7 @@ local enteringUntil: number? = nil -- mientras llega a la sala nueva, la oleada 
 function Run.init()
 	ItemService.init(Remotes)
 	Dash.init(Remotes)
+	UltimateService.init(Remotes, Enemies) -- definitivas de las armas especiales
 	Grab.init(Remotes)
 	Ping.init(Remotes)
 	Equipment.init(Remotes)
@@ -263,6 +265,7 @@ function Run.start(index: number, participants: { Player }, mode: string?)
 	runMode = mode
 	runDay = Modes.day(os.time())
 	table.clear(bossesKilled)
+	UltimateService.reset() -- partida nueva: definitivas sin carga
 	Waves.setChapter(chapterIndex)
 	if mode == "tower" then
 		Waves.setMode("tower")
@@ -361,6 +364,8 @@ function Run.step(dt: number): Result?
 		-- Relojes absolutos de combate también se suspenden.
 		for _, enemy in Enemies.list do
 			if enemy.burnDps > 0 then enemy.burnUntil += dt end
+			if enemy.slowUntil and enemy.slowUntil > now then enemy.slowUntil += dt end
+			if enemy.stunUntil and enemy.stunUntil > now then enemy.stunUntil += dt end
 			enemy.lastContact += dt
 		end
 		for _, state in PlayerData.all() do

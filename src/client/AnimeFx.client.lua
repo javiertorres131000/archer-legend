@@ -28,6 +28,7 @@ local Debris = game:GetService("Debris")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Weapons = require(Shared:WaitForChild("Weapons"))
 local FxStyles = require(Shared:WaitForChild("FxStyles"))
+local SkinFx = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("SkinFx"))
 local FxQuality = require(Shared:WaitForChild("FxQuality"))
 local SwingCombo = require(script.Parent:WaitForChild("SwingCombo"))
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
@@ -915,14 +916,14 @@ combatText.OnClientEvent:Connect(function(events)
 			shown += 1
 			local crit = e.k == "crit"
 			local p = e.p + Vector3.new(0, 1, 0)
+			-- X marcada en cada golpe, con todas las armas con estilo (antes solo el Carmesí)
+			crossMark(p, style, crit)
 			if style.Effects and style.Effects.Hit == "Void" then
 				void.Hit(p, style, crit)
 				continue
 			elseif usesLightning(style, "Hit") then
 				lightning.Hit(p, style, crit)
 				continue -- no agregar llamas al impacto eléctrico
-			elseif style.Variant == "Crimson" then
-				crossMark(p, style, crit)
 			elseif style.Variant == "Inferno" then
 				burst(p, style, { { kind = "Star", count = 1, scale = if crit then 1.8 else 1.1 }, { kind = "Smoke", count = if crit then 3 else 1, scale = 0.8 } })
 			end
@@ -973,9 +974,8 @@ meleeSwing.OnClientEvent:Connect(function(userId, origin, dir, range, arc, weapo
 		end
 		if style.Variant == "Inferno" then
 			firePillar(Vector3.new(origin.X, groundY(origin), origin.Z), 16, range * 0.55, 0.7, style, 8) -- tornado de fuego
-		elseif style.Variant == "Crimson" then
-			thornRing(origin, range * 0.75, style, 10)
 		end
+		thornRing(origin, range * 0.75, style, 10) -- espinas en círculo, con todas las armas con estilo
 	else
 		-- El tajo sale cuando el arma termina de cargar el golpe (tiempos de SwingCombo)
 		local uid = if type(userId) == "number" then userId else 0
@@ -988,9 +988,9 @@ meleeSwing.OnClientEvent:Connect(function(userId, origin, dir, range, arc, weapo
 			end
 			if style.Variant == "Inferno" then
 				fireTrail(origin, dir, range, if type(arc) == "number" then arc else 120, style)
-			elseif style.Variant == "Crimson" then
-				spaceCut(origin, dir, range, style, SwingCombo.tilt(step) * SwingCombo.side(step))
 			end
+			-- Corte en el aire que se rompe en esquirlas, con todas las armas con estilo
+			spaceCut(origin, dir, range, style, SwingCombo.tilt(step) * SwingCombo.side(step))
 			if step == 3 then
 				finisher(origin, dir, range, style)
 			end
@@ -1111,7 +1111,11 @@ task.spawn(function()
 				if not (bodyStyle and bodyStyle.BodyAura) then
 					bodyStyle = nil
 				end
-				if p == player and player:GetAttribute("CameraView") == "FirstPerson" and player:GetAttribute("InMatch") == true then
+				-- Si el traje tiene su propia aura (Client/SkinAura), esa manda
+				if bodyStyle and SkinFx.aura(character:GetAttribute("CrateLook")) then
+					bodyStyle = nil
+				end
+				if p == player and player:GetAttribute("CameraView") == "FirstPerson" and player:GetAttribute("InMatch") == true and player:GetAttribute("Cinematic") ~= true then
 					bodyStyle = nil
 				end
 				setBodyAura(character, bodyStyle)

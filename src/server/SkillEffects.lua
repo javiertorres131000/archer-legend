@@ -18,6 +18,7 @@
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local PlayerData = require(script.Parent.PlayerData)
 local Weapons = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Weapons"))
+local UltimateService = require(script.Parent.UltimateService)
 
 local ProjCfg = Config.Projectile
 local flat = PlayerData.flat
@@ -294,6 +295,10 @@ function SkillEffects.onHit(owner: Player, stats: any, e: any, dealt: number, so
 	end
 	-- Poder del arma especial (fuego, sangrado, rayos, grietas...)
 	weaponOnHit(owner, e, dealt, source)
+	-- Cada golpe carga la definitiva del arma
+	if source == "melee" or source == "arrow" then
+		UltimateService.addCharge(owner)
+	end
 end
 
 ---------------------------------------------------------------------

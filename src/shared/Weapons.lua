@@ -26,6 +26,7 @@
 --     personaje: la Espada Celestial viene con el skin Seraphiel.
 --   Power (opcional): lo que HACE el arma además del daño (fuego, sangrado, rayos, grietas,
 --     remate). Lo aplica Server/SkillEffects (ver la lista de campos ahí).
+--   Ultimate (opcional): habilidad definitiva con cinemática (ver Server/UltimateService).
 --   Tint (opcional): color de la hoja en primera persona si no hay modelo propio en
 --     ReplicatedStorage > WeaponModels > <Id> (se usa el modelo de la Base teñido).
 
@@ -79,6 +80,13 @@ Weapons.List = {
 		Base = "Sword",
 		Prize = "FrostKatana",
 		Fx = "Frost",
+		Ultimate = {
+			Name = "Cero Absoluto", Style = "Frost", Color = Color3.fromRGB(135, 225, 255),
+			ChargeHits = 45, Duration = 3.2, FirstAt = 0.5, FinalAt = 2.3,
+			Column = false, Radius = 23, TargetRange = 65, Mult = 12, BossMult = 0.5,
+			Slow = 0.7,
+			Steps = { "1 · CONCENTRAR EL FRÍO", "2 · CORTE GLACIAL", "3 · CERO ABSOLUTO" },
+		},
 		Tint = Color3.fromRGB(130, 215, 255),
 		DamageMult = 2.15,
 		IntervalMult = 1.2,
@@ -96,6 +104,22 @@ Weapons.List = {
 		Base = "Sword",
 		Prize = "InfernoBlade",
 		Fx = "Inferno",
+		Ultimate = {
+			Name = "Tierra Quemada",
+			TargetRange = 65,
+			Style = "Inferno",
+			Color = Color3.fromRGB(255, 110, 20),
+			ChargeHits = 45,
+			Duration = 3.2,
+			FirstAt = 0.5,
+			FirstFrac = 0.1,
+			FinalAt = 2.4,
+			Column = false,
+			Radius = 22,
+			Mult = 12,
+			BossMult = 0.5,
+			Steps = { "1 · CARGA INFERNAL", "2 · EL SUELO ARDE", "3 · TIERRA QUEMADA" },
+		},
 		Tint = Color3.fromRGB(255, 120, 40),
 		DamageMult = 2.4,
 		IntervalMult = 1.4,
@@ -120,6 +144,28 @@ Weapons.List = {
 		Arc = 150,
 		Knockback = 2,
 		Power = { Color = Color3.fromRGB(230, 20, 45), Bleed = 0.25, Finisher = { Kind = "Blast", Radius = 13, Ahead = 5, Mult = 2.2 } },
+		-- Definitiva (Server/UltimateService + Client/UltimateFx): se carga con 45 golpes, tecla Q
+		Ultimate = {
+			Name = "Luna Sangrienta",
+			Color = Color3.fromRGB(235, 25, 50),
+			ChargeHits = 45,
+			Duration = 3.2,
+			-- Iaido: se agacha, cruza en zigzag a los enemigos de la zona dejando cortes colgados en
+			-- el aire, vuelve, enfunda y todos los cortes estallan a la vez
+			FirstAt = 0.6, -- empieza el corte relámpago (daño chico a todos los de la zona)
+			FirstFrac = 0.1,
+			FinalAt = 2.6, -- enfunda: estallan los cortes
+			Column = false, -- sin columna de energía (tiene su propio final)
+			Radius = 24,
+			Mult = 14, -- × tu daño × el DamageMult del arma
+			BossMult = 0.5,
+			Bleed = 0.3,
+			Steps = {
+				"1 · IAI: te agachás bajo la luna de sangre",
+				"2 · CORTE RELÁMPAGO: cruzás a todos los enemigos",
+				"3 · ENFUNDAR: todos los cortes estallan a la vez",
+			},
+		},
 		Description = "Espada especial: cada tajo hace sangrar (25% por segundo, 3 s) y cada remate (3er tajo) explota en una esfera roja gigante que daña a todos.",
 	},
 	{
@@ -135,6 +181,27 @@ Weapons.List = {
 		IntervalMult = 1.15,
 		PiercingEvery = 4,
 		Power = { Color = Color3.fromRGB(170, 85, 255), Rift = { Radius = 5, Duration = 2.5, DpsMult = 0.3, Pull = 5, Max = 3 } },
+		-- Definitiva: flecha oscura que abre un agujero negro donde apuntás; atrae y daña a todos
+		Ultimate = {
+			Name = "Horizonte de Sucesos",
+			Style = "Void",
+			Color = Color3.fromRGB(170, 85, 255),
+			ChargeHits = 40,
+			Duration = 3.4,
+			FirstAt = 0.35, -- flecha al cielo; un cometa cae en el punto
+			Step2At = 0.7,
+			BlackHole = { Distance = 32, From = 0.7, To = 2.7, Every = 0.2, Pull = 3, Frac = 0.04 },
+			FinalAt = 2.8, -- implosión
+			Column = false, -- el final es la implosión del agujero
+			Radius = 28,
+			Mult = 13,
+			BossMult = 0.5,
+			Steps = {
+				"1 · FLECHA DEL VACÍO: al cielo, y cae donde apuntás",
+				"2 · AGUJERO NEGRO: lo sostenés con la mano; atrae y daña a todos",
+				"3 · IMPLOSIÓN: cerrás el puño y explota",
+			},
+		},
 		Description = "Cada flecha abre una grieta violeta que daña y atrae a los enemigos 2,5 s. Cada 4 disparos, una flecha perforante extra. Se obtiene en el Cofre de Armas.",
 	},
 	{
@@ -149,6 +216,24 @@ Weapons.List = {
 		DamageMult = 1.65,
 		IntervalMult = 1.1,
 		Power = { Color = Color3.fromRGB(255, 215, 110), ChainChance = 1, ChainTargets = 2, ChainMult = 0.35, StrikeEvery = 5, StrikeRadius = 7, StrikeMult = 1.5 },
+		-- Definitiva: carga una flecha gigante de luz y dispara un láser en línea recta
+		Ultimate = {
+			Name = "Juicio Celestial",
+			Color = Color3.fromRGB(255, 215, 110),
+			ChargeHits = 40,
+			Duration = 3.2,
+			FirstAt = 0.5, -- aparece la flecha gigante
+			FinalAt = 2.6, -- el disparo
+			Line = { Length = 90, Width = 6 }, -- franja que barre: 90 studs de largo, 12 de ancho
+			Radius = 26, -- (solo para la distancia de los efectos)
+			Mult = 16, -- × tu daño × el DamageMult del arma, a todos los de la línea
+			BossMult = 0.5,
+			Steps = {
+				"1 · CARGA: la luz se junta en tu arco",
+				"2 · FLECHA GIGANTE: apuntá hacia donde mirás",
+				"3 · ¡DISPARO! Un rayo en línea recta que atraviesa todo",
+			},
+		},
 		Description = "Cada flecha electrifica: el rayo salta a 2 enemigos cercanos. Cada 5 impactos cae un rayo del cielo que explota. Se obtiene en el Cofre de Armas.",
 	},
 	{
@@ -166,6 +251,28 @@ Weapons.List = {
 		Arc = 150,
 		Knockback = 2,
 		Power = { Color = Color3.fromRGB(255, 215, 110), ChainChance = 0.35, ChainTargets = 3, ChainMult = 0.5, Finisher = { Kind = "Strike", Targets = 4, Range = 22, Mult = 1.8 } },
+		-- Definitiva: salta girando en círculo, llama a la tormenta y cae con un rayo gigante
+		Ultimate = {
+			Name = "Ira del Serafín",
+			Style = "Celestial",
+			Color = Color3.fromRGB(255, 215, 110),
+			ChargeHits = 45,
+			Duration = 3.2,
+			Leap = { Height = 18 }, -- salta girando y flota hasta el golpe final
+			FirstAt = 0.5, -- la espada apunta al cielo (onda chica alrededor)
+			FirstFrac = 0.08,
+			Bolts = { From = 0.9, To = 2.4, Every = 0.25, Targets = 3, Frac = 0.16 }, -- tormenta
+			GiantBolt = true, -- el golpe final es un rayo gigante con un círculo de rayos
+			FinalAt = 2.6,
+			Radius = 24,
+			Mult = 14,
+			BossMult = 0.5,
+			Steps = {
+				"1 · SALTO: subís girando y la espada llama a la tormenta",
+				"2 · TORMENTA: rayos sobre cada enemigo",
+				"3 · IRA DEL SERAFÍN: caés con un rayo gigante",
+			},
+		},
 		Description = "La espada de Seraphiel: los tajos electrifican (35% de saltar a 3 enemigos) y el remate (3er tajo) hace caer rayos sobre 4 enemigos. Viene con el skin Seraphiel.",
 	},
 }
@@ -173,6 +280,13 @@ Weapons.List = {
 -- (Guanteletes Volcánicos: va al final de la lista para no mover los índices de las demás)
 table.insert(Weapons.List, {
 	Id = "VolcanicGauntlets",
+	Ultimate = {
+		Name = "Falla Volcánica", Style = "Volcanic", Color = Color3.fromRGB(255, 95, 20),
+		ChargeHits = 45, Duration = 3.2, FirstAt = 0.5, FinalAt = 2.3,
+		Column = false, Radius = 21, TargetRange = 60, Mult = 11, BossMult = 0.5,
+		Burn = 0.2,
+		Steps = { "1 · CARGAR LOS PUÑOS", "2 · ROMPER EL SUELO", "3 · FALLA VOLCÁNICA" },
+	},
 	Name = "Guanteletes Volcánicos",
 	Icon = "🌋",
 	Kind = "Melee",
@@ -209,6 +323,9 @@ Weapons.MeleeBonus = {
 
 Weapons.ById = {}
 for _, def in Weapons.List do
+	if def.Ultimate then
+		def.Ultimate.TargetRange = def.Ultimate.TargetRange or (if def.Ultimate.Line then def.Ultimate.Line.Length else 65)
+	end
 	Weapons.ById[def.Id] = def
 end
 

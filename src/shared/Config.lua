@@ -243,6 +243,19 @@ Config.IceGrip = {
 	SnowSpeed = 0.88, -- sobre nieve profunda caminás un 12% más lento
 }
 
+-- Definitivas de las armas especiales (Shared/Weapons › Ultimate). Texturas de los efectos
+-- (assets/vfx/ultimate): subirlas y pegar los IDs; vacías = respaldo de Roblox.
+Config.Ultimate = {
+	Textures = {
+		Tajo = "rbxassetid://106598096807462",
+		Anillo = "rbxassetid://138646180854446",
+		Espiral = "rbxassetid://100182430771977",
+		Grietas = "rbxassetid://95731010408221",
+		Destello = "rbxassetid://111027554349295",
+		Energia = "rbxassetid://135230882557121",
+	},
+}
+
 -- Ventajas de pelear cuerpo a cuerpo (espada y puños): hay que acercarse, así que aguantan más
 Config.Melee = {
 	DamageTaken = 0.7, -- reciben un 30% menos de daño
@@ -688,7 +701,7 @@ Config.Profiles = {
 Config.Debug = {
 	ShowPerformance = false, -- FPS, peor frame, enemigos y proyectiles; sólo diagnóstico
 	UnlockAllChapters = true, -- (PRUEBA: volver a false) todos los capítulos elegibles desde el lobby
-	UnlockAllWeapons = true, -- (PRUEBA: volver a false) todas las armas especiales sin abrir cofres
+	UnlockAllWeapons = true, -- prueba con amigos: todas las armas disponibles, también en Roblox publicado
 	StartWave = 1, -- oleada con la que arranca cada partida (PRUEBA de Azrakoth: volver a 1)
 	-- Panel de prueba (F2): monedas, niveles, saltar oleada, jefe, etc. Lo valida el servidor.
 	-- Funciona siempre en Studio; en un servidor publicado, solo para los UserId de Admins.

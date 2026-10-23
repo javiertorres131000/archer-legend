@@ -74,6 +74,31 @@ SkinFx.Skins = {
 	},
 } :: { [string]: Skin }
 
+-- Aura de cuerpo entero según el traje (la dibuja Client/SkinAura en cada cliente).
+--   Kind: "Flame" (llamas), "Spark" (chispas/estrellas), "Smoke" (humo), "Holy" (luz que sube y
+--   brilla) o "Void" (humo oscuro que se mete hacia adentro). A, B: colores (inicio → final).
+--   Rate: partículas por segundo en el torso (brazos y piernas usan la mitad).
+--   Extra (opcional): una segunda capa con otro Kind (p. ej. llamas + brasas).
+-- Los trajes que no están acá no tienen aura (el Aldeano, por ejemplo).
+SkinFx.Auras = {
+	Lumberjack = { Kind = "Smoke", A = C(150, 120, 90), B = C(90, 70, 50), Rate = 4 },
+	Pirate = { Kind = "Smoke", A = C(170, 200, 210), B = C(90, 110, 130), Rate = 5 },
+	Knight = { Kind = "Spark", A = C(180, 215, 255), B = C(60, 120, 230), Rate = 8 },
+	Sorcerer = { Kind = "Spark", A = C(235, 200, 255), B = C(150, 70, 255), Rate = 10, Extra = { Kind = "Smoke", A = C(120, 60, 200), B = C(40, 10, 80), Rate = 4 } },
+	GoldenKing = { Kind = "Holy", A = C(255, 240, 170), B = C(255, 180, 40), Rate = 12 },
+	CosmicMage = { Kind = "Spark", A = C(240, 230, 255), B = C(130, 100, 255), Rate = 16, Extra = { Kind = "Void", A = C(80, 50, 180), B = C(20, 5, 50), Rate = 6 } },
+	Seraphiel = { Kind = "Holy", A = C(255, 252, 230), B = C(255, 200, 90), Rate = 16, Extra = { Kind = "Spark", A = C(200, 245, 255), B = C(80, 190, 255), Rate = 8 } },
+	Necromancer = { Kind = "Flame", A = C(190, 255, 200), B = C(20, 120, 40), Rate = 14, Extra = { Kind = "Smoke", A = C(30, 60, 35), B = C(5, 15, 8), Rate = 5 } },
+	LavaGolem = { Kind = "Flame", A = C(255, 200, 80), B = C(220, 50, 10), Rate = 18, Extra = { Kind = "Spark", A = C(255, 170, 60), B = C(255, 80, 20), Rate = 10 } },
+	VoidKnight = { Kind = "Void", A = C(170, 110, 255), B = C(30, 10, 60), Rate = 14, Extra = { Kind = "Spark", A = C(200, 160, 255), B = C(110, 50, 255), Rate = 6 } },
+	FallenAngel = { Kind = "Flame", A = C(255, 200, 230), B = C(160, 40, 110), Rate = 16, Extra = { Kind = "Smoke", A = C(60, 20, 45), B = C(15, 5, 12), Rate = 6 } },
+	FireDemon = { Kind = "Flame", A = C(255, 190, 70), B = C(170, 20, 5), Rate = 20, Extra = { Kind = "Spark", A = C(255, 200, 90), B = C(255, 80, 20), Rate = 10 } },
+}
+
+function SkinFx.aura(id: any): any
+	return if type(id) == "string" then SkinFx.Auras[id] else nil
+end
+
 -- Skin por Id (nil si ese premio no tiene efectos)
 function SkinFx.get(id: any): Skin?
 	if type(id) ~= "string" then

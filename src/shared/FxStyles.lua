@@ -28,6 +28,8 @@
 -- Rasgos opcionales del estilo (los dibuja AnimeFx):
 --   BodyAura = true  llamas del color del estilo envolviendo a todo el personaje
 --   Variant          efectos propios del arma además de los comunes: "Inferno" o "Crimson"
+--   (Todas las armas con estilo tienen además la X en cada golpe, el corte en el aire de cada
+--   tajo y las espinas del giro: antes eran solo del Carmesí.)
 --   Burst = true     el Juicio y el remate del combo son una esfera gigante que explota
 --                    (en vez de la columna), y la pantalla se tiñe (BurstTint)
 
@@ -40,6 +42,9 @@ FxStyles.Styles = {
 		Core = Color3.fromRGB(245, 252, 255),
 		Deep = Color3.fromRGB(40, 110, 220),
 		Flash = Color3.fromRGB(180, 225, 255),
+		BodyAura = true,
+		Burst = true,
+		BurstTint = Color3.fromRGB(120, 200, 255),
 		Textures = {
 			Flame = "rbxassetid://92649021754528",
 			Smoke = "rbxassetid://108728532325509",
@@ -81,6 +86,9 @@ FxStyles.Styles = {
 		Core = Color3.fromRGB(255, 246, 210),
 		Deep = Color3.fromRGB(170, 20, 10),
 		Flash = Color3.fromRGB(255, 200, 150),
+		BodyAura = true,
+		Burst = true,
+		BurstTint = Color3.fromRGB(255, 130, 50),
 		-- Generar con: python tools/gen_vfx_textures.py assets/vfx inferno
 		-- Importar assets/vfx/al_vfx_inferno_*.png y pegar los IDs acá (vacío = respaldo de Roblox)
 		Textures = {
@@ -113,6 +121,9 @@ FxStyles.Styles.Celestial = {
 	Core = Color3.fromRGB(255, 252, 238),
 	Deep = Color3.fromRGB(70, 190, 255),
 	Flash = Color3.fromRGB(255, 240, 200),
+	BodyAura = true,
+	Burst = true,
+	BurstTint = Color3.fromRGB(255, 220, 120),
 	Textures = {
 		Flame = "",
 		Smoke = "",
@@ -132,6 +143,9 @@ FxStyles.Styles.Void = {
 	Core = Color3.fromRGB(25, 10, 40),
 	Deep = Color3.fromRGB(80, 30, 145),
 	Flash = Color3.fromRGB(210, 165, 255),
+	BodyAura = true,
+	Burst = true,
+	BurstTint = Color3.fromRGB(170, 85, 255),
 	Textures = {}, -- anillos y grietas procedurales
 }
 

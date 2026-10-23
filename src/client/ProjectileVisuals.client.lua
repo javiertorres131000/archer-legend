@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local FxQuality = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FxQuality"))
 local SkinArrowFx = require(script.Parent:WaitForChild("SkinArrowFx"))
+local ArrowEnergyFx = require(script.Parent:WaitForChild("ArrowEnergyFx"))
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Weapons = require(Shared:WaitForChild("Weapons"))
 local FxStyles = require(Shared:WaitForChild("FxStyles"))
@@ -244,6 +245,7 @@ local function projectileFx(style: any): any
 end
 
 type Visual = {
+	energy: any?,
 	part: Part,
 	origin: Vector3,
 	dir: Vector3,
@@ -274,6 +276,7 @@ end
 local function removeVisual(id: number)
 	local v = visuals[id]
 	if v then
+		if v.energy then v.energy.Destroy() end
 		if v.skin then
 			-- Antes del final de su alcance = pegó en algo: explosión. Si no, se apaga sola.
 			SkinArrowFx.impact(v.part.Position, v.skin, v.age < v.lifetime - 0.05, low)
@@ -423,6 +426,7 @@ projectileFired.OnClientEvent:Connect(
 		part.Parent = folder
 
 		visuals[id] = {
+			energy = if weaponFx then ArrowEnergyFx.new(part, weaponFx, low) else nil,
 			part = part,
 			origin = origin,
 			dir = dir,
@@ -492,6 +496,7 @@ RunService.RenderStepped:Connect(function(dt)
 			end
 		end
 		v.part.CFrame = CFrame.lookAt(pos, pos + v.dir)
+		if v.energy then v.energy.Update(v.age, true) end
 		if v.weaponFx and v.age >= (v.fxAt or 0) and fxBudget > 0 then
 			fxBudget -= 1
 			v.fxAt = v.age + (if low then 0.2 else 0.1)

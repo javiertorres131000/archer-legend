@@ -27,6 +27,9 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FxQuality = require(Shared:WaitForChild("FxQuality"))
 local Config = require(Shared:WaitForChild("Config"))
 local Weapons = require(Shared:WaitForChild("Weapons"))
+local FxStyles = require(Shared:WaitForChild("FxStyles"))
+local ArrowEnergyFx = require(script.Parent:WaitForChild("ArrowEnergyFx"))
+local CelestialBowAura = require(script.Parent:WaitForChild("CelestialBowAura"))
 local SwingCombo = require(script.Parent:WaitForChild("SwingCombo"))
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local meleeSwing = remotes:WaitForChild("MeleeSwing") :: RemoteEvent
@@ -247,6 +250,9 @@ end
 ---------------------------------------------------------------------
 
 type Rig = {
+	bowAura: any?,
+	energy: any?,
+	energyAnchor: Part?,
 	weapon: string, -- base: "Bow" | "Sword" | "Fists"
 	id: string, -- el arma exacta (especiales: "FrostKatana")
 	items: { Weapon }, -- arma (o un guante por lado)
@@ -366,6 +372,7 @@ local function ensure(weapon: string, id: string)
 		end
 	end
 	local arrow, arrowParts = nil, {}
+	local energy, energyAnchor = nil, nil
 	if weapon == "Bow" then
 		arrow, arrowParts = buildArrow(folder)
 		if (id == "CelestialBow" or id == "VoidBow") then
@@ -373,9 +380,16 @@ local function ensure(weapon: string, id: string)
 				item.part.Material = Enum.Material.Neon
 				item.part.Color = if id == "VoidBow" then (if i == 1 then Color3.fromRGB(25, 10, 40) else Color3.fromRGB(170, 85, 255)) else (if i == 1 then Color3.fromRGB(255, 252, 238) else Color3.fromRGB(70, 190, 255))
 			end
+			energyAnchor = plainPart(folder, Vector3.new(0.1, 0.1, ARROW_LEN), CFrame.new(), Color3.new(0, 0, 0))
+			energyAnchor.Name = "ArrowEnergyAnchor"
+			energyAnchor.Transparency = 1
+			energy = ArrowEnergyFx.new(energyAnchor, FxStyles.get(Weapons.ById[id].Fx), low)
 		end
 	end
 	rig = {
+		bowAura = if id == "CelestialBow" then CelestialBowAura.new(items[1].model, low) else nil,
+		energy = energy,
+		energyAnchor = energyAnchor,
 		weapon = weapon,
 		id = id,
 		items = items,
@@ -407,6 +421,7 @@ local function visible(): boolean
 		and humanoid ~= nil
 		and humanoid.Health > 0
 		and player:GetAttribute("LifeState") ~= "DOWNED"
+		and player:GetAttribute("Cinematic") ~= true -- no mostrar el arma de primera persona durante la cinem?tica
 end
 
 local function ease(t: number): number
@@ -542,6 +557,10 @@ local function placeArrow(r: Rig, bowCf: CFrame, item: Weapon, pull: number, loa
 	end
 	-- La cola en la cuerda, apoyada en el arco, apuntando hacia adelante
 	local base = CFrame.lookAt(nock, nock + dir.Unit)
+	if r.energyAnchor and r.energy then
+		r.energyAnchor.CFrame = base * CFrame.new(0, 0, -ARROW_LEN / 2)
+		r.energy.Update(os.clock(), loaded)
+	end
 	for _, it in r.arrowParts do
 		it.part.CFrame = base * it.offset
 		it.part.Transparency = hide
@@ -597,6 +616,7 @@ RunService.RenderStepped:Connect(function(dt)
 		local item = r.items[1]
 		local cf = cam * right
 		item.model:PivotTo(cf * item.hold)
+		if r.bowAura then r.bowAura.Update(clock) end
 		if weapon == "Bow" then
 			handL, handR = placeArrow(r, cf, item, pull, loaded)
 		else
